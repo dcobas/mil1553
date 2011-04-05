@@ -75,29 +75,6 @@ struct working_area_s wa;
 
 /**
  * =========================================================
- * At some point I can check for PCI bus errors
- * in these routines.
- *
- * These routines may be suppressed when I better understand the hardware.
- * For the time being I will keep them for flexibility and ease of change.
- *
- */
-
-static int HRd32(void *x)
-{
-	int res;
-	res = ioread32be(x);
-	return res;
-}
-
-static void HWr32(int v, void *x)
-{
-	iowrite32be(v, x);
-	return;
-}
-
-/**
- * =========================================================
  * Debug ioctl calls
  */
 
@@ -132,6 +109,11 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
  * @param iodr         io direction
  * @param kmem         points to kernel memory where arg copied to/from
  * @param flag         Before or after logic flag
+ *
+ * For people developing mil1553 code this debug routine is useful, especially
+ * if they are attempting to use raw IO. There are 7 levels of debug implemented
+ * throughout the driver code that controls just how much information gets printed
+ * out. This will help in maintanence, debugging modifications etc.
  */
 
 #define MAX_PCOUNT 16
@@ -249,7 +231,7 @@ static int get_next_rp(uint32_t *rp, uint32_t wp, uint32_t qsz)
 
 /**
  * =========================================================
- * @brief           Read integers from mapped address space
+ * @brief           Read U32 integers from mapped address space
  * @param mdev      Mill1553 device
  * @param riob      IO buffer descriptor
  * @param buf       Buffer to hold data read
@@ -268,7 +250,7 @@ static int _raw_read(struct mil1553_device_s *mdev,
 	hip = (uint32_t *) mdev->memory_map + riob->reg_num;
 
 	for (i=0; i<riob->regs; i++) {
-		uip[i] = HRd32(&hip[i]);
+		uip[i] = ioread32be(&hip[i]);
 	}
 
 	/*
@@ -292,7 +274,7 @@ static int raw_read(struct mil1553_device_s *mdev,
 
 /**
  * =========================================================
- * @brief           Write integers to mapped address space
+ * @brief           Write U32 integers to mapped address space
  * @param mdev      Mill1553 device
  * @param riob      IO buffer descriptor
  * @param buf       Buffer to holding data to write
@@ -310,7 +292,7 @@ static int _raw_write(struct mil1553_device_s *mdev,
 	hip = (uint32_t *) mdev->memory_map + riob->reg_num;
 
 	for (i=0; i<riob->regs; i++) {
-		HWr32(uip[i],&hip[i]);
+		iowrite32be(uip[i],&hip[i]);
 	}
 
 	/*
@@ -361,12 +343,12 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev)
 	/* Interrupts off */
 
 	memory_map = mdev->memory_map;
-	HWr32(0,&memory_map->inten);
+	iowrite32be(0,&memory_map->inten);
 
 	/* Remember cmd register and switch on hardware RTI polling */
 
-	cmd = HRd32(&memory_map->cmd);
-	HWr32(0,&memory_map->cmd);
+	cmd = ioread32be(&memory_map->cmd);
+	iowrite32be(0,&memory_map->cmd);
 
 /**
  * Note about this next loop:
@@ -377,18 +359,18 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev)
  */
 
 	for (i=0; i <TRIES; i++) {
-		up_rtis |= HRd32(&memory_map->up_rtis);
+		up_rtis |= ioread32be(&memory_map->up_rtis);
 		udelay(BETWEEN_TRIES_US);
 	}
 
 	/* Switch off hardware RTI polling and restore cmd register */
 
 	cmd |= POLLING_OFF;
-	HWr32(cmd,&memory_map->cmd);
+	iowrite32be(cmd,&memory_map->cmd);
 
 	/* Re enable interrupts */
 
-	HWr32(INTEN_INF,&memory_map->inten);
+	iowrite32be(INTEN_INF,&memory_map->inten);
 
 	mdev->up_rtis = up_rtis;
 	return up_rtis;
@@ -468,7 +450,6 @@ static void _start_tx(int debug_level,
 	tx_item = &(tx_queue->tx_item[*rp]);
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
 
-
 	/* Copy the item wc long to the tx buffer */
 	/* Remember txbuf is accessed as u32 but wc is the u16 count */
 	/* Word order is little endian, but hey byte order is big endian !! */
@@ -479,12 +460,12 @@ static void _start_tx(int debug_level,
 	for (i=0; i<(wc + 1)/2; i++) {
 		lreg  =  tx_item->txbuf[i*2 + 1] << 16;
 		lreg |= (tx_item->txbuf[i*2 + 0] & 0xFFFF);
-		HWr32(lreg,&lregp[i]); /* Write 32bit data to hardware */
+		iowrite32be(lreg,&lregp[i]);
 	}
 
 	/* Issue the start command, we get an interrupt when done */
 
-	HWr32(tx_item->txreg,&memory_map->txreg);           /* Start */
+	iowrite32be(tx_item->txreg,&memory_map->txreg);           /* Start */
 }
 
 /**
@@ -502,7 +483,19 @@ static void start_tx(int debug_level,
 
 /**
  * =========================================================
- * Find start and end items for a BC
+ * @brief Find the start item for a BC
+ * @param item_count is the number of items in the array
+ * @param item_array is an array to execute on RTIs for multiple bus controllers
+ * @return index of first item in array for the given BC or -1 if not found
+ *
+ * Contiguous items for each BC are marked with start..all..end and
+ * form a transaction.
+ *
+ * Users can be woken up in three ways..
+ * (1) For the Start item in the transaction.
+ * (2) For All items in the transaction.
+ * (3) For the Last item in the transaction.
+ *
  */
 
 int find_start(unsigned int bc,
@@ -516,6 +509,13 @@ int find_start(unsigned int bc,
 			return i;
 	return -1;
 }
+
+/**
+ * @brief Find the end item for a BC
+ * @param item_count is the number of items in the array
+ * @param item_array is an array to execute on RTIs for multiple bus controllers
+ * @return index of first item in array for the given BC or -1 if not found
+ */
 
 int find_end(unsigned int bc,
 	     unsigned int item_count,
@@ -531,15 +531,22 @@ int find_end(unsigned int bc,
 
 /**
  * =========================================================
- * Send items to RTIs
+ * @brief Send items to RTIs
+ * @param client putting items on the queues that will recieve replies from the ISR
+ * @param item_count is the number of items in the array
+ * @param item_array is the array of items to be placed on BC queues
+ * @return number of items added to queue if OK or negative error
+ *
  * Check all the RTIs in the array of items are up.
- * Find the start and end items for each bus controller.
+ * Find the start and end items for each bus controller (identify transactions).
  * Copy from the item array to the tx_item being built.
  * Initialize extra fields in the tx_item being built.
- * Put the item on the tx_queue for the given bus controller.
+ * Put the item on the tx_queue for the each bus controller.
  * Increment the write pointer on the tx_queue for the given bus controller.
- * Start the transfer.
- * @return number of items put on queues or negative error
+ * Start the hardware transfer by writing to the txreg.
+ *
+ * Once the first item in the BC queue is started, the RTI will interrupt when
+ * ready and the ISR will itself will pull the next item off the queue and start it.
  */
 
 static int send_items(struct client_s *client,
@@ -581,6 +588,7 @@ static int send_items(struct client_s *client,
 	}
 
 	/* For each installed BC get the start and end item numbers */
+	/* that will deliniate a transaction. */
 
 	for (i=0; i<wa.bcs; i++) {
 		strs[i] = find_start(i,item_count,item_array);
@@ -604,6 +612,8 @@ static int send_items(struct client_s *client,
 		wc = (tx_item.txreg & TXREG_WC_MASK) >> TXREG_WC_SHIFT;
 		for (j=0; j<wc; j++)
 			tx_item.txbuf[j] = item_array[i].txbuf[j];
+
+		/* Users can be interrupted on ALL, START and END items in the transaction */
 
 		tx_item.pk_type = TX_ALL;
 		if (strs[bc] == i)
@@ -635,6 +645,8 @@ static int send_items(struct client_s *client,
 
 	}
 
+	/* Start all bus controllers with their transactions to be done */
+
 	for (bc=0; bc<wa.bcs; bc++) {
 		if (strs[bc] >= 0) {
 			start_tx(client->debug_level,mdev);
@@ -648,7 +660,13 @@ static int send_items(struct client_s *client,
 
 /**
  * =========================================================
- * Read entry from clients queue and give it to him
+ * @brief Read entry from clients queue and give it to him
+ * @param client that wants to read its queue
+ * @param mrecv is what the ISR recieved from the RTI and put on the queue
+ * @return 0 is OK else a negative error
+ *
+ * If there is something on the queue it is returned imediatley, if the queue
+ * is empty the call waits for a wake up call from the ISR or times out.
  */
 
 int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
@@ -721,8 +739,8 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
  * Interrupt service routine.
  * Interrupts come from RTIs.
  * The ISR reads data from the RTI,
- * puts the result on the initiating clients queue
- * and starts the next transaction
+ * puts the result on the initiating clients queue,
+ * wakes him up, and starts the next transaction.
  */
 
 static irqreturn_t mil1553_isr(int irq, void *arg)
@@ -743,7 +761,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	wa.icnt++;
 
 	memory_map = mdev->memory_map;
-	isrc = HRd32(&memory_map->isrc);   /** Read and clear the interrupt */
+	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
 	if ((isrc & ISRC_IRQ) == 0)
 		return IRQ_NONE;
 
@@ -795,7 +813,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 			lregp = (uint32_t *) memory_map->rxbuf;
 			for (i=0; i<(rti_interrupt->wc + 1)/2 ; i++) {
-			       lreg  = HRd32(&lregp[i]);
+			       lreg  = ioread32be(&lregp[i]);
 			       rti_interrupt->rxbuf[i*2 + 1] = lreg >> 16;
 			       rti_interrupt->rxbuf[i*2 + 0] = lreg & 0xFFFF;
 			}
@@ -929,14 +947,14 @@ static void init_device(struct mil1553_device_s *mdev) {
 	struct memory_map_s *memory_map = mdev->memory_map;
 	uint32_t cmd;
 
-	HRd32(&memory_map->isrc);
-	HWr32(INTEN_INF,&memory_map->inten);
+	ioread32be(&memory_map->isrc);
+	iowrite32be(INTEN_INF,&memory_map->inten);
 
 	cmd = POLLING_OFF | INITIAL_SPEED;
-	HWr32(cmd,&memory_map->cmd);
+	iowrite32be(cmd,&memory_map->cmd);
 
-	mdev->snum_h = HRd32(&memory_map->snum_h);
-	mdev->snum_l = HRd32(&memory_map->snum_l);
+	mdev->snum_h = ioread32be(&memory_map->snum_h);
+	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
 	get_up_rtis(mdev);
 }
@@ -1109,7 +1127,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			}
 			mdev = &wa.mil1553_dev[bc];
 			memory_map = mdev->memory_map;
-			reg = HRd32(&memory_map->hstat);
+			reg = ioread32be(&memory_map->hstat);
 			*ularg = (reg & HSTAT_STAT_MASK) >> HSTAT_STAT_SHIFT;
 		break;
 
@@ -1124,7 +1142,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			mdev = &wa.mil1553_dev[bc];
 			memory_map = mdev->memory_map;
 			reg = ((bus_speed->speed << CMD_SPEED_SHIFT) & CMD_SPEED_MASK) | CMD_POLL_OFF;
-			HWr32(reg,&memory_map->cmd);
+			iowrite32be(reg,&memory_map->cmd);
 		break;
 
 		case mil1553GET_BCS_COUNT:     /** Get the Bus Controllers count */
@@ -1147,10 +1165,10 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info->snum_h = mdev->snum_h;
 			dev_info->snum_l = mdev->snum_l;
 
-			reg = HRd32(&memory_map->hstat);
+			reg = ioread32be(&memory_map->hstat);
 			dev_info->hardware_ver_num = (reg & HSTAT_VER_MASK) >> HSTAT_VER_SHIFT;
 
-			reg = HRd32(&memory_map->cmd);
+			reg = ioread32be(&memory_map->cmd);
 			dev_info->speed = (reg & CMD_SPEED_MASK) >> CMD_SPEED_SHIFT;
 			dev_info->icnt = wa.icnt;
 			dev_info->isrdebug = wa.isrdebug;
