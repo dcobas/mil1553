@@ -575,7 +575,7 @@ static int send_items(struct client_s *client,
 		if (bc >= wa.bcs) {
 			if (client->debug_level > 2)
 				printk("mil1553:send_items:No such BC:Error:Bc:%02d\n",rtin);
-			return -ENODEV;
+			return -EFAULT;
 		}
 
 		rtin = item_array[i].rti_number;
@@ -1122,7 +1122,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 			bc = *ularg;
 			if (bc >= wa.bcs) {
-				cc = -ENODEV;
+				cc = -EFAULT;
 				goto error_exit;
 			}
 			mdev = &wa.mil1553_dev[bc];
@@ -1136,7 +1136,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			bus_speed = mem;
 			bc = bus_speed->bc;
 			if (bc >= wa.bcs) {
-				cc = -ENODEV;
+				cc = -EFAULT;
 				goto error_exit;
 			}
 			mdev = &wa.mil1553_dev[bc];
@@ -1155,7 +1155,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info = mem;
 			bc = dev_info->bc;
 			if (bc >= wa.bcs) {
-				cc = -ENODEV;
+				cc = -EFAULT;
 				goto error_exit;
 			}
 			mdev = &wa.mil1553_dev[bc];
