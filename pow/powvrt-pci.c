@@ -1,3 +1,14 @@
+/**
+ * Here are the changes needed to make the pow equipment module work
+ * Not yet tested.
+ *
+ * Get rid of all BIG/LITTLE conversions and use native structures
+ * Replace "raw" mil1553 send recieve with standard calls
+ * Use standard error numbers
+ *
+ * All updates in this file are marked with the string jl
+ * Julian 5th April 2011
+ */
 
 /*==========================================================================*/
 static char __attribute__ ((unused)) rcsid[] = "$Id: powvrt-pci.c,v 1.4 2010/04/22 10:30:57 nmn Exp $";
@@ -23,6 +34,7 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: powvrt-pci.c,v 1.4 2010/04/
  * 01-MAR-05 (Heinze): Add multiple acquisitions per cycle
  * 01-FEB-08 (Sicard): extend doublePPM to more than 2 slaves, remove Camac specifics
  * 16-Feb-09 NMN+CHS:  fix for SPS CNGS: properly check against Tgm and PPM_NR
+ * 05-APR-11 Lewis:    New driver and library jl
  */
 /*==========================================================================*/
 
@@ -52,68 +64,58 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: powvrt-pci.c,v 1.4 2010/04/
 #include <gm/access.h>
 #include <dscrt/dscrtlib.h>
 
+#include <libquick.h>           /* New quick library */
 #include "pow_messages.h"	/* ctrl. and acqn. message formats */
-
-#if defined(__BIG_ENDIAN__)
-
-#define htons(x) (x)
-#define ntohs(x) (x)
-#define htonl(x) (x)
-#define ntohl(x) (x)
-#define ntohx(x) (x)
-
-#else
-
-#include <byteswap.h>
-
-#define htons(x) __bswap_16 (x)
-#define ntohs(x) __bswap_16 (x)
-
-#define htonl(x) __bswap_32 (x)
-#define ntohl(x) __bswap_32 (x)
-
-/* Read Float from network to host order */
-#define ntohx(x)   __ntohx((int *)&x)
-static __inline__ float __ntohx (int *b) {
-    int     __a__ = ntohl(*b);
-    float  *__p__ = (float *)&__a__;
-    return *__p__;
-}
-
-#endif
 
 /* non documented GM subroutine to find pointer to data table */
 extern void eqm_ptr_iv (int, col_descr *, data_array *, int, int *, int, int,
 			int *, int);
 
+/**
+ * Turn the hton and ntoh routines into no-ops. We are not using raw io any more jl
+ */
+
+#define htonl(x) (x)
+#define htons(x) (x)
+#define ntohl(x) (x)
+#define ntohs(x) (x)
+#define ntohx(x) (x)
+
 #include "/acc/src/dsc/drivers/pcidrivers/mil1553/include/mil1553_lib.h"
 
-static int mil1533_init_done = 0;
+static int milf = 0; /* Handle to library extra parameter in calls jl */
+
+/**
+ * Now init returns a file handle jl
+ */
 
 static short send_quick_data (struct quick_data_buffer *p)
 {
-    if (mil1533_init_done == 0) {
-	if (mil1553_init_quickdriver () != 0) {
+    if (milf == 0) {
+	milf = mil1553_init_quickdriver ()
+	if (milf <= 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
-	mil1533_init_done = 1;
     }
-    return mil1553_send_raw_quick_data (p);
+    return mil1553_send_quick_data (milf,p);
 }
+
+/**
+ * Now init returns a file handle jl
+ */
 
 static short get_quick_data (struct quick_data_buffer *p)
 {
-    if (mil1533_init_done == 0) {
-	if (mil1553_init_quickdriver () != 0) {
+    if (milf == 0) {
+	milf = mil1553_init_quickdriver ()
+	if (milf <= 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
-	mil1533_init_done = 1;
     }
-    return mil1553_get_raw_quick_data (p);
+    return mil1553_get_quick_data (milf,p);
 }
-
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS:                                                               */
@@ -923,16 +925,29 @@ static void BuildActions (void)
 /*====================================================*/
 static int c1553toem (int err)
 {
+
+/**
+ * New driver just uses standard errno.h definitions jl
+ */
+
+#if 0
+#define RT_OK            0
+#define BC_not_connected EFAULT
+#define RT_not_connected ENODEV
+#define TB_not_set       EBUSY
+//      RB_set           This never happens
+#define Bad_buffer       EPROTO
+#define M1553_error      EACCESS
+#endif
+
     int e = 0;
 
     switch (err) {
-    case RT_OK:             e = RT_OK;         break;
-    case BC_not_connected:  e = EQP_BCNOTCON;  break;
-    case RT_not_connected:  e = EQP_RTNOTCON;  break;
-    case TB_not_set:        e = EQP_TBNOTSET;  break;
-    case RB_set:            e = EQP_RBSET;     break;
-    case Bad_buffer:        e = EQP_BADBUF;    break;
-    case M1553_error:       e = EQP_M1553ERR;  break;
+    case EFAULT:            e = EQP_BCNOTCON;  break;
+    case ENODEV:            e = EQP_RTNOTCON;  break;
+    case EBUSY:             e = EQP_TBNOTSET;  break;
+    case EPROTO:            e = EQP_BADBUF;    break;
+    case EACCESS:           e = EQP_M1553ERR;  break;
     case ETIMEDOUT:         e = EQP_TIMOUT;    break;
     case ECONNREFUSED:      e = EQP_INTERFERR; break;
     default:                e = EQP_SYS5ERR;
@@ -1107,7 +1122,7 @@ static void DoAcquisitionMinMax (Action *cact)
 	    coco = c1553toem (cact->acq[i].error);
 	    msg = (conf_msg *) &cact->acq[i].pkt[0];
 	    if ((coco == 0) && (msg->service == htons (5))) {	/* no error, hwmx/mn overwritten */
-		cact->hwmx[i] = msg->i_max;	// Why no swap needed ??? //
+		cact->hwmx[i] = msg->i_max;     // Why no swap needed ??? (JL: Answer: See new libquick) //
 		cact->hwmn[i] = msg->i_min;	// Why no swap needed ??? //
 	    }
 	    else {
