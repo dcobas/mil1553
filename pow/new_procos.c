@@ -1,3 +1,15 @@
+/**
+ * Here are the changes needed to make the pow equipment module work
+ * Not yet tested.
+ *
+ * Get rid of all BIG/LITTLE conversions and use native structures
+ * Replace "raw" mil1553 send recieve with standard calls
+ * Use standard error numbers
+ *
+ * All updates in this file are marked with the string jl
+ * Julian 5th April 2011
+ */
+
 static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/18 13:45:59 nmn Exp nmn $";
 /* Property code for module POW-V   
    Started  05-OCT-92 by W.HEINZE              
@@ -16,6 +28,7 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/
    Modified 04-JUL-06 Adding CCVTRM=8 for non-PPM double-batch property (CNGS)
    Modified 26-APR-07 Add proco r03ctlstmp forcing ctlstamp=0 for slaves
    Modified 17-FEB-09 correct bug in Actuation for multiple supplies (loop)
+   Modified 05-APR-11 Lewis:    New driver and library jl
 
    Note: the macro sproco(pname, pname_dtr, EqmVal)       
          is expanded to following sequence:             
@@ -53,70 +66,52 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/
 #define UPW(a) ((a >> 16) & 0x0ffff)
 #define LOW(a) (a & 0x0ffff)
 
-#if defined(__BIG_ENDIAN__)
+/**
+ * No need to screw around with network/host conversions jl
+ */
+
 #define htons(x) (x)
 #define htonl(x) (x)
 #define htonx(a,b) {a = b};
 #define ntohs(x) (x)
 #define ntohl(x) (x)
 #define ntohx(x) (x)
-#include <drvrutil/mil1553quicklib.h>
-
-#else
-#include <byteswap.h>
-#define htons(x) __bswap_16 (x)
-#define htonl(x) __bswap_32 (x)
-#define ntohs(x) __bswap_16 (x)
-#define ntohl(x) __bswap_32 (x)
-#include "/acc/src/dsc/drivers/pcidrivers/mil1553/include/mil1553_lib.h"
-
-/* Read Float from network to host order */
-#define ntohx(x)   __ntohx((int *)&x)
-static __inline__ float __ntohx (int *b) {
-    int     __a__ = ntohl(*b);
-    float  *__p__ = (float *)&__a__;
-    return *__p__;
-}
-
-/* Store float in network order */
-#define htonx(a,b) __htonx(&a, b)
-static /* __inline__ */ void __htonx(float *a, float b) {
-    int *__s__ = (int *) &b;
-    int *__d__ = (int *) a;
-    *__d__     = htonl(*__s__);
-}
-#endif
 
 #include "pow_messages.h"
 
-#ifdef __linux__
-static int  mil1533_init_done = 0;
+static int milf = 0; /* Handle to library extra parameter in calls jl */
+
+/**
+ * Now init returns a file handle jl
+ */
 
 static short send_quick_data (struct quick_data_buffer *p)
 {
-    if (mil1533_init_done == 0) {
-	if (mil1553_init_quickdriver() != 0) {
-	    perror("mil1553_init_quickdriver");
-	    return(-1);
+    if (milf == 0) {
+	milf = mil1553_init_quickdriver ()
+	if (milf <= 0) {
+	    perror ("mil1553_init_quickdriver");
+	    return (-1);
 	}
-	mil1533_init_done = 1;
     }
-    return mil1553_send_raw_quick_data (p);
+    return mil1553_send_quick_data (milf,p);
 }
+
+/**
+ * Now init returns a file handle jl
+ */
 
 static short get_quick_data (struct quick_data_buffer *p)
 {
-    if (mil1533_init_done == 0) {
-	if (mil1553_init_quickdriver() != 0) {
-	    perror("mil1553_init_quickdriver");
-	    return(-1);
+    if (milf == 0) {
+	milf = mil1553_init_quickdriver ()
+	if (milf <= 0) {
+	    perror ("mil1553_init_quickdriver");
+	    return (-1);
 	}
-	mil1533_init_done = 1;
     }
-    return mil1553_get_raw_quick_data (p);
+    return mil1553_get_quick_data (milf,p);
 }
-#endif
-
 
 /*****************************************************************************
    subroutine for PPM aquisition for non PPM power supplies
