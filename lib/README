@@ -1,0 +1,15 @@
+There are 3 layers of library:
+
+libmil1553
+This deals with the cbmia PCI bus controller module. I should rename it libbc. It got its name
+from the driver which is also called mil1553. I should have called it cbmia.
+This library is the only one that calls the driver.
+
+librti
+This implements RTI card support and calls the above libmill1553 library for services
+
+libquick
+This implements the quick data library support for power-supplies. This library calls librti
+for services.
+
+Julian
