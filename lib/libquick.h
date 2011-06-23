@@ -1,6 +1,8 @@
 #ifndef LIBQUICK
 #define LIBQUICK
 
+#include <linux/errno.h>
+
 #include <mil1553.h>
 #include <libmil1553.h>
 #include <librti.h>
@@ -26,6 +28,20 @@
  *    mil1553_send_quick_data or mil1553_get_quick_data
  * which do the correct conversions for you to and from native format
  */
+
+/**
+ * Old error codes
+ * This library just uses standard error numbers
+ */
+
+#define welldone         0            /* no error */
+#define BC_not_connected -EFAULT      /* destination BC is not known */
+#define RT_not_connected -ENODEV      /* destination RT is not known */
+#define TB_not_set       -ETIMEDOUT   /* destination RT has nothing to send */
+#define RB_set           -EBUSY       /* destination RT has a busy receive buffer */
+#define Bad_buffer       -EACCES      /* the buffer contains bad information */
+				      /* i.e., rt not in [0,31]; bc not in [1,31]; ... */
+#define M1553_error      -EACCES      /* a M1553 hardware fault occured */
 
 #define QDP_USZ 240 /** Quick Packet user data size in bytes (120 words MAX) */
 
