@@ -22,7 +22,7 @@ RTX=
 
 CPU=L865
 
-include ../../Make.gen
+include /acc/src/dsc/co/em/Make.gen
 
 
 clean:
