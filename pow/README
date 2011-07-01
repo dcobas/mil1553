@@ -7,3 +7,28 @@ from their protocol numbers. The same library is used by the test program.
 
 About running on multiple bus controllers in paralell; the structure of the RT task
 needs to be modified so that each BC is driven by a thread.
+
+About how to compile and test....
+
+On cs-ccr-dev1:
+# cd /acc/src/dsc/co/em/pow/NEW_MILL1553_VERSION
+# make CPU=L865 clean install deliver
+
+Then rebuild nodal for your front-end
+# cd /acc/src/dsc/tst/cfc-864-cdv4/
+# make clean
+# make install
+
+Then ssh cfc-864-cdv4  -l root:
+
+# killall pci-powvrt
+
+# prio 45 pci-powvrt &
+
+# gdb nodal
+  b send_quick_data
+  b get_quick_data
+  run
+ > run /user/heinze/test_powv
+   20021
+   ...
