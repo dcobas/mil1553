@@ -41,7 +41,7 @@
 #define RB_set           -EBUSY       /* destination RT has a busy receive buffer */
 #define Bad_buffer       -EACCES      /* the buffer contains bad information */
 				      /* i.e., rt not in [0,31]; bc not in [1,31]; ... */
-#define M1553_error      -EACCES      /* a M1553 hardware fault occured */
+#define M1553_error      -1           /* a M1553 hardware fault occured */
 
 #define QDP_USZ 240 /** Quick Packet user data size in bytes (120 words MAX) */
 
@@ -75,7 +75,7 @@ struct quick_data_buffer {
 int mil1553_init_quickdriver(void);
 
 /**
-  * @brief send a raw quick data buffer
+  * @brief send a raw quick data buffer in host byte order
   * @param file handle returned from the init routine
   * @param pointer to data buffer
   * @return 0 success, else negative standard system error
@@ -87,7 +87,19 @@ int mil1553_init_quickdriver(void);
 short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt);
 
 /**
-  * @brief get a raw quick data buffer
+  * @brief send a raw quick data buffer in network byte order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else negative standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
+
+/**
+  * @brief get a raw quick data buffer in host byte order
   * @param file handle returned from the init routine
   * @param pointer to data buffer
   * @return 0 success, else negative standard system error
@@ -97,6 +109,18 @@ short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt);
   */
 
 short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt);
+
+/**
+  * @brief get a raw quick data buffer in network byte order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else negative standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
 
 /**
   * @brief send a raw quick data buffer in network order

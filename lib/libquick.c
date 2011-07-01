@@ -23,6 +23,8 @@
 #include <byteswap.h>
 #include <time.h>
 
+void swab(const void *from, void *to, ssize_t n);
+
 /**
  * This is a header understood by RTI driven equipment such as a power supply or a relay box.
  * Notice I reversed the order of fields that are char pairs, don't ask thats just the
@@ -168,6 +170,22 @@ short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 }
 
 /**
+  * @brief send a raw quick data buffer in network byte order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else negative standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
+
+	swab(quick_pt->pkt,quick_pt->pkt,(quick_pt->pktcnt + 1)/2);
+	return mil1553_send_raw_quick_data(fn, quick_pt);
+}
+
+/**
   * @brief get a raw quick data buffer
   * @param file handle returned from the init routine
   * @param pointer to data buffer
@@ -228,6 +246,24 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 		qptr = qptr->next;
 	}
 	return 0;
+}
+
+/**
+  * @brief get a raw quick data buffer in network byte order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else negative standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
+
+	short cc;
+	cc = mil1553_get_raw_quick_data(fn,quick_pt);
+	swab(quick_pt->pkt,quick_pt->pkt,(quick_pt->pktcnt + 1)/2);
+	return cc;
 }
 
 /**
@@ -553,7 +589,7 @@ void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect
 
 	print_req_msg(req_p);
 
-	if (expect_service != req_p->service) {
+	if ((expect_service >= 0) && (expect_service != req_p->service)) {
 		printf("WARNING: Expected service:%d\n",expect_service);
 		printf("What follows may be garbage\n");
 	}
