@@ -1,0 +1,9 @@
+This version works with the new mill1553 driver written by Julian Lewis
+It is supposed to replace the older version.
+
+Here the RT task and procos DO NOT convert packets into network and back to host
+format. This is the job of the quick data library that knows the structures
+from their protocol numbers. The same library is used by the test program.
+
+About running on multiple bus controllers in paralell; the structure of the RT task
+needs to be modified so that each BC is driven by a thread.

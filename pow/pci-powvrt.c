@@ -1,17 +1,6 @@
-/**
- * Here are the changes needed to make the pow equipment module work
- * Not yet tested.
- *
- * Get rid of all BIG/LITTLE conversions and use native structures
- * Replace "raw" mil1553 send recieve with standard calls
- * Use standard error numbers
- *
- * All updates in this file are marked with the string jl
- * Julian 5th April 2011
- */
 
 /*==========================================================================*/
-static char __attribute__ ((unused)) rcsid[] = "$Id: powvrt-pci.c,v 1.4 2010/04/22 10:30:57 nmn Exp $";
+static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 1.3 2011/06/28 15:03:10 lewis Exp $";
 /*==========================================================================*/
 /*
  * Real-Time task to handle double ppm for POW EM,
@@ -34,7 +23,12 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: powvrt-pci.c,v 1.4 2010/04/
  * 01-MAR-05 (Heinze): Add multiple acquisitions per cycle
  * 01-FEB-08 (Sicard): extend doublePPM to more than 2 slaves, remove Camac specifics
  * 16-Feb-09 NMN+CHS:  fix for SPS CNGS: properly check against Tgm and PPM_NR
- * 05-APR-11 Lewis:    New driver and library jl
+
+ * Got rid of host/network conversion and used generic host quick data io with all in host byte order
+ * Now the new driver is used. The LIBRARY for quick data converts host structures to a form that
+ * a power convertor understands. For other divices I will add the support when needed.
+ * Julian Lewis Tue 28th June 2011
+
  */
 /*==========================================================================*/
 
@@ -64,58 +58,41 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: powvrt-pci.c,v 1.4 2010/04/
 #include <gm/access.h>
 #include <dscrt/dscrtlib.h>
 
-#include <libquick.h>           /* New quick library */
 #include "pow_messages.h"	/* ctrl. and acqn. message formats */
 
 /* non documented GM subroutine to find pointer to data table */
 extern void eqm_ptr_iv (int, col_descr *, data_array *, int, int *, int, int,
 			int *, int);
 
-/**
- * Turn the hton and ntoh routines into no-ops. We are not using raw io any more jl
- */
+//#include "/acc/src/dsc/drivers/pcidrivers/mil1553/include/mil1553_lib.h"
+#include "libquick.h"
 
-#define htonl(x) (x)
-#define htons(x) (x)
-#define ntohl(x) (x)
-#define ntohs(x) (x)
-#define ntohx(x) (x)
-
-#include "/acc/src/dsc/drivers/pcidrivers/mil1553/include/mil1553_lib.h"
-
-static int milf = 0; /* Handle to library extra parameter in calls jl */
-
-/**
- * Now init returns a file handle jl
- */
-
+static int mil1533_init_done = 0;
+static int mil1533_fh = (-1);
 static short send_quick_data (struct quick_data_buffer *p)
 {
-    if (milf == 0) {
-	milf = mil1553_init_quickdriver ()
-	if (milf <= 0) {
+    if (mil1533_init_done == 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
+	mil1533_init_done = 1;
     }
-    return mil1553_send_quick_data (milf,p);
+    return mil1553_send_quick_data(mil1533_fh, p);
 }
-
-/**
- * Now init returns a file handle jl
- */
 
 static short get_quick_data (struct quick_data_buffer *p)
 {
-    if (milf == 0) {
-	milf = mil1553_init_quickdriver ()
-	if (milf <= 0) {
+    if (mil1533_init_done == 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
+	mil1533_init_done = 1;
     }
-    return mil1553_get_quick_data (milf,p);
+    return mil1553_get_quick_data(mil1533_fh, p);
 }
+
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS:                                                               */
@@ -226,7 +203,7 @@ typedef struct action {
     int *hwmn;			/* hw min values */
     int *hwmx;			/* hw max values */
     int *erres;			/* errors corresponding to hw min/max values */
-    int lst_ctr_da[MAX_PPM + 1];	/* Last control date = f(user) */
+    unsigned long lst_ctr_da[MAX_PPM + 1];        /* Last control date = f(user) */
 
     /* now follow the data for multiple acquisition power converters */
     int its;			/* interrupt marking the begin of multiple acquisitions, resetting the data table */
@@ -365,7 +342,7 @@ static double *CheckedAllocd (int nb, int sz)
 /*====================================================*/
 /* Return current time in ms for measurements         */
 /*====================================================*/
-static int GetCurrentTimeMsec (void)
+static unsigned long GetCurrentTimeMsec (void)
 {
     struct timeval tt;
 
@@ -896,7 +873,7 @@ static void BuildActions (void)
 	pc = act->ctl;		/* pointer to control message */
 	pa = act->acq;		/* pointer to acquisition message */
 	for (i = 0; i < act->nb; i++, pc++, pa++) {
-	    pa->bc = pc->bc = UPW (act->ad[i]);	/* set BC number */
+	    pa->bc = pc->bc = UPW (act->ad[i])-1; /* set BC number */
 	    pa->rt = pc->rt = LOW (act->ad[i]);	/* set RT number */
 	    pc->stamp = act->el[i + 1];	/* STAMP == element number */
 	    if (i != (act->nb - 1)) {
@@ -925,29 +902,16 @@ static void BuildActions (void)
 /*====================================================*/
 static int c1553toem (int err)
 {
-
-/**
- * New driver just uses standard errno.h definitions jl
- */
-
-#if 0
-#define RT_OK            0
-#define BC_not_connected EFAULT
-#define RT_not_connected ENODEV
-#define TB_not_set       EBUSY
-//      RB_set           This never happens
-#define Bad_buffer       EPROTO
-#define M1553_error      EACCESS
-#endif
-
     int e = 0;
 
     switch (err) {
-    case EFAULT:            e = EQP_BCNOTCON;  break;
-    case ENODEV:            e = EQP_RTNOTCON;  break;
-    case EBUSY:             e = EQP_TBNOTSET;  break;
-    case EPROTO:            e = EQP_BADBUF;    break;
-    case EACCESS:           e = EQP_M1553ERR;  break;
+    case RT_OK:             e = RT_OK;         break;
+    case BC_not_connected:  e = EQP_BCNOTCON;  break;
+    case RT_not_connected:  e = EQP_RTNOTCON;  break;
+    case TB_not_set:        e = EQP_TBNOTSET;  break;
+    case RB_set:            e = EQP_RBSET;     break;
+    case Bad_buffer:        e = EQP_BADBUF;    break;
+    case M1553_error:       e = EQP_M1553ERR;  break;
     case ETIMEDOUT:         e = EQP_TIMOUT;    break;
     case ECONNREFUSED:      e = EQP_INTERFERR; break;
     default:                e = EQP_SYS5ERR;
@@ -1037,7 +1001,7 @@ static void ReqAcquisitionMinMax (Action *cact)
     for (i = 0; i < cact->nb; i++, pc++) {	/* scan all elements for given Action object */
 
 	/* Initialise control block for MIL-1553 I/O */
-	pc->bc = UPW (cact->ad[i]);	/* set BC number */
+	pc->bc = UPW (cact->ad[i])-1;     /* set BC number */
 	pc->rt = LOW (cact->ad[i]);	/* set RT number */
 	pc->stamp = cact->el[i + 1];	/* set STAMP field == element number */
 	pc->next = ((i < (cact->nb - 1)) ? &pc[1] : NULL);	/* ptr. to next control block */
@@ -1045,9 +1009,9 @@ static void ReqAcquisitionMinMax (Action *cact)
 	/* Prepare request message */
 	msg = (req_msg *) & pc->pkt[0];
 	memcpy (msg, &cact->v2[i * 6], 22);
-	msg->protocol_date.sec = htonl (da.tv_sec);
-	msg->protocol_date.usec = htonl (da.tv_usec);
-	msg->service = htons (5);	/* service request for configuration */
+	msg->protocol_date.sec = (da.tv_sec);
+	msg->protocol_date.usec = (da.tv_usec);
+	msg->service = (5);       /* service request for configuration */
 	pc->pktcnt = 22;	/* sizeof(req_msg) = 24 instead of 22 */
 	pc->error = 0;
     }
@@ -1100,7 +1064,7 @@ static void DoAcquisitionMinMax (Action *cact)
 
     /* Initialize acquisition message for MIL-1553 */
     for (i = 0; i < cact->nb; i++, pa++) {
-	pa->bc = UPW (cact->ad[i]);	/* BC number */
+	pa->bc = UPW (cact->ad[i])-1;     /* BC number */
 	pa->rt = LOW (cact->ad[i]);	/* RT number */
 	pa->pktcnt = sizeof (conf_msg);
 	pa->next = ((i < (cact->nb - 1)) ? &pa[1] : NULL);	/* pointer to next acq. message */
@@ -1121,8 +1085,8 @@ static void DoAcquisitionMinMax (Action *cact)
 	    pa = &cact->acq[i];	/* set pointer to acqn. message */
 	    coco = c1553toem (cact->acq[i].error);
 	    msg = (conf_msg *) &cact->acq[i].pkt[0];
-	    if ((coco == 0) && (msg->service == htons (5))) {	/* no error, hwmx/mn overwritten */
-		cact->hwmx[i] = msg->i_max;     // Why no swap needed ??? (JL: Answer: See new libquick) //
+	    if ((coco == 0) && (msg->service == (5))) {   /* no error, hwmx/mn overwritten */
+		cact->hwmx[i] = msg->i_max;	// Why no swap needed ??? //
 		cact->hwmn[i] = msg->i_min;	// Why no swap needed ??? //
 	    }
 	    else {
@@ -1132,7 +1096,7 @@ static void DoAcquisitionMinMax (Action *cact)
 		if (cact->hwmx[i] == 0)
 		    cact->erres[i] = coco;
 		if (coco == 0) {
-		    fprintf (stderr, "service provided = %d\n", ntohs (msg->service));
+		    fprintf (stderr, "service provided = %d\n", (msg->service));
 		    for (k = 0; k < 48; k++) {
 			fprintf (stderr, "%02x", (unsigned char) cact->acq[i].pkt[k]);
 			if (k % 2 == 1)
@@ -1194,8 +1158,8 @@ static void DoControl (Action *cact)
     int cos[2];			/* completion array for single element */
     unsigned int fupa;		/* actuation except reset */
     nonppm_ctrl_msg *dtrs;	/* dtrs points to message structure */
-    int lst_ctr_da = 0;
-    int dif_ctr_da;
+    unsigned long lst_ctr_da = 0;
+    unsigned long dif_ctr_da;
     int indx_ctr_da;
     struct timeval da;
     struct quick_data_buffer *pc;	/* control buffers */
@@ -1244,7 +1208,7 @@ static void DoControl (Action *cact)
     for (i = 0; i < cact->nb; i++, pc++) {	/* scan all elements ... */
 
 	/* Initialise control block for MIL-1553 I/O */
-	pc->bc = UPW (cact->ad[i]);	/* set BC number */
+	pc->bc = UPW (cact->ad[i])-1;     /* set BC number */
 	pc->rt = LOW (cact->ad[i]);	/* set RT number */
 	pc->stamp = cact->el[i + 1];	/* set STAMP == el. number */
 	pc->next = ((i < (cact->nb - 1)) ? &pc[1] : NULL);	/* pointer to next ctrl. block */
@@ -1252,10 +1216,10 @@ static void DoControl (Action *cact)
 	/* Prepare control message */
 	msg = (ctrl_msg *) &pc->pkt[0];
 	memcpy (msg, &cact->v2[i * 6], 24);	/* non-ppm ctrl. values (actuations) */
-	msg->protocol_date.sec = htonl (da.tv_sec);
-	msg->protocol_date.usec = htonl (da.tv_usec);
-	msg->cycle.machine = htons (plstb);
-	msg->cycle.pls_line = htons (tgm ? next_grp_val : pres_grp_val);	/* cycle */
+	msg->protocol_date.sec = (da.tv_sec);
+	msg->protocol_date.usec = (da.tv_usec);
+	msg->cycle.machine = (plstb);
+	msg->cycle.pls_line = (tgm ? next_grp_val : pres_grp_val);        /* cycle */
 	memcpy (&msg->ccv, &cact->v3[i * 5], 20);	/* ppm ctrl. values */
 	pc->pktcnt = sizeof (ctrl_msg);
 	pc->error = 0;
@@ -1285,8 +1249,8 @@ static void DoControl (Action *cact)
     if (trace_ctl_flg && (tr_nb >= 0)) {	/* trace infos for 'tr_nb'-element */
 	msg = (ctrl_msg *) &cact->ctl[tr_nb].pkt[0];
 	fprintf (stderr, "%s: DoControl: gb_elm=%d, pls=%3d, ccv=%f, CCSACT=%d, change bit=%d, err=%d\n",
-		 program, trace_gbelm, ntohs (msg->cycle.pls_line),
-		 (double) ntohx (msg->ccv), msg->ccsact, msg->ccsact_change,
+		 program, trace_gbelm, (msg->cycle.pls_line),
+		 (double) (msg->ccv), msg->ccsact, msg->ccsact_change,
 		 cact->er[tr_nb + 1]);
     }
 
@@ -1299,7 +1263,7 @@ static void DoControl (Action *cact)
 		dif_ctr_da -= 1200;
 	    if ((dif_ctr_da < -jitter_val) || (dif_ctr_da > jitter_val))
 		fprintf (stderr, "%s: jitter=%4d ms for ci=%d, ai=%d, grp=%d, user=%d\n",
-			 program, dif_ctr_da, cact->ci, cact->ai, cact->grp,
+			 program, (int) dif_ctr_da, cact->ci, cact->ai, cact->grp,
 			 indx_ctr_da);
 	}
 	cact->lst_ctr_da[indx_ctr_da] = lst_ctr_da;
@@ -1442,7 +1406,7 @@ static void DoAcquisition (Action *cact)
 
     /* Initialise control blocks for M1553 I/O */
     for (i = 0; i < cact->nb; i++, pa++) {
-	pa->bc = UPW (cact->ad[i]);	/* set BC number */
+	pa->bc = UPW (cact->ad[i])-1;     /* set BC number */
 	pa->rt = LOW (cact->ad[i]);	/* set RT number */
 	pa->pktcnt = sizeof (acq_msg);
 	pa->next = ((i < (cact->nb - 1)) ? &pa[1] : NULL);	/* pointer to next acqn. message */
@@ -1478,7 +1442,7 @@ static void DoAcquisition (Action *cact)
 	if (trace_acq_flg && (tr_nb >= 0)) {	/* trace selected element */
 	    msg = (acq_msg *) &cact->va[tr_nb * 11];
 	    fprintf (stderr, "%s: DoAcquisition: gb_elm=%d, grp_val=%3d, pls=%3d, acq_val=%f, static_status=%d, err=%d\n",
-		     program, trace_gbelm, gval, ntohs (msg->cycle.pls_line),
+		     program, trace_gbelm, gval, (msg->cycle.pls_line),
 		     (double) (msg->aqn), msg->static_status,
 		     cact->er[tr_nb + 1]);
 	}
@@ -1713,7 +1677,7 @@ int main (int argc, char **argv)
     int irpt;
     int notwaited = 1;
     int fd = (-1);		/* file descriptor for connect routine */
-    int date_s = 0;
+    unsigned long date_s = 0;
     time_t t0;
     char dat[128];
 
@@ -1794,7 +1758,7 @@ int main (int argc, char **argv)
 
 	if (pdelay_flg) {
 	    if (date_s != 0) {
-		fprintf (stderr, "%d ", GetCurrentTimeMsec () - date_s);
+		fprintf (stderr, "%d ", (int) (GetCurrentTimeMsec() - date_s));
 		fflush (stderr);
 	    }
 	}

@@ -1,16 +1,4 @@
-/**
- * Here are the changes needed to make the pow equipment module work
- * Not yet tested.
- *
- * Get rid of all BIG/LITTLE conversions and use native structures
- * Replace "raw" mil1553 send recieve with standard calls
- * Use standard error numbers
- *
- * All updates in this file are marked with the string jl
- * Julian 5th April 2011
- */
-
-static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/18 13:45:59 nmn Exp nmn $";
+static char __attribute__ ((unused)) rcsid[] = "$Id: pci_procos.c,v 1.4 2011/06/30 13:30:17 lewis Exp $";
 /* Property code for module POW-V   
    Started  05-OCT-92 by W.HEINZE              
    Modified 24-FEB-93 correction in STAQ property code
@@ -28,7 +16,6 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/
    Modified 04-JUL-06 Adding CCVTRM=8 for non-PPM double-batch property (CNGS)
    Modified 26-APR-07 Add proco r03ctlstmp forcing ctlstamp=0 for slaves
    Modified 17-FEB-09 correct bug in Actuation for multiple supplies (loop)
-   Modified 05-APR-11 Lewis:    New driver and library jl
 
    Note: the macro sproco(pname, pname_dtr, EqmVal)       
          is expanded to following sequence:             
@@ -42,6 +29,12 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/
      int       plsline   pls line number                   
      int       *coco     complement code returned by proco 
      int       bls_num   block serial number
+
+ * Got rid of host/network conversion and used generic host quick data io with all in host byte order
+ * Now the new driver is used. The LIBRARY for quick data converts host structures to a form that
+ * a power convertor understands. For other divices I will add the support when needed.
+ * Julian Lewis Tue 28th June 2011
+
 */
 
 #include <unistd.h>
@@ -58,7 +51,6 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/
 #include <gm/proco_header.h>
 #include <gm/access.h>
 
-
 #define TYPE    1
 #define SUB_FAMILY 0
 #define NOL (struct quick_data_buffer *) 0
@@ -66,52 +58,58 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: new_procos.c,v 1.1 2010/03/
 #define UPW(a) ((a >> 16) & 0x0ffff)
 #define LOW(a) (a & 0x0ffff)
 
-/**
- * No need to screw around with network/host conversions jl
- */
-
-#define htons(x) (x)
-#define htonl(x) (x)
-#define htonx(a,b) {a = b};
-#define ntohs(x) (x)
-#define ntohl(x) (x)
-#define ntohx(x) (x)
-
+#include "libquick.h"
 #include "pow_messages.h"
 
-static int milf = 0; /* Handle to library extra parameter in calls jl */
-
-/**
- * Now init returns a file handle jl
- */
-
+static int mil1533_init_done = 0;
+static int mil1533_fh = (-1);
 static short send_quick_data (struct quick_data_buffer *p)
 {
-    if (milf == 0) {
-	milf = mil1553_init_quickdriver ()
-	if (milf <= 0) {
+    short cc;
+    if (mil1533_init_done == 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
+	mil1533_init_done = 1;
     }
-    return mil1553_send_quick_data (milf,p);
+//    printf("\n=========\nsend_quick_data:Before\n");
+//    mil1553_print_msg(p,0,-1);
+    cc = mil1553_send_quick_data(mil1533_fh, p);
+//    printf("send_quick_data:cc:%d:After\n",(int) cc);
+//    mil1553_print_msg(p,0,-1);
+    return cc;
 }
-
-/**
- * Now init returns a file handle jl
- */
 
 static short get_quick_data (struct quick_data_buffer *p)
 {
-    if (milf == 0) {
-	milf = mil1553_init_quickdriver ()
-	if (milf <= 0) {
+    short cc;
+    if (mil1533_init_done == 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
+	mil1533_init_done = 1;
     }
-    return mil1553_get_quick_data (milf,p);
+//    printf("\n=========\nget_quick_data:Before\n");
+//    mil1553_print_msg(p,1,-1);
+    cc = mil1553_get_quick_data(mil1533_fh, p);
+//    printf("get_quick_data:cc:%d:After\n",(int) cc);
+//    mil1553_print_msg(p,1,-1);
+    return cc;
 }
+
+/*====================================================*/
+/* Return current time in ms for measurements         */
+/*====================================================*/
+static unsigned long GetCurrentTimeMsec (void)
+{
+    struct timeval tt;
+
+    gettimeofday (&tt, NULL);
+    return (tt.tv_sec * 1000 + (tt.tv_usec / 1000));
+}				/* end of GetCurrentTimeMsec() */
+
 
 /*****************************************************************************
    subroutine for PPM aquisition for non PPM power supplies
@@ -228,7 +226,7 @@ sproco(r03arra1,r03arra1_dtr,double)
 	int       i;
 
 	/* check if power supply is a MAPC */
-	if (!dtr->it_start || dtr->elmstr || dtr->plsdbl) {
+	if ((dtr->it_start == 0) || (dtr->elmstr != 0) || (dtr->plsdbl != 0)) {
 		*coco = EQP_ENPROPILL;
 		return;
 	}
@@ -263,7 +261,7 @@ typedef struct {
 sproco(r03nmeas,r03nmeas_dtr,int)
 {
 	/* check if power supply is a MAPC */
-	if (!dtr->it_start || dtr->elmstr || dtr->plsdbl) {
+	if ((dtr->it_start == 0) || (dtr->elmstr != 0) || (dtr->plsdbl != 0)) {
 		*coco = EQP_ENPROPILL;
 		return;
 	}
@@ -293,7 +291,7 @@ typedef struct {
 sproco(r03meas,r03meas_dtr,double)
 {
 	/* check if power supply is a MAPC */
-	if (!dtr->it_start || dtr->elmstr || dtr->plsdbl) {
+	if ((dtr->it_start == 0) || (dtr->elmstr != 0) || (dtr->plsdbl != 0)) {
 		*coco = EQP_ENPROPILL;
 		return;
 	}
@@ -335,7 +333,7 @@ sproco(r03bav,r03bav_dtr,double)
 	}
 
 	/* for slave power supplies, make same operation for corresponding master */
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1)) { /* this is slave power supply */
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		eqm_svse(EQP_POW, value, EQM_TYP_DOUBLE, RFLAG, dtr->elmstr, EQP_BUFACT, plsline, coco);
 		return;
 	}
@@ -354,31 +352,31 @@ sproco(r03bav,r03bav_dtr,double)
 	/* check if there was a wrong transfer from G64 */
 	if (bffrv != 0)
 		*coco = bffrv;       /* error in communication */
-	if ((bffrv == 0) && ((dtrs->service == ntohs(1)) || (dtrs->service == ntohs(5))))
+	if ((bffrv == 0) && ((dtrs->service == (1)) || (dtrs->service == (5))))
 		*coco = EQP_SERVICERR;
 	if ((bffrv == 0) && (dtrs->service != 0) && (*coco != EQP_SERVICERR))
 		*coco = EQP_BADBUF;
 
 	/* copy the message content into the output (value) */
-	value[0] = (double) ntohs(dtrs->family);
+	value[0] = (double) (dtrs->family);
 	value[1] = (double) dtrs->type;
 	value[2] = (double) dtrs->sub_family;
-	value[3] = (double) ntohs(dtrs->member);
-	value[4] = (double) ntohs(dtrs->service);
-	value[5] = (double) ntohs(dtrs->cycle.machine);
-	value[6] = (double) ntohs(dtrs->cycle.pls_line);
-	value[7] = (double) ntohl(dtrs->protocol_date.sec);
-	value[8] = (double) ntohl(dtrs->protocol_date.usec);
-	value[9] = (double) ntohs(dtrs->specialist);
+	value[3] = (double) (dtrs->member);
+	value[4] = (double) (dtrs->service);
+	value[5] = (double) (dtrs->cycle.machine);
+	value[6] = (double) (dtrs->cycle.pls_line);
+	value[7] = (double) (dtrs->protocol_date.sec);
+	value[8] = (double) (dtrs->protocol_date.usec);
+	value[9] = (double) (dtrs->specialist);
 	value[10] = (double) dtrs->phys_status;
 	value[11] = (double) dtrs->static_status;
 	value[12] = (double) dtrs->ext_aspect;
 	value[13] = (double) dtrs->status_qualif;
-	value[14] = (double) ntohs(dtrs->busytime);
-	value[15] = ntohx(dtrs->aqn);
-	value[16] = ntohx(dtrs->aqn1);
-	value[17] = ntohx(dtrs->aqn2);
-	value[18] = ntohx(dtrs->aqn3);
+	value[14] = (double) (dtrs->busytime);
+	value[15] = (dtrs->aqn);
+	value[16] = (dtrs->aqn1);
+	value[17] = (dtrs->aqn2);
+	value[18] = (dtrs->aqn3);
 }
 
 /*****************************************************************************
@@ -404,25 +402,25 @@ sproco(r03bcv,r03bcv_dtr,double)
 
 	/* copy non ppm part */
 	dtrs1 = (nonppm_ctrl_msg *) dtr;
-	value[0] = (double) ntohs(dtrs1->family);
+	value[0] = (double) (dtrs1->family);
 	value[1] = (double) dtrs1->type;
 	value[2] = (double) dtrs1->sub_family;
-	value[3] = (double) ntohs(dtrs1->member);
-	value[4] = (double) ntohs(dtrs1->service);
-	value[5] = (double) ntohs(dtrs1->cycle.machine);
-	value[6] = (double) ntohs(dtrs1->cycle.pls_line);
-	value[7] = (double) ntohl(dtrs1->protocol_date.sec);
-	value[8] = (double) ntohl(dtrs1->protocol_date.usec);
-	value[9] = (double) ntohs(dtrs1->specialist);
+	value[3] = (double) (dtrs1->member);
+	value[4] = (double) (dtrs1->service);
+	value[5] = (double) (dtrs1->cycle.machine);
+	value[6] = (double) (dtrs1->cycle.pls_line);
+	value[7] = (double) (dtrs1->protocol_date.sec);
+	value[8] = (double) (dtrs1->protocol_date.usec);
+	value[9] = (double) (dtrs1->specialist);
 	value[10] = (double) dtrs1->ccsact_change;
 	value[11] = (double) dtrs1->ccsact;
 
 	/* copy ppm part */
 	dtrs2 = (ppm_ctrl_msg *) &(dtr->ccva[0]);
-	value[12] = ntohx(dtrs2->ccv);
-	value[13] = ntohx(dtrs2->ccv1);
-	value[14] = ntohx(dtrs2->ccv2);
-	value[15] = ntohx(dtrs2->ccv3);
+	value[12] = (dtrs2->ccv);
+	value[13] = (dtrs2->ccv1);
+	value[14] = (dtrs2->ccv2);
+	value[15] = (dtrs2->ccv3);
 	value[16] = (double) dtrs2->ccv_change;
 	value[17] = (double) dtrs2->ccv1_change;
 	value[18] = (double) dtrs2->ccv2_change;
@@ -446,9 +444,9 @@ sproco(r03bufv,r03bufv_dtr,double)
 	struct quick_data_buffer   *quickptr_ctl = &receive_buf;
 	req_msg                    *req_ptr;
 	ctrl_msg                   *ctrl_ptr;
-	clock_t                     clk;
+	unsigned long clk;
 
-	quickptr_req->bc = UPW(dtr->address1); /* BC number */
+	quickptr_req->bc = UPW(dtr->address1)-1; /* BC number */
 	quickptr_req->rt = LOW(dtr->address1); /* RT number */
 	quickptr_req->stamp = 0;
 	quickptr_req->error = 0;
@@ -457,31 +455,32 @@ sproco(r03bufv,r03bufv_dtr,double)
 
 	/* Initialize request message */
 	req_ptr = (req_msg *) &(quickptr_req->pkt);
-	req_ptr->family         = htons(EQP_POW);
+	req_ptr->family         = (EQP_POW);
 	req_ptr->type           = TYPE;
 	req_ptr->sub_family     = SUB_FAMILY;
-	req_ptr->member         = htons(membno);
-	req_ptr->service        = htons(1);     /* read back ctrl msg */
-	req_ptr->cycle.machine  = htons(gm_getmachine());
-	req_ptr->cycle.pls_line = htons(plsline);
-	req_ptr->specialist     = htons(0);
+	req_ptr->member         = (membno);
+	req_ptr->service        = (1);     /* read back ctrl msg */
+	req_ptr->cycle.machine  = (gm_getmachine());
+	req_ptr->cycle.pls_line = (plsline);
+	req_ptr->specialist     = (0);
 
 	/* Send request message to G64 */
 	if (send_quick_data (quickptr_req) != 0) {
 		*coco = EQP_QCKDATERR;
 		return;
 	}
-	quickptr_ctl->bc = UPW(dtr->address1); /* BC number */
+	quickptr_ctl->bc = UPW(dtr->address1)-1; /* BC number */
 	quickptr_ctl->rt = LOW(dtr->address1); /* RT number */
+	quickptr_ctl->pktcnt = sizeof(ctrl_msg);
 	quickptr_ctl->next = NOL;
-	clk = clock () + 100000;    /* timeout 100ms */
+	clk = GetCurrentTimeMsec() + 100;    /* timeout 100ms */
 
 	/* Wait for the reply message */
 	get_quick_data (quickptr_ctl);
-	while ((clock () < clk) && (quickptr_ctl->error != 0)) {
+	while ((GetCurrentTimeMsec() < clk) && (quickptr_ctl->error != 0)) {
 		get_quick_data (quickptr_ctl);
 	}
-	if (clock () >= clk) {
+	if (GetCurrentTimeMsec() >= clk) {
 		*coco = EQP_TIMOUT;
 		return;
 	}
@@ -500,25 +499,25 @@ sproco(r03bufv,r03bufv_dtr,double)
 	ctrl_ptr = (ctrl_msg *) &(quickptr_ctl->pkt);
 
 	/* check if wanted service was delivered */
-	if (ctrl_ptr->service != ntohs(1))
+	if (ctrl_ptr->service != (1))
 		*coco = EQP_SERVICERR;
 
-	value[0] = (double) ntohs(ctrl_ptr->family);
+	value[0] = (double) (ctrl_ptr->family);
 	value[1] = (double) ctrl_ptr->type;
 	value[2] = (double) ctrl_ptr->sub_family;
-	value[3] = (double) ntohs(ctrl_ptr->member);
-	value[4] = (double) ntohs(ctrl_ptr->service);
-	value[5] = (double) ntohs(ctrl_ptr->cycle.machine);
-	value[6] = (double) ntohs(ctrl_ptr->cycle.pls_line);
-	value[7] = (double) ntohl(ctrl_ptr->protocol_date.sec);
-	value[8] = (double) ntohl(ctrl_ptr->protocol_date.usec);
-	value[9] = (double) ntohs(ctrl_ptr->specialist);
+	value[3] = (double) (ctrl_ptr->member);
+	value[4] = (double) (ctrl_ptr->service);
+	value[5] = (double) (ctrl_ptr->cycle.machine);
+	value[6] = (double) (ctrl_ptr->cycle.pls_line);
+	value[7] = (double) (ctrl_ptr->protocol_date.sec);
+	value[8] = (double) (ctrl_ptr->protocol_date.usec);
+	value[9] = (double) (ctrl_ptr->specialist);
 	value[10] = (double) ctrl_ptr->ccsact_change;
 	value[11] = (double) ctrl_ptr->ccsact;
-	value[12] = ntohx(ctrl_ptr->ccv);
-	value[13] = ntohx(ctrl_ptr->ccv1);
-	value[14] = ntohx(ctrl_ptr->ccv2);
-	value[15] = ntohx(ctrl_ptr->ccv3);
+	value[12] = (ctrl_ptr->ccv);
+	value[13] = (ctrl_ptr->ccv1);
+	value[14] = (ctrl_ptr->ccv2);
+	value[15] = (ctrl_ptr->ccv3);
 	value[16] = (double) ctrl_ptr->ccv_change;
 	value[17] = (double) ctrl_ptr->ccv1_change;
 	value[18] = (double) ctrl_ptr->ccv2_change;
@@ -548,7 +547,7 @@ sproco(r03ccsav,r03ccsav_dtr,int)
 	}
 
 	/* for slave power supplies, make same operation for corresponding master */
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1)) {/* this is slave power supply */
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		eqm_svse(EQP_POW, value, EQM_TYP_INT, RFLAG, dtr->elmstr, EQP_CCSACT, plsline, coco);
 		return;
 	}
@@ -594,22 +593,22 @@ sproco(r03ccvv,r03ccvv_dtr,double)
 	dtrs = (ppm_ctrl_msg *) dtr;/* overlay */
 	switch (dtr->casesel) {
 		case 0:
-			*value = ntohx(dtrs->ccv);
+			*value = (dtrs->ccv);
 			if (dtrs->ccv_change != 1)
 				*coco = EQP_CCLNSET;
 			return;
 		case 1:
-			*value = ntohx(dtrs->ccv1);
+			*value = (dtrs->ccv1);
 			if (dtrs->ccv1_change != 1)
 				*coco = EQP_CCLNSET;
 			return;
 		case 2:
-			*value = ntohx(dtrs->ccv2);
+			*value = (dtrs->ccv2);
 			if (dtrs->ccv2_change != 1)
 				*coco = EQP_CCLNSET;
 			return;
 		case 3:
-			*value = ntohx(dtrs->ccv3);
+			*value = (dtrs->ccv3);
 			if (dtrs->ccv3_change != 1)
 				*coco = EQP_CCLNSET;
 			return;
@@ -635,9 +634,9 @@ sproco(r03confv,r03confv_dtr,double)
 	struct quick_data_buffer   *quickptr_ctl = &receive_buf;
 	req_msg                    *req_ptr;
 	conf_msg                   *conf_ptr;
-	clock_t                     clk;
+	unsigned long clk;
 
-	quickptr_req->bc = UPW(dtr->address1); /* BC number */
+	quickptr_req->bc = UPW(dtr->address1)-1; /* BC number */
 	quickptr_req->rt = LOW(dtr->address1); /* RT number */
 	quickptr_req->stamp = 0;
 	quickptr_req->error = 0;
@@ -646,31 +645,32 @@ sproco(r03confv,r03confv_dtr,double)
 
 	/* Initialize request message */
 	req_ptr = (req_msg *) &(quickptr_req->pkt);
-	req_ptr->family         = htons(EQP_POW);
+	req_ptr->family         = (EQP_POW);
 	req_ptr->type           = TYPE;
 	req_ptr->sub_family     = SUB_FAMILY;
-	req_ptr->member         = htons(membno);
-	req_ptr->service        = htons(5);     /* read back ctrl msg */
-	req_ptr->cycle.machine  = htons(gm_getmachine());
-	req_ptr->cycle.pls_line = htons(plsline);
-	req_ptr->specialist     = htons(0);
+	req_ptr->member         = (membno);
+	req_ptr->service        = (5);     /* read back ctrl msg */
+	req_ptr->cycle.machine  = (gm_getmachine());
+	req_ptr->cycle.pls_line = (plsline);
+	req_ptr->specialist     = (0);
 
 	/* Send request message to G64 */
 	if (send_quick_data (quickptr_req) != 0) {
 		*coco = EQP_QCKDATERR;
 		return;
 	}
-	quickptr_ctl->bc = UPW(dtr->address1); /* BC number */
+	quickptr_ctl->bc = UPW(dtr->address1)-1; /* BC number */
 	quickptr_ctl->rt = LOW(dtr->address1); /* RT number */
+	quickptr_ctl->pktcnt = sizeof(ctrl_msg);
 	quickptr_ctl->next = NOL;
-	clk = clock () + 100000;    /* timeout 100ms */
+	clk = GetCurrentTimeMsec() + 100;    /* timeout 100ms */
 
 	/* Wait for the reply message */
 	get_quick_data (quickptr_ctl);
-	while ((clock () < clk) && (quickptr_ctl->error != 0)) {
+	while ((GetCurrentTimeMsec() < clk) && (quickptr_ctl->error != 0)) {
 		get_quick_data (quickptr_ctl);
 	}
-	if (clock () >= clk) {
+	if (GetCurrentTimeMsec() >= clk) {
 		*coco = EQP_TIMOUT;
 		return;
 	}
@@ -689,25 +689,25 @@ sproco(r03confv,r03confv_dtr,double)
 	conf_ptr = (conf_msg *) &(quickptr_ctl->pkt);
 
 	/* check if wanted service was delivered */
-	if (conf_ptr->service != ntohs(5))
+	if (conf_ptr->service != (5))
 	    *coco = EQP_SERVICERR;
 
-	value[0] = (double) ntohs(conf_ptr->family);
+	value[0] = (double) (conf_ptr->family);
 	value[1] = (double) conf_ptr->type;
 	value[2] = (double) conf_ptr->sub_family;
-	value[3] = (double) ntohs(conf_ptr->member);
-	value[4] = (double) ntohs(conf_ptr->service);
-	value[5] = (double) ntohs(conf_ptr->cycle.machine);
-	value[6] = (double) ntohs(conf_ptr->cycle.pls_line);
-	value[7] = (double) ntohl(conf_ptr->protocol_date.sec);
-	value[8] = (double) ntohl(conf_ptr->protocol_date.usec);
-	value[9] = (double) ntohs(conf_ptr->specialist);
-	value[10] = ntohx(conf_ptr->i_nominal);
-	value[11] = ntohx(conf_ptr->resolution);
-	value[12] = ntohx(conf_ptr->i_max);
-	value[13] = ntohx(conf_ptr->i_min);
-	value[14] = ntohx(conf_ptr->di_dt);
-	value[15] = ntohx(conf_ptr->mode);
+	value[3] = (double) (conf_ptr->member);
+	value[4] = (double) (conf_ptr->service);
+	value[5] = (double) (conf_ptr->cycle.machine);
+	value[6] = (double) (conf_ptr->cycle.pls_line);
+	value[7] = (double) (conf_ptr->protocol_date.sec);
+	value[8] = (double) (conf_ptr->protocol_date.usec);
+	value[9] = (double) (conf_ptr->specialist);
+	value[10] = (conf_ptr->i_nominal);
+	value[11] = (conf_ptr->resolution);
+	value[12] = (conf_ptr->i_max);
+	value[13] = (conf_ptr->i_min);
+	value[14] = (conf_ptr->di_dt);
+	value[15] = (conf_ptr->mode);
 }
 
 /*****************************************************************************
@@ -758,13 +758,13 @@ sproco(r03datev,r03datev_dtr,int)
 	/* check if there was a wrong transfer from G64 */
 	if (bffrv != 0)
 		*coco = bffrv;       /* error in communication */
-	if ((bffrv == 0) && ((dtrs->service == ntohs(1)) || (dtrs->service == ntohs(5))))
+	if ((bffrv == 0) && ((dtrs->service == (1)) || (dtrs->service == (5))))
 		*coco = EQP_SERVICERR;
 	if ((bffrv == 0) && (dtrs->service != 0) && (*coco != EQP_SERVICERR))
 		*coco = EQP_BADBUF;
 
-	value[0] = ntohl(dtrs->protocol_date.sec);
-	value[1] = ntohl(dtrs->protocol_date.usec);
+	value[0] = (dtrs->protocol_date.sec);
+	value[1] = (dtrs->protocol_date.usec);
 }
 
 /*****************************************************************************
@@ -790,7 +790,7 @@ sproco(r03dbpul,r03dbpul_dtr,int)
 	aqntrm_msb = (dtr->trm >> 8) & 0x7;
 	dtrs = (ppm_ctrl_msg *) &(dtr->ccva[0]);        /* overlay */
 
-	if ((aqntrm_msb == 6) && (ntohx(dtrs->ccv1) != 0.))
+	if ((aqntrm_msb == 6) && ((dtrs->ccv1) != 0.))
 		*value = 1;
 	else
 		*value = 0;
@@ -819,7 +819,7 @@ sproco(r03mnmx,r03mnmx_dtr,double)
 		return;
 	}
 	/* for slave power supplies, make same operation for corresponding master */
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1)) {/* this is slave power supply */
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		switch (dtr->select)  {   /* decide with which property */
 		    case 1: property = EQP_MAXV1; break;
 		    case 2: property = EQP_MINV1; break;
@@ -866,7 +866,7 @@ typedef struct {
 sproco(r03ctlstmp,r03ctlstmp_dtr,double)
 {
 	/* for slave power supplies, force stamp=0  to force reading staq*/
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1))
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) /* this is slave power supply */
 		*value =0;
 	else
 		*value = dtr->ctlstmp;
@@ -930,19 +930,19 @@ sproco(r03riv,r03riv_dtr,int)
 
 	/* check if there was a wrong transfer from G64 */
 	if (bffrv != 0)  *coco = bffrv;       /* error in communication */
-	if ((bffrv == 0) && ((dtrs->service == ntohs(1)) || (dtrs->service == ntohs(5))))
+	if ((bffrv == 0) && ((dtrs->service == (1)) || (dtrs->service == (5))))
 		*coco = EQP_SERVICERR;
 	if ((bffrv == 0) && (dtrs->service != 0) && (*coco != EQP_SERVICERR))
 		*coco = EQP_BADBUF;
 
 	/* select value corresponding to case data column */
 	switch (dtr->casesel) {
-	    case 1:     *value = ntohs(dtrs->specialist); return;
+	    case 1:     *value = (dtrs->specialist); return;
 	    case 2:     *value = dtrs->phys_status; return;
 	    case 3:     *value = dtrs->static_status; return;
 	    case 4:     *value = dtrs->ext_aspect; return;
 	    case 5:     *value = dtrs->status_qualif; return;
-	    case 6:     *value = ntohs(dtrs->busytime); return;
+	    case 6:     *value = (dtrs->busytime); return;
 	    default:    *coco = EQP_ILLDTENT; return;
 	}
 }
@@ -1006,17 +1006,17 @@ sproco(r03rrv,r03rrv_dtr,double)
 	/* check if there was a wrong transfer from G64 */
 	if (bffrv != 0)
 		*coco = bffrv;       /* error in communication */
-	if ((bffrv == 0) && ((dtrs->service == ntohs(1)) || (dtrs->service == ntohs(5))))
+	if ((bffrv == 0) && ((dtrs->service == (1)) || (dtrs->service == (5))))
 		*coco = EQP_SERVICERR;
 	if ((bffrv == 0) && (dtrs->service != 0) && (*coco != EQP_SERVICERR))
 		*coco = EQP_BADBUF;
 
 	/* select value corresponding to case data column */
 	switch (dtr->casesel) {
-		case 0: *value = ntohx(dtrs->aqn); return;
-		case 1: *value = ntohx(dtrs->aqn1); return;
-		case 2: *value = ntohx(dtrs->aqn2); return;
-		case 3: *value = ntohx(dtrs->aqn3); return;
+		case 0: *value = (dtrs->aqn); return;
+		case 1: *value = (dtrs->aqn1); return;
+		case 2: *value = (dtrs->aqn2); return;
+		case 3: *value = (dtrs->aqn3); return;
 		default: *coco = EQP_ILLDTENT; return;
 	}
 }
@@ -1070,7 +1070,7 @@ sproco(r03staqv,r03staqv_dtr,int)
 	/* check if there was a wrong transfer from G64 */
 	if (bffrv != 0)
 		*coco = bffrv;       /* error in communication */
-	if ((bffrv == 0) && ((dtrs->service == ntohs(1)) || (dtrs->service == ntohs(5))))
+	if ((bffrv == 0) && ((dtrs->service == (1)) || (dtrs->service == (5))))
 		*coco = EQP_SERVICERR;
 	if ((bffrv == 0) && (dtrs->service != 0) && (*coco != EQP_SERVICERR))
 		*coco = EQP_BADBUF;
@@ -1201,7 +1201,7 @@ sproco(w03ccsav,w03ccsav_dtr,int)
 	dtrs->ccsact_change = 1;
 
 	/* for multiple power converters */
-	if (dtr->elmstr > 0 && dtr->plsdbl == (-1)) {
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		fen = get_locelno(bls_num, dtr->elmstr); /*get next in list*/
 		j=0;
 		while ((membno != fen) && (fen > 0) && (j<32)) { /*stop when master is initial elno or err*/
@@ -1227,14 +1227,14 @@ sproco(w03ccsav,w03ccsav_dtr,int)
 
 		gettimeofday(&da, NULL);  /* get TOD (Unix format) */
 		memset((char *)&pkt, 0, sizeof(struct quick_data_buffer));
-		pkt.bc = UPW(adr1);
+		pkt.bc = UPW(adr1)-1;
 		pkt.rt = LOW(adr1);
 		pkt.stamp = membno;
 		pkt.next = NULL;
 		ctrl = (ctrl_msg *) &pkt.pkt[0];
 		memcpy(ctrl, dtrs, sizeof(nonppm_ctrl_msg));
-		ctrl->protocol_date.sec = htonl(da.tv_sec);
-		ctrl->protocol_date.usec = htonl(da.tv_usec);
+		ctrl->protocol_date.sec = (da.tv_sec);
+		ctrl->protocol_date.usec = (da.tv_usec);
 
 		pkt.pktcnt = sizeof(ctrl_msg);      /* size of control message = 44 */
 		if (send_quick_data(&pkt) != 0) {   /* MIL-1553 error (encoded in errno) */
@@ -1287,7 +1287,7 @@ sproco(w03ccvv,w03ccvv_dtr,double)
 	dtrs = (ppm_ctrl_msg *) &(dtr->ccva[0]);        /* overlay */
 	switch (dtr->casesel) {
 		case 0:
-			htonx(dtrs->ccv, *value);
+			(dtrs->ccv = *value);
 			dtrs->ccv_change = 1;
 			return;
 		case 1:
@@ -1295,7 +1295,7 @@ sproco(w03ccvv,w03ccvv_dtr,double)
 			   *coco = EQP_ENPROPILL;
 			   return;
 			}
-			htonx(dtrs->ccv1, *value);
+			(dtrs->ccv1 = *value);
 			dtrs->ccv1_change = 1;
 			return;
 		case 2:
@@ -1303,7 +1303,7 @@ sproco(w03ccvv,w03ccvv_dtr,double)
 			   *coco = EQP_ENPROPILL;
 			   return;
 			}
-			htonx(dtrs->ccv2, *value);
+			(dtrs->ccv2 = *value);
 			dtrs->ccv2_change = 1;
 			return;
 		case 3:
@@ -1311,7 +1311,7 @@ sproco(w03ccvv,w03ccvv_dtr,double)
 			   *coco = EQP_ENPROPILL;
 			   return;
 			}
-			htonx(dtrs->ccv3, *value);
+			(dtrs->ccv3 = *value);
 			dtrs->ccv3_change = 1;
 			return;
 		default:
@@ -1353,7 +1353,7 @@ sproco(w03dbpul,w03dbpul_dtr,int)
 		return;
 	}
 	if ((ccvtrm == 6) || (ccvtrm == 8)) {
-		htonx(dtrs->ccv1, *value == 0 ? 0. : 1.);
+		(dtrs->ccv1 = (*value == 0) ? 0. : 1.);
 		dtrs->ccv1_change = 1;
 	}
 	if (ccvtrm == 8) {
@@ -1373,7 +1373,7 @@ sproco(w03dbpul,w03dbpul_dtr,int)
 				*coco = co[1];
 				return;
 			}
-			htonx(dtva.ccv1, *value == 0 ? 0. : 1.);
+			(dtva.ccv1 = (*value == 0) ? 0. : 1.);
 			dtva.ccv1_change = 1;
 			eqm_dtw_iv(bls_num, EQP_CCVA, &data, 5, el, 2, -i, co, 2);
 			if (co[0] != 0) {
@@ -1410,7 +1410,7 @@ sproco(w03incvv,w03incvv_dtr,double)
 
 	/* calculate new CCV value */
 	dtrs = (ppm_ctrl_msg *) &(dtr->ccva[0]);        /* overlay */
-	new_value = *value + (double) ntohx(dtrs->ccv);
+	new_value = *value + (double) (dtrs->ccv);
 
 	/* check treatment code for CCV control */
 	if (!(dtr->trm >> 12) & 0xF) {
@@ -1425,7 +1425,7 @@ sproco(w03incvv,w03incvv_dtr,double)
 	}
 
 	/* write value into ctrl message */
-	htonx(dtrs->ccv, new_value);
+	(dtrs->ccv = new_value);
 	dtrs->ccv_change = 1;
 }
 
@@ -1456,13 +1456,13 @@ sproco(w03initv,w03initv_dtr,int)
 	/* initialize header */
 	ccatrm = (dtr->trm >> 4) & 0xf;
 
-	dtrs1->family = htons(3);
+	dtrs1->family = (3);
 	dtrs1->type = 1;
 	dtrs1->sub_family = 0;
-	dtrs1->member = htons(membno);
-	dtrs1->service = htons(0);
-	dtrs1->cycle.machine = htons(gm_getmachine());
-	dtrs1->specialist = htons(0);
+	dtrs1->member = (membno);
+	dtrs1->service = (0);
+	dtrs1->cycle.machine = (gm_getmachine());
+	dtrs1->specialist = (0);
 
 	if (ccatrm == 0) {  /* reset actuation fields */
 		dtrs1->ccsact_change = 0;
@@ -1540,7 +1540,7 @@ sproco(w03mnmx,w03mnmx_dtr,double)
 		return;
 	}
 	/* for slave power supplies, make same operation for corresponding master */
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1)) {/* this is slave power supply */
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		switch (dtr->select)  {   /* decide with which property */
 		    case 1: property = EQP_MAXV1; break;
 		    case 2: property = EQP_MINV1; break;
@@ -1579,7 +1579,7 @@ sproco(w03setav,w03setav_dtr,int)
 	}
 
 	/* for slave power supplies, make same operation for corresponding master */
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1)) {/* this is slave power supply */
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		eqm_svse(EQP_POW, value, EQM_TYP_INT, WFLAG, dtr->elmstr, EQP_SETA, plsline, coco);
 		return;
 	}
@@ -1665,12 +1665,12 @@ sproco(w03tbitv,w03tbitv_dtr,int)
 	}
 
 	/* for slave power supplies, make same operation for corresponding master */
-	if (dtr->elmstr > 0 && dtr->plsdbl != (-1)) { /* this is slave power supply */
+	if ((dtr->elmstr > 0) && (dtr->plsdbl != (-1))) { /* this is slave power supply */
 		eqm_svse(EQP_POW, value, EQM_TYP_INT, WFLAG, dtr->elmstr, EQP_TBIT, plsline, coco);
 		return;
 	}
 
 	/* write testbit into non ppm message */
 	dtrs = (nonppm_ctrl_msg *) dtr;/* overlay */
-	dtrs->specialist = htons((short) *value);
+	dtrs->specialist = ((short) *value);
 }
