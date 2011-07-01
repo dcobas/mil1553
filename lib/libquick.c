@@ -134,8 +134,10 @@ short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 	struct msg_header_s *msh;
 	struct quick_data_buffer *qptr;
 	unsigned short *wptr;
-	int i, j, cc, wc;
+	int i, j, cc, wc, occ;
 	unsigned short txbuf[TX_BUF_SIZE];
+
+	occ = 0;    /* Clear overall completion code */
 
 	qptr = quick_pt;
 	while (qptr) {
@@ -161,12 +163,13 @@ short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 		cc = rtilib_send_eqp(fn,qptr->bc,qptr->rt,wc,txbuf);
 		if (cc) {
 			qptr->error = (short) cc;
-			return cc;
-		}
-		qptr->error = 0;
+			occ = cc;  /* Overall cc error, continue with next */
+		} else
+			qptr->error = 0;
+
 		qptr = qptr->next;
 	}
-	return 0;
+	return occ;
 }
 
 /**
@@ -200,8 +203,10 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 	struct msg_header_s *msh;
 	struct quick_data_buffer *qptr;
 	unsigned short *wptr;
-	int i, j, cc, wc;
+	int i, j, cc, wc, occ;
 	unsigned short rxbuf[RX_BUF_SIZE], str, rti;
+
+	occ = 0;    /* Clear overall completion code */
 
 	qptr = quick_pt;
 	while (qptr) {
@@ -214,25 +219,30 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 		cc = rtilib_recv_eqp(fn,qptr->bc,qptr->rt,wc,rxbuf);
 		if (cc) {
 			qptr->error = (short) cc;
-			return cc;
+			occ = cc;  /* Overall cc error, continue with next */
+			goto Next_qp;
 		}
 		str = rxbuf[0];
 		if (str & STR_TIM) {
 			qptr->error = ETIMEDOUT;
-			return ETIMEDOUT;
+			occ = qptr->error;
+			goto Next_qp;
 		}
 		if (str & STR_ME) {
 			qptr->error = EPROTO;
-			return EPROTO;
+			occ = qptr->error;
+			goto Next_qp;
 		}
 		if (str & STR_BUY) {
 			qptr->error = EBUSY;
-			return EBUSY;
+			occ = qptr->error;
+			goto Next_qp;
 		}
 		rti = (str & STR_RTI_MASK) >> STR_RTI_SHIFT;
 		if (qptr->rt != rti) {
 			qptr->error = ENODEV;
-			return ENODEV;
+			occ = qptr->error;
+			goto Next_qp;
 		}
 		msh = (struct msg_header_s *) &rxbuf[1];
 #ifdef DEBUG
@@ -243,9 +253,9 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 			wptr[i] = rxbuf[j];
 
 		qptr->error = 0;
-		qptr = qptr->next;
+Next_qp:        qptr = qptr->next;
 	}
-	return 0;
+	return occ;
 }
 
 /**
