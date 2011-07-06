@@ -593,14 +593,14 @@ int find_start(unsigned int bc,
 	for (i=0; i<item_count; i++)
 		if (bc == item_array[i].bc)
 			return i;
-	return -1;
+	return 0;
 }
 
 /**
  * @brief Find the end item for a BC
  * @param item_count is the number of items in the array
  * @param item_array is an array to execute on RTIs for multiple bus controllers
- * @return index of first item in array for the given BC or -1 if not found
+ * @return index of last item in array for the given BC or -1 if not found
  */
 
 int find_end(unsigned int bc,
@@ -612,7 +612,7 @@ int find_end(unsigned int bc,
 	for (i=item_count-1; i>=0; i--)
 		if (bc == item_array[i].bc)
 			return i;
-	return -1;
+	return 0;
 }
 
 /**
@@ -641,7 +641,7 @@ static int send_items(struct client_s *client,
 {
 
 	unsigned long flags;
-	int i, j, wc, bc, rtin=1, res, strs[MAX_DEVS], ends[MAX_DEVS];
+	int i, j, wc, bc, rtin=1, res, strs[MAX_DEVS+1], ends[MAX_DEVS+1];
 	struct tx_item_s tx_item;
 	uint32_t *rp, *wp;
 	struct mil1553_device_s *mdev = NULL;
@@ -658,14 +658,14 @@ static int send_items(struct client_s *client,
 
 	for (i=0; i<item_count; i++) {
 		bc = item_array[i].bc;
-		if (bc >= wa.bcs) {
+		mdev = get_dev(bc);
+		if (!mdev) {
 			if (client->debug_level > 2)
 				printk("mil1553:send_items:No such BC:Error:Bc:%02d\n",rtin);
 			return -EFAULT;
 		}
 
 		rtin = item_array[i].rti_number;
-		mdev = &(wa.mil1553_dev[bc]);
 		if (check_rti_up(mdev,rtin) == 0) {
 			if (client->debug_level > 2)
 				printk("mil1553:send_items:CheckRtis:Error:Bc:%02d Rti:%02d Down\n",bc,rtin);
@@ -677,8 +677,11 @@ static int send_items(struct client_s *client,
 	/* that will deliniate a transaction. */
 
 	for (i=0; i<wa.bcs; i++) {
-		strs[i] = find_start(i,item_count,item_array);
-		ends[i] = find_end(i,item_count,item_array);
+		bc = wa.mil1553_dev[i].bc;
+		if (bc > 0) {
+			strs[bc] = find_start(bc,item_count,item_array);
+			ends[bc] = find_end(bc,item_count,item_array);
+		}
 	}
 
 	res = 0;
@@ -709,7 +712,7 @@ static int send_items(struct client_s *client,
 
 		/* Get the target tx_queue for the bus controller */
 
-		mdev = &(wa.mil1553_dev[bc]);
+		mdev = get_dev(bc);
 		tx_queue = mdev->tx_queue;
 
 		/* Put item on the tx_queue of the bus controller */
@@ -733,8 +736,9 @@ static int send_items(struct client_s *client,
 
 	/* Start all bus controllers with their transactions to be done */
 
-	for (bc=0; bc<wa.bcs; bc++) {
+	for (bc=1; bc<=wa.bcs; bc++) {
 		if (strs[bc] >= 0) {
+			mdev = get_dev(bc);
 			start_tx(client->debug_level,mdev);
 			if (client->debug_level > 3)
 				printk("mil1553:send_items:Bc:%d start_tx\n",bc);
