@@ -153,18 +153,17 @@ static int check_args(void)
 {
        int i;
 
-	printk(KERN_ERR "checking insmod args\n");
        if (bc_num <= 0 || bc_num > MAX_DEVS) {
-	       printk(KERN_ERR "mill1553:bad BC count:%d, not installing\n",bc_num);
+	       printk("mill1553:bad BC count:%d, not installing\n",bc_num);
 	       return 0;
        }
        if ((bc_num != pci_slot_num) || (bc_num != pci_bus_num)) {
-	       printk(KERN_ERR "mill1553:bad parameter count\n");
+	       printk("mill1553:bad parameter count\n");
 	       return 0;
        }
        for (i=0; i<bc_num; i++) {
 	       if ((bcs[i] <= 0) || (bcs[i] >= MAX_DEVS)) {
-		       printk(KERN_ERR "mill1553:bad BC num:%d\n", bcs[i]);
+		       printk("mill1553:bad BC num:%d\n", bcs[i]);
 		       return 0;
 	       }
        }
@@ -593,7 +592,7 @@ int find_start(unsigned int bc,
 	for (i=0; i<item_count; i++)
 		if (bc == item_array[i].bc)
 			return i;
-	return 0;
+	return -1;
 }
 
 /**
@@ -612,7 +611,7 @@ int find_end(unsigned int bc,
 	for (i=item_count-1; i>=0; i--)
 		if (bc == item_array[i].bc)
 			return i;
-	return 0;
+	return -1;
 }
 
 /**
@@ -679,8 +678,10 @@ static int send_items(struct client_s *client,
 	for (i=0; i<wa.bcs; i++) {
 		bc = wa.mil1553_dev[i].bc;
 		if (bc > 0) {
-			strs[bc] = find_start(bc,item_count,item_array);
-			ends[bc] = find_end(bc,item_count,item_array);
+			j = find_start(bc,item_count,item_array);
+			if (j >= 0) strs[bc] = j;
+			j = find_end(bc,item_count,item_array);
+			if (j >= 0) ends[bc] = j;
 		}
 	}
 
