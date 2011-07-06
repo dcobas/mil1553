@@ -20,8 +20,8 @@
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
 
-#include <mil1553.h>
-#include <mil1553P.h>
+#include "mil1553.h"
+#include "mil1553P.h"
 
 static int   mil1553_major      = 0;
 static char *mil1553_major_name = "mil1553";
@@ -30,6 +30,26 @@ MODULE_AUTHOR("Julian Lewis BE/CO/HT CERN");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MIL1553 Driver");
 MODULE_SUPPORTED_DEVICE("CBMIA PCI module");
+
+/**
+ * Module parameters bcs=7,4,3,5 pci_bus=1,1,2,3 pci_slot=4,5,4,5
+ */
+
+static int bcs[MAX_DEVS];
+static int pci_buses[MAX_DEVS];
+static int pci_slots[MAX_DEVS];
+
+static int bc_num;
+static int pci_bus_num;
+static int pci_slot_num;
+
+module_param_array(bcs,       int, &bc_num,       0);
+module_param_array(pci_buses, int, &pci_bus_num,  0);
+module_param_array(pci_slots, int, &pci_slot_num, 0);
+
+MODULE_PARM_DESC(bcs,       "bus controller number 1..8");
+MODULE_PARM_DESC(pci_buses, "pci bus number");
+MODULE_PARM_DESC(pci_slots, "pci slot number");
 
 #ifndef COMPILE_TIME
 #define COMPILE_TIME 0
@@ -102,6 +122,72 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 };
 
 /**
+ * =========================================================
+ * @brief Get device corresponding to a given BC
+ * @param Given BC number of device
+ * @return Pointer to device if exists, else NULL
+ */
+
+struct mil1553_device_s *get_dev(int bc)
+{
+	int i;
+	struct mil1553_device_s *mdev;
+
+	if (bc > 0) {
+		for (i=0; i<wa.bcs; i++) {
+			mdev = &(wa.mil1553_dev[i]);
+			if (mdev->bc == bc)
+				return mdev;
+		}
+	}
+	printk("mil1553:Illegal BC number:%d\n",bc);
+	return NULL;
+}
+
+/**
+ * =========================================================
+ * Validate insmod args
+ */
+
+static int check_args(void)
+{
+       int i;
+
+	printk(KERN_ERR "checking insmod args\n");
+       if (bc_num <= 0 || bc_num > MAX_DEVS) {
+	       printk(KERN_ERR "mill1553:bad BC count:%d, not installing\n",bc_num);
+	       return 0;
+       }
+       if ((bc_num != pci_slot_num) || (bc_num != pci_bus_num)) {
+	       printk(KERN_ERR "mill1553:bad parameter count\n");
+	       return 0;
+       }
+       for (i=0; i<bc_num; i++) {
+	       if ((bcs[i] <= 0) || (bcs[i] >= MAX_DEVS)) {
+		       printk(KERN_ERR "mill1553:bad BC num:%d\n", bcs[i]);
+		       return 0;
+	       }
+       }
+       return 1;
+}
+
+/**
+ * =========================================================
+ * Hunt for a BC number given the PCI bus and slot numbers
+ */
+
+int hunt_bc(int bus, int slot)
+{
+	int i;
+	for (i=0; i<bc_num; i++)
+		if ((pci_slots[i] == slot)
+		&&  (pci_buses[i] == bus))
+			return bcs[i];
+	return 0;
+}
+
+/**
+ * =========================================================
  * @brief Print debug information
  * @param debug_level  debug level 0..7
  * @param ionr         command number decoded
@@ -917,7 +1003,9 @@ struct pci_dev *add_next_dev(struct pci_dev *pcur,
 		return NULL;
 	}
 
-	printk("mil1553:BC:%d INSTALLED:OK\n",mdev->bc);
+	printk("mil1553:Device Bus:%d Slot:%d INSTALLED:OK\n",
+	       mdev->pci_bus_num,
+	       mdev->pci_slt_num);
 	return pcur;
 }
 
@@ -972,33 +1060,46 @@ static void init_device(struct mil1553_device_s *mdev) {
 
 int mil1553_install(void)
 {
-	int cc, bc;
+	int cc, i, bc = 0;
 	struct pci_dev *pdev = NULL;
 	struct mil1553_device_s *mdev;
 
-	cc = register_chrdev(mil1553_major, mil1553_major_name, &mil1553_fops);
-	if (cc < 0)
-		return cc;
-	if (mil1553_major == 0)
-		mil1553_major = cc; /* dynamic */
-
 	memset(&wa, 0, sizeof(struct working_area_s));
 
-	for (bc=0; bc<MAX_DEVS; bc++) {
-		mdev = &wa.mil1553_dev[bc];
-		mdev->bc = bc;
-		spin_lock_init(&mdev->lock);
-		mdev->tx_queue = &wa.tx_queue[bc];
-		spin_lock_init(&mdev->tx_queue->lock);
+	if (check_args()) {
 
-		mdev->pdev = add_next_dev(pdev,mdev);
-		if (!mdev->pdev)
-			break;
-		init_device(mdev);
-		printk("BC:%d SerialNumber:0x%08X%08X\n",
-			bc,mdev->snum_h,mdev->snum_l);
-		pdev = mdev->pdev;
-		wa.bcs++;
+		cc = register_chrdev(mil1553_major, mil1553_major_name, &mil1553_fops);
+		if (cc < 0)
+			return cc;
+		if (mil1553_major == 0)
+			mil1553_major = cc; /* dynamic */
+
+		for (i=0; i<MAX_DEVS; i++) {
+			mdev = &wa.mil1553_dev[i];
+			spin_lock_init(&mdev->lock);
+			mdev->tx_queue = &wa.tx_queue[i];
+			spin_lock_init(&mdev->tx_queue->lock);
+
+			mdev->pdev = add_next_dev(pdev,mdev);
+			if (!mdev->pdev)
+				break;
+
+			bc = hunt_bc(mdev->pci_bus_num,mdev->pci_slt_num);
+			printk("mil1553:Hunt:Bus:%d Slot:%d => BC:%d\n",
+			       mdev->pci_bus_num,
+			       mdev->pci_slt_num,
+			       bc);
+			if (!bc)
+				printk("mil1553:Device not declared in insmod arg list\n");
+
+			mdev->bc = bc; /* This will be zero = invalid if not in args */
+
+			init_device(mdev);
+			printk("BC:%d SerialNumber:0x%08X%08X\n",
+				bc,mdev->snum_h,mdev->snum_l);
+			pdev = mdev->pdev;
+			wa.bcs++;
+		}
 	}
 	printk("mil1553:Installed:%d Bus controllers\n",wa.bcs);
 	return 0;
@@ -1127,11 +1228,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		case mil1553GET_STATUS:        /** Reads the status register */
 
 			bc = *ularg;
-			if (bc >= wa.bcs) {
+			mdev = get_dev(bc);
+			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			mdev = &wa.mil1553_dev[bc];
 			memory_map = mdev->memory_map;
 			reg = ioread32be(&memory_map->hstat);
 			*ularg = (reg & HSTAT_STAT_MASK) >> HSTAT_STAT_SHIFT;
@@ -1141,11 +1242,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 			bus_speed = mem;
 			bc = bus_speed->bc;
-			if (bc >= wa.bcs) {
+			mdev = get_dev(bc);
+			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			mdev = &wa.mil1553_dev[bc];
 			memory_map = mdev->memory_map;
 			reg = ((bus_speed->speed << CMD_SPEED_SHIFT) & CMD_SPEED_MASK) | CMD_POLL_OFF;
 			iowrite32be(reg,&memory_map->cmd);
@@ -1160,11 +1261,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 			dev_info = mem;
 			bc = dev_info->bc;
-			if (bc >= wa.bcs) {
+			mdev = get_dev(bc);
+			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			mdev = &wa.mil1553_dev[bc];
 			memory_map = mdev->memory_map;
 			dev_info->pci_bus_num = mdev->pci_bus_num;
 			dev_info->pci_slt_num = mdev->pci_slt_num;
@@ -1183,7 +1284,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		case mil1553RAW_READ:          /** Raw read PCI registers */
 
 			riob = mem;
-			if ((riob->regs > MAX_REGS) || (riob->bc >= wa.bcs)) {
+			if (riob->regs > MAX_REGS) {
 				cc = -EADDRNOTAVAIL;
 				goto error_exit;
 			}
@@ -1194,13 +1295,16 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				return -ENOMEM;
 			}
 			cnt = 0;
-			if (riob->bc < MAX_DEVS) {
-				cnt = raw_read(&wa.mil1553_dev[riob->bc],
-					       riob, buf);
-				if (cnt)
-					cc = copy_to_user(riob->buffer,
-							  buf, blen);
+			bc = riob->bc;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
 			}
+			cnt = raw_read(mdev, riob, buf);
+			if (cnt)
+				cc = copy_to_user(riob->buffer,
+						  buf, blen);
 			kfree(buf);
 			if (!cnt || cc)
 				goto error_exit;
@@ -1209,7 +1313,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		case mil1553RAW_WRITE:         /** Raw write PCI registers */
 
 			riob = mem;
-			if ((riob->regs > MAX_REGS) || (riob->bc >= wa.bcs)) {
+			if (riob->regs > MAX_REGS) {
 				cc = -EADDRNOTAVAIL;
 				goto error_exit;
 			}
@@ -1221,10 +1325,14 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			}
 			cc = copy_from_user(buf, riob->buffer, blen);
 			cnt = 0;
-			if (riob->bc < MAX_DEVS) {
-				cnt = raw_write(&wa.mil1553_dev[riob->bc],
-						riob, buf);
+			bc = riob->bc;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
 			}
+			cnt = raw_write(&wa.mil1553_dev[riob->bc],
+					riob, buf);
 			kfree(buf);
 			if (!cnt || cc)
 				goto error_exit;
@@ -1232,11 +1340,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553GET_UP_RTIS:
 			bc = *ularg;
-			if (bc >= MAX_DEVS) {
-				cc = -ENODEV;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
 				goto error_exit;
 			}
-			mdev = &wa.mil1553_dev[bc];
 			*ularg = get_up_rtis(mdev);
 		break;
 
