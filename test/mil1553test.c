@@ -35,7 +35,7 @@ static char prompt[32];
 static char *pname = NULL;
 
 int   milf = 0;
-int   bc = 0;
+int   bc = 1;
 char *reg_file = "MIL1553.regs";
 
 #include "Cmds.h"
