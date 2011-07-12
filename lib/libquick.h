@@ -35,13 +35,12 @@
  */
 
 #define welldone         0            /* no error */
-#define BC_not_connected -EFAULT      /* destination BC is not known */
-#define RT_not_connected -ENODEV      /* destination RT is not known */
-#define TB_not_set       -ETIMEDOUT   /* destination RT has nothing to send */
-#define RB_set           -EBUSY       /* destination RT has a busy receive buffer */
-#define Bad_buffer       -EACCES      /* the buffer contains bad information */
+#define BC_not_connected EFAULT       /* destination BC is not known */
+#define RT_not_connected ENODEV       /* destination RT is not known */
+#define TB_not_set       ETIMEDOUT    /* destination RT has nothing to send */
+#define RB_set           EBUSY        /* destination RT has a busy receive buffer */
+#define Bad_buffer       EPROTO       /* the buffer contains bad information */
 				      /* i.e., rt not in [0,31]; bc not in [1,31]; ... */
-#define M1553_error      -1           /* a M1553 hardware fault occured */
 
 #define QDP_USZ 240 /** Quick Packet user data size in bytes (120 words MAX) */
 
