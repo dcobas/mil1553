@@ -852,7 +852,8 @@ int cc;
    at = v->Type;
    if (at == Numeric) {
       tbc = v->Number;
-      if (tbc < bcs_count) bc = tbc;
+      if ((tbc > 0) && (tbc <= bcs_count)) bc = tbc;
+      else printf("Bad BC number:%d Not in range:1..%d\n",tbc,bcs_count);
       arg++;
    }
 

@@ -1094,10 +1094,12 @@ int mil1553_install(void)
 			       mdev->pci_bus_num,
 			       mdev->pci_slt_num,
 			       bc);
-			if (!bc)
+			if (!bc) {
 				printk("mil1553:Device not declared in insmod arg list\n");
+				break;
+			}
 
-			mdev->bc = bc; /* This will be zero = invalid if not in args */
+			mdev->bc = bc;
 
 			init_device(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
