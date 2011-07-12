@@ -87,18 +87,6 @@ int mil1553_init_quickdriver(void);
 short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt);
 
 /**
-  * @brief send a raw quick data buffer in network byte order
-  * @param file handle returned from the init routine
-  * @param pointer to data buffer
-  * @return 0 success, else negative standard system error
-  *
-  * Using this call on a power supply requires underatanding how data structures
-  * need to be serialized. EXPERTS ONLY
-  */
-
-short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
-
-/**
   * @brief get a raw quick data buffer in host byte order
   * @param file handle returned from the init routine
   * @param pointer to data buffer
@@ -109,18 +97,6 @@ short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt
   */
 
 short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt);
-
-/**
-  * @brief get a raw quick data buffer in network byte order
-  * @param file handle returned from the init routine
-  * @param pointer to data buffer
-  * @return 0 success, else negative standard system error
-  *
-  * Using this call on a power supply requires underatanding how data structures
-  * need to be serialized. EXPERTS ONLY
-  */
-
-short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
 
 /**
   * @brief send a raw quick data buffer in network order

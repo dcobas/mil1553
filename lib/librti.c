@@ -443,15 +443,3 @@ int rtilib_read_last_cmd(int fn, int bc, int rti, unsigned short *cmd) {
 	*cmd = rxbuf[0];
 	return cc;
 }
-
-/* ===================================== */
-
-void rtilib_print_error(int cc) {
-
-	char *cp;
-	if (cc) {
-		if (cc < 0) cc = -cc;
-		cp = strerror(cc);
-		fprintf(stderr,"RTI Error:%s\n",cp);
-	}
-}

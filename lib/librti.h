@@ -91,6 +91,5 @@ int rtilib_master_reset(int fn, int bc, int rti);
 int rtilib_read_last_cmd(int fn, int bc, int rti, unsigned short *cmd);
 int rtilib_send_eqp(int fn, int bc, int rti, int wc, unsigned short *txbuf);
 int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf);
-void rtilib_print_error(int cc);
 
 #endif

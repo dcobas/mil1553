@@ -821,9 +821,10 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		if (cc == 0)
 			return -ETIME;
 
-		if (cc == -ERESTARTSYS)
+		if (cc == -ERESTARTSYS) {
 			printk("mil1553:read_queue:interrupted by signal\n");
-
+			cc = -ECANCELED;
+		}
 		if (cc < 0) return cc;
 
 	} while (1);

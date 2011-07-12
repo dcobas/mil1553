@@ -190,13 +190,3 @@ void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, u
 		       | ((tr  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 		       | ((rti << TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 }
-
-void milib_print_error(int cc) {
-
-	char *cp;
-	if (cc) {
-		if (cc < 0) cc = -cc;
-		cp = strerror(cc);
-		fprintf(stderr,"Mil1553 Error:%s\n",cp);
-	}
-}

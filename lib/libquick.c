@@ -163,29 +163,13 @@ short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 		cc = rtilib_send_eqp(fn,qptr->bc,qptr->rt,wc,txbuf);
 		if (cc) {
 			qptr->error = (short) cc;
-			occ = cc;  /* Overall cc error, continue with next */
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 		} else
 			qptr->error = 0;
 
 		qptr = qptr->next;
 	}
 	return occ;
-}
-
-/**
-  * @brief send a raw quick data buffer in network byte order
-  * @param file handle returned from the init routine
-  * @param pointer to data buffer
-  * @return 0 success, else negative standard system error
-  *
-  * Using this call on a power supply requires underatanding how data structures
-  * need to be serialized. EXPERTS ONLY
-  */
-
-short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
-
-	swab(quick_pt->pkt,quick_pt->pkt,(quick_pt->pktcnt + 1)/2);
-	return mil1553_send_raw_quick_data(fn, quick_pt);
 }
 
 /**
@@ -256,24 +240,6 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 Next_qp:        qptr = qptr->next;
 	}
 	return occ;
-}
-
-/**
-  * @brief get a raw quick data buffer in network byte order
-  * @param file handle returned from the init routine
-  * @param pointer to data buffer
-  * @return 0 success, else negative standard system error
-  *
-  * Using this call on a power supply requires underatanding how data structures
-  * need to be serialized. EXPERTS ONLY
-  */
-
-short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
-
-	short cc;
-	cc = mil1553_get_raw_quick_data(fn,quick_pt);
-	swab(quick_pt->pkt,quick_pt->pkt,(quick_pt->pktcnt + 1)/2);
-	return cc;
 }
 
 /**
@@ -483,9 +449,65 @@ void mil1553_print_error(int cc) {
 
 	char *cp;
 	if (cc) {
-		if (cc < 0) cc = -cc;
+		if (cc < 0)
+			cc = -cc;
 		cp = strerror(cc);
-		fprintf(stderr,"QuickDataLib Error:%s\n",cp);
+		fprintf(stderr,"QuickDataLib Error:%s - ",cp);
+
+		/**
+		 * Specific usage of system errors, extra information
+		 */
+
+		switch (cc) {
+
+			case EFAULT:
+				fprintf(stderr,"Bad BC number");
+			break;
+
+			case ENODEV:
+				fprintf(stderr,"Bad RTI number or RTI down");
+			break;
+
+			case ETIME:
+				fprintf(stderr,"User wait time out");
+			break;
+
+			case ECANCELED:
+				fprintf(stderr,"Got a signal while in wait");
+			break;
+
+			case ENOMEM:
+				fprintf(stderr,"Failed to allocate memory");
+			break;
+
+			case ENOTTY:
+				fprintf(stderr,"Bad IOCTL number or call");
+			break;
+
+			case EACCES:
+				fprintf(stderr,"Driver failed, generic code");
+			break;
+
+			case ETIMEDOUT:
+				fprintf(stderr,"RTI didn't answer, STR.TIM");
+			break;
+
+			case EPROTO:
+				fprintf(stderr,"RTI message error, STR.ME");
+			break;
+
+			case EBUSY:
+				fprintf(stderr,"RTI busy, STR.BUY");
+			break;
+
+			case EINPROGRESS:
+				fprintf(stderr,"QDP Transaction partial failure");
+			break;
+
+			default:
+				fprintf(stderr,"Driver/System error");
+		}
+		fprintf(stderr,"\n");
 	}
 }
 

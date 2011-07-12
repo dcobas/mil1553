@@ -28,5 +28,4 @@ int milib_read_reg(int fn, int bc, int reg_num, int *reg_val);
 char *milib_status_to_str(int stat);
 void milib_decode_txreg(unsigned int txreg, unsigned int *wc, unsigned int *sa, unsigned int *tr, unsigned int *rti);
 void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, unsigned int tr, unsigned int rti);
-void milib_print_error(int cc);
 
