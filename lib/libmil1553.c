@@ -190,3 +190,39 @@ void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, u
 		       | ((tr  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 		       | ((rti << TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 }
+
+int milib_lock_bc(int fn, int bc) {
+
+	int cc = 0;
+	cc = ioctl(fn,MIL1553_LOCK_BC,&bc);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+int milib_unlock_bc(int fn, int bc) {
+
+	int cc = 0;
+	cc = ioctl(fn,MIL1553_UNLOCK_BC,&bc);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+int milib_lock_all_bc(int fn) {
+
+	int cc = 0;
+	cc = ioctl(fn,MIL1553_LOCK_ALL_BC,&cc);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+int milib_unlock_all_bc(int fn) {
+
+	int cc = 0;
+	cc = ioctl(fn,MIL1553_UNLOCK_ALL_BC,&cc);
+	if (cc < 0)
+		return errno;
+	return 0;
+}

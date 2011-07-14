@@ -327,7 +327,7 @@ int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 			return cc;
 		tb = str & STR_TB;
 		if (tb) break;
-		usleep(10000);
+		usleep(10000); /* According to the man page this is thread safe */
 	}
 
 	if (!tb)

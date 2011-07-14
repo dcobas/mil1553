@@ -19,6 +19,7 @@
 #include <linux/interrupt.h>
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
+#include <linux/mutex.h>
 
 #include "mil1553.h"
 #include "mil1553P.h"
@@ -99,6 +100,7 @@ struct working_area_s wa;
  */
 
 char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
+
 	"GET_DEBUG_LEVEL",
 	"SET_DEBUG_LEVEL",
 
@@ -118,7 +120,13 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 
 	"GET_UP_RTIS",
 	"SEND",
-	"RECV"
+	"RECV",
+
+	"LOCK_BC",
+	"UNLOCK_BC",
+	"LOCK_ALL_BC",
+	"UNLOCK_ALL_BC",
+
 };
 
 /**
@@ -140,7 +148,6 @@ struct mil1553_device_s *get_dev(int bc)
 				return mdev;
 		}
 	}
-	printk("mil1553:Illegal BC number:%d\n",bc);
 	return NULL;
 }
 
@@ -226,7 +233,7 @@ static void debug_ioctl(int   debug_level,
 
 		cindx = ionr - mil1553FIRST -1;
 
-		printk("mil1553:ioctl:ionr:%d[%s] iosz:%d iodr:%d[",ionr,ioctl_names[cindx],iosz,iodr);
+		printk("\n=> mil1553:ioctl:ionr:%d[%s] iosz:%d iodr:%d[",ionr,ioctl_names[cindx],iosz,iodr);
 		if (iodr & _IOC_WRITE)
 			printk("W");
 		if (iodr & _IOC_READ)
@@ -823,7 +830,7 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 
 		if (cc == -ERESTARTSYS) {
 			printk("mil1553:read_queue:interrupted by signal\n");
-			cc = -ECANCELED;
+			cc = -EINTR;
 		}
 		if (cc < 0) return cc;
 
@@ -1085,6 +1092,7 @@ int mil1553_install(void)
 			spin_lock_init(&mdev->lock);
 			mdev->tx_queue = &wa.tx_queue[i];
 			spin_lock_init(&mdev->tx_queue->lock);
+			mutex_init(&mdev->bc_lock);
 
 			mdev->pdev = add_next_dev(pdev,mdev);
 			if (!mdev->pdev)
@@ -1145,12 +1153,26 @@ int mil1553_open(struct inode *inode, struct file *filp) {
 
 int mil1553_close(struct inode *inode, struct file *filp) {
 
-	struct client_s *client;
+	struct client_s         *client;
+	struct mil1553_device_s *mdev;
+	int                     bc;
 
 	client = (struct client_s *) filp->private_data;
-	if (client)
+	if (client) {
+		for (bc=1; bc<=MAX_DEVS; bc++) {
+			mdev = get_dev(bc);
+			if (!mdev)
+				continue;
+
+			if (client->bc_locks[bc -1]) {
+				client->bc_locks[bc -1] = 0;
+				mutex_unlock(&mdev->bc_lock);
+			}
+		}
+
 		kfree(client);
-	filp->private_data = NULL;
+		filp->private_data = NULL;
+	}
 	return 0;
 }
 
@@ -1382,6 +1404,53 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			cc = read_queue(client,mrecv);
 			if (cc)
 				goto error_exit;
+		break;
+
+		case mil1553LOCK_ALL_BC:
+			for (bc=1; bc<=MAX_DEVS; bc++) {
+				mdev = get_dev(bc);
+				if ((mdev) && (!client->bc_locks[bc -1])) {
+					mutex_lock(&mdev->bc_lock);
+					client->bc_locks[bc -1] = 1;
+				}
+			}
+		break;
+
+		case mil1553UNLOCK_ALL_BC:
+			for (bc=1; bc<=MAX_DEVS; bc++) {
+				mdev = get_dev(bc);
+				if ((mdev) && (client->bc_locks[bc -1])) {
+					mutex_unlock(&mdev->bc_lock);
+					client->bc_locks[bc -1] = 0;
+				}
+			}
+		break;
+
+		case mil1553LOCK_BC:
+			bc = *ularg;
+			printk("LockBc:%d Called\n",bc);
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
+			if (!client->bc_locks[bc -1]) {
+				mutex_lock(&mdev->bc_lock);
+				client->bc_locks[bc -1] = 1;
+			}
+		break;
+
+		case mil1553UNLOCK_BC:
+			bc = *ularg;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
+			if (client->bc_locks[bc -1]) {
+				client->bc_locks[bc -1] = 0;
+				mutex_unlock(&mdev->bc_lock);
+			}
 		break;
 
 		default:

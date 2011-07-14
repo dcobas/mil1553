@@ -382,30 +382,38 @@ void serialize_conf_msg(conf_msg *conf_p) {
 
 void serialize(struct quick_data_buffer *quick_pt, int rflag) {
 
-	req_msg *req_p = (req_msg *) quick_pt->pkt;
+	struct quick_data_buffer *qdp;
 
-	serialize_req_msg(req_p);
+	qdp = quick_pt;
+	while (qdp) {
 
-	switch (req_p->service) {
+		req_msg *req_p = (req_msg *) qdp->pkt;
 
-		case RS_REF:
-			if (!rflag)
-				serialize_write_ctrl_msg((ctrl_msg *) quick_pt->pkt);
-			else
-				serialize_acq_msg((acq_msg *) quick_pt->pkt);
-		break;
+		serialize_req_msg(req_p);
 
-		case RS_ECHO:
-			serialize_read_ctrl_msg((ctrl_msg*)quick_pt->pkt);
-		break;
+		switch (req_p->service) {
 
-		case RS_CONF:
-			serialize_conf_msg((conf_msg*)quick_pt->pkt);
-		break;
+			case RS_REF:
+				if (!rflag)
+					serialize_write_ctrl_msg((ctrl_msg *) quick_pt->pkt);
+				else
+					serialize_acq_msg((acq_msg *) quick_pt->pkt);
+			break;
 
-		default:
-			/* Just send it the way it is, no conversion */
-		break;
+			case RS_ECHO:
+				serialize_read_ctrl_msg((ctrl_msg*)quick_pt->pkt);
+			break;
+
+			case RS_CONF:
+				serialize_conf_msg((conf_msg*)quick_pt->pkt);
+			break;
+
+			default:
+				/* Just send it the way it is, no conversion */
+			break;
+		}
+
+		qdp = qdp->next;
 	}
 }
 
@@ -472,7 +480,7 @@ void mil1553_print_error(int cc) {
 				fprintf(stderr,"User wait time out");
 			break;
 
-			case ECANCELED:
+			case EINTR:
 				fprintf(stderr,"Got a signal while in wait");
 			break;
 
