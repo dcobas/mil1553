@@ -1078,6 +1078,7 @@ int mil1553_install(void)
 	struct mil1553_device_s *mdev;
 
 	memset(&wa, 0, sizeof(struct working_area_s));
+	mutex_init(&wa.bc_lock);
 
 	if (check_args()) {
 
@@ -1092,7 +1093,6 @@ int mil1553_install(void)
 			spin_lock_init(&mdev->lock);
 			mdev->tx_queue = &wa.tx_queue[i];
 			spin_lock_init(&mdev->tx_queue->lock);
-			mutex_init(&mdev->bc_lock);
 
 			mdev->pdev = add_next_dev(pdev,mdev);
 			if (!mdev->pdev)
@@ -1154,22 +1154,13 @@ int mil1553_open(struct inode *inode, struct file *filp) {
 int mil1553_close(struct inode *inode, struct file *filp) {
 
 	struct client_s         *client;
-	struct mil1553_device_s *mdev;
-	int                     bc;
 
 	client = (struct client_s *) filp->private_data;
 	if (client) {
-		for (bc=1; bc<=MAX_DEVS; bc++) {
-			mdev = get_dev(bc);
-			if (!mdev)
-				continue;
-
-			if (client->bc_locks[bc -1]) {
-				client->bc_locks[bc -1] = 0;
-				mutex_unlock(&mdev->bc_lock);
-			}
+		if (client->bcs_locked) {
+			client->bcs_locked = 0;
+			mutex_unlock(&wa.bc_lock);
 		}
-
 		kfree(client);
 		filp->private_data = NULL;
 	}
@@ -1407,49 +1398,18 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553LOCK_ALL_BC:
-			for (bc=1; bc<=MAX_DEVS; bc++) {
-				mdev = get_dev(bc);
-				if ((mdev) && (!client->bc_locks[bc -1])) {
-					mutex_lock(&mdev->bc_lock);
-					client->bc_locks[bc -1] = 1;
-				}
+		case mil1553LOCK_BC:
+			if (!client->bcs_locked) {
+				mutex_lock(&wa.bc_lock);
+				client->bcs_locked = 1;
 			}
 		break;
 
 		case mil1553UNLOCK_ALL_BC:
-			for (bc=1; bc<=MAX_DEVS; bc++) {
-				mdev = get_dev(bc);
-				if ((mdev) && (client->bc_locks[bc -1])) {
-					mutex_unlock(&mdev->bc_lock);
-					client->bc_locks[bc -1] = 0;
-				}
-			}
-		break;
-
-		case mil1553LOCK_BC:
-			bc = *ularg;
-			printk("LockBc:%d Called\n",bc);
-			mdev = get_dev(bc);
-			if (!mdev) {
-				cc = -EFAULT;
-				goto error_exit;
-			}
-			if (!client->bc_locks[bc -1]) {
-				mutex_lock(&mdev->bc_lock);
-				client->bc_locks[bc -1] = 1;
-			}
-		break;
-
 		case mil1553UNLOCK_BC:
-			bc = *ularg;
-			mdev = get_dev(bc);
-			if (!mdev) {
-				cc = -EFAULT;
-				goto error_exit;
-			}
-			if (client->bc_locks[bc -1]) {
-				client->bc_locks[bc -1] = 0;
-				mutex_unlock(&mdev->bc_lock);
+			if (client->bcs_locked) {
+				client->bcs_locked = 0;
+				mutex_unlock(&wa.bc_lock);
 			}
 		break;
 

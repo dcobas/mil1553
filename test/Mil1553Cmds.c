@@ -1480,18 +1480,28 @@ unsigned short *txbuf;
 /* ============================= */                                                                                                                                 
 /* Import code from mg64t.c to deal with power supplies */
 
+#define RETRIES 2
+
 int read_cfg_msg(int arg) {
 
 struct quick_data_buffer send_buf = { 0 },
 			 *quickptr_req = &send_buf,
 			 receive_buf = { 0 },
 			 *quickptr_ctl = &receive_buf;
-req_msg  *req_ptr;
+req_msg *req_ptr;
+conf_msg *conf_ptr;
 short mbno = 1;
-int cc;
+int cc, retries;
 struct timeval cur_time = { 0 };
 
    arg++;
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(milf,bc);
+
+retry:
 
    quickptr_req->bc     = bc;
    quickptr_req->rt     = rti;
@@ -1520,16 +1530,12 @@ struct timeval cur_time = { 0 };
 
    /* Send request message to G64 */
 
-   cc = milib_lock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
    cc = mil1553_send_quick_data(milf,quickptr_req);
    if (cc) {
+      milib_unlock_bc(milf,bc);
       printf("mil1553_send_quick_data:Error:%d\n",cc);
       mil1553_print_error(cc);
+      return arg;
    }
 
    quickptr_ctl->bc   = bc;
@@ -1544,15 +1550,19 @@ struct timeval cur_time = { 0 };
 
    cc = mil1553_get_quick_data(milf,quickptr_ctl);
    if (cc) {
+      milib_unlock_bc(milf,bc);
       printf("mil1553_get_quick_data:Error:%d\n",cc);
       mil1553_print_error(cc);
+      return arg;
    }
 
-   cc = milib_unlock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
+   /* Check for correct service, retry if its wrong */
+
+   conf_ptr = (conf_msg*) &(quickptr_ctl->pkt);
+   if (conf_ptr->service != RS_CONF) {
+      if (retries++ < RETRIES) goto retry;
    }
+   milib_unlock_bc(milf,bc);
 
    mil1553_print_msg(quickptr_ctl,1,RS_CONF);
 
@@ -1568,11 +1578,20 @@ struct quick_data_buffer send_buf = { 0 },
 			 receive_buf = { 0 },
 			 *quickptr_ctl = &receive_buf;
 req_msg *req_ptr;
+acq_msg *acq_ptr;
 short mbno = 1;
-int cc;
+int cc, retries;
 struct timeval cur_time = { 0 };
 
    arg++;
+
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(milf,bc);
+
+retry:
 
    quickptr_req->bc     = bc;
    quickptr_req->rt     = rti;
@@ -1601,16 +1620,12 @@ struct timeval cur_time = { 0 };
 
    /* Send request message to G64 */
 
-   cc = milib_lock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
    cc = mil1553_send_quick_data(milf,quickptr_req);
    if (cc) {
+      milib_unlock_bc(milf,bc);
       printf("mil1553_send_quick_data:Error:%d\n",cc);
       mil1553_print_error(cc);
+      return arg;
    }
 
    quickptr_ctl->bc = bc;
@@ -1623,19 +1638,97 @@ struct timeval cur_time = { 0 };
 
    cc = mil1553_get_quick_data(milf,quickptr_ctl);
    if (cc) {
+      milib_unlock_bc(milf,bc);
       printf("mil1553_get_quick_data:Error:%d\n",cc);
       mil1553_print_error(cc);
-      printf("Missing trigger timing, no acquisition data available\n");
       return arg;
    }
 
-   cc = milib_unlock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
+   /* Check for correct service, retry if its wrong */
+
+   acq_ptr = (acq_msg*) &(quickptr_ctl->pkt);
+   if (acq_ptr->service != RS_REF) {
+      if (retries++ < RETRIES) goto retry;
    }
+   milib_unlock_bc(milf,bc);
 
    mil1553_print_msg(quickptr_ctl,1,RS_REF);
+
+   return arg;
+}
+
+/* ============================= */                                                                                                                                 
+
+int read_ctl_msg(int arg) {
+
+   struct quick_data_buffer send_buf = { 0 },
+			    *quickptr_req = &send_buf,
+			    receive_buf = { 0 },
+			    *quickptr_ctl = &receive_buf;
+   req_msg *req_ptr;
+   ctrl_msg *ctrl_ptr;
+   short mbno = 1;
+   int cc, retries;
+
+   arg++;
+
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(milf,bc);
+
+retry:
+
+   quickptr_req->bc     = bc;
+   quickptr_req->rt     = rti;
+   quickptr_req->stamp  = 0;
+   quickptr_req->error  = 0;
+   quickptr_req->pktcnt = sizeof(req_msg);
+   quickptr_req->next   = NULL;
+
+   /* Initialize request message */
+
+   req_ptr               = (req_msg*) &(quickptr_req->pkt);
+   req_ptr->family       = POW_FAM;
+   req_ptr->type         = TYPE;
+   req_ptr->sub_family   = SUB_FAMILY;
+   req_ptr->member       = mbno;
+   req_ptr->service      = RS_ECHO;
+   req_ptr->cycle.machine  = 0;
+   req_ptr->cycle.pls_line = 0;
+   req_ptr->specialist     = 0;
+
+   cc = mil1553_send_quick_data(milf,quickptr_req);
+   if (cc) {
+      milib_unlock_bc(milf,bc);
+      printf("mil1553_send_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return arg;
+   }
+
+   quickptr_ctl->bc   = bc;
+   quickptr_ctl->rt   = rti;
+   quickptr_ctl->next = NULL;
+
+   quickptr_ctl->pktcnt = sizeof(ctrl_msg);
+   cc = mil1553_get_quick_data(milf,quickptr_ctl);
+   if (cc) {
+      milib_unlock_bc(milf,bc);
+      printf("mil1553_get_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return arg;
+   }
+
+   /* Check for correct service, retry if its wrong */
+
+   ctrl_ptr = (ctrl_msg*) &(quickptr_ctl->pkt);
+   if (ctrl_ptr->service != RS_ECHO) {
+      if (retries++ < RETRIES) goto retry;
+   }
+   milib_unlock_bc(milf,bc);
+
+   mil1553_print_msg(quickptr_ctl,0,RS_ECHO);
 
    return arg;
 }
@@ -1727,11 +1820,19 @@ int write_ctl_msg(int arg) {
    req_msg *req_ptr;
    ctrl_msg *ctrl_ptr;
    short mbno = 1;
-   int cc;
+   int cc, retries;
 
    struct timeval cur_time = { 0 };
 
    arg++;
+
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(milf,bc);
+
+retry:
 
    quickptr_req->bc     = bc;
    quickptr_req->rt     = rti;
@@ -1754,16 +1855,12 @@ int write_ctl_msg(int arg) {
 
    /* Send request message to G64 */
 
-   cc = milib_lock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
    cc = mil1553_send_quick_data(milf,quickptr_req);
    if (cc) {
+      milib_unlock_bc(milf,bc);
       printf("mil1553_send_quick_data:Error:%d\n",cc);
       mil1553_print_error(cc);
+      return arg;
    }
 
    quickptr_ctl->bc     = bc;
@@ -1773,26 +1870,28 @@ int write_ctl_msg(int arg) {
 
    cc = mil1553_get_quick_data(milf,quickptr_ctl);
    if (cc) {
+      milib_unlock_bc(milf,bc);
       printf("mil1553_get_quick_data:Error:%d\n",cc);
       mil1553_print_error(cc);
+      return arg;
    }
 
-   cc = milib_unlock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
+   /* Check for correct service, retry if its wrong */
+
+   ctrl_ptr = (ctrl_msg*) &(quickptr_ctl->pkt);
+   if (ctrl_ptr->service != RS_ECHO) {
+      if (retries++ < RETRIES) goto retry;
    }
-
-   /* reuse received data */
-
-   ctrl_ptr = (ctrl_msg *) &(quickptr_ctl->pkt);
+   milib_unlock_bc(milf,bc);
 
    /* check if wanted service was delivered */
 
-   if (ctrl_ptr->service != RS_ECHO)
+   if (ctrl_ptr->service != RS_ECHO) {
       printf("Send Quickdata error. "
 	     "Expected service %d (RS_ECHO) received %d\n",
 	     RS_ECHO, ctrl_ptr->service);
+      return arg;
+   }
 
    if (!EditCCV(ctrl_ptr)) printf("No changes - Sending anyway\n");
 
@@ -1807,11 +1906,7 @@ int write_ctl_msg(int arg) {
 
    /* Send ctrl_msg to G64 */
 
-   cc = milib_lock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
+   milib_lock_bc(milf,bc);
 
    cc = mil1553_send_quick_data(milf,quickptr_ctl);
    if (cc) {
@@ -1819,78 +1914,7 @@ int write_ctl_msg(int arg) {
       mil1553_print_error(cc);
    }
 
-   cc = milib_unlock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
-   return arg;
-}
-
-/* ============================= */                                                                                                                                 
-
-int read_ctl_msg(int arg) {
-
-   struct quick_data_buffer send_buf = { 0 },
-			    *quickptr_req = &send_buf,
-			    receive_buf = { 0 },
-			    *quickptr_ctl = &receive_buf;
-   req_msg *req_ptr;
-   short mbno = 1;
-   int cc;
-
-   arg++;
-
-   quickptr_req->bc     = bc;
-   quickptr_req->rt     = rti;
-   quickptr_req->stamp  = 0;
-   quickptr_req->error  = 0;
-   quickptr_req->pktcnt = sizeof(req_msg);
-   quickptr_req->next   = NULL;
-
-   /* Initialize request message */
-
-   req_ptr               = (req_msg*) &(quickptr_req->pkt);
-   req_ptr->family       = POW_FAM;
-   req_ptr->type         = TYPE;
-   req_ptr->sub_family   = SUB_FAMILY;
-   req_ptr->member       = mbno;
-   req_ptr->service      = RS_ECHO;
-   req_ptr->cycle.machine  = 0;
-   req_ptr->cycle.pls_line = 0;
-   req_ptr->specialist     = 0;
-
-   cc = milib_lock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
-   cc = mil1553_send_quick_data(milf,quickptr_req);
-   if (cc) {
-      printf("mil1553_send_quick_data:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
-   quickptr_ctl->bc   = bc;
-   quickptr_ctl->rt   = rti;
-   quickptr_ctl->next = NULL;
-
-   quickptr_ctl->pktcnt = sizeof(ctrl_msg);
-   cc = mil1553_get_quick_data(milf,quickptr_ctl);
-   if (cc) {
-      printf("mil1553_get_quick_data:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
-   cc = milib_unlock_bc(milf,bc);
-   if (cc) {
-      printf("milib_lock_bc:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-
-   mil1553_print_msg(quickptr_ctl,0,RS_ECHO);
+   milib_unlock_bc(milf,bc);
 
    return arg;
 }

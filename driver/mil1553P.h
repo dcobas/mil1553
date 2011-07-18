@@ -92,7 +92,7 @@ struct client_s {
 	uint32_t timeout;               /** Timeout in jiffels */
 	wait_queue_head_t wait_queue;   /** Client waits on this for available data */
 	struct rx_queue_s rx_queue;     /** Results of commands */
-	uint32_t bc_locks[MAX_DEVS];    /** BCs that are transaction locked */
+	uint32_t bcs_locked;            /** BCs locked */
 };
 
 /**
@@ -143,7 +143,6 @@ struct mil1553_device_s {
 	uint32_t             busy_done;   /** Bus controller busy/done status */
 	uint32_t             up_rtis;     /** Last known up rtis mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
-	struct mutex         bc_lock;     /** Transaction lock mutex */
 };
 
 /**
@@ -156,6 +155,7 @@ struct working_area_s {
 	struct tx_queue_s tx_queue[MAX_DEVS];          /** Data and commands waiting to be transmitted */
 	uint32_t icnt;                                 /** Total interrupt count */
 	uint32_t isrdebug;                             /** Trace ISR */
+	struct mutex bc_lock;                          /** Transaction lock mutex */
 };
 
 #endif
