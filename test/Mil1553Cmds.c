@@ -1486,6 +1486,7 @@ int cc;
 
    arg++;
 
+   bzero((void *) &conf, sizeof(conf_msg));
    cc = mil1553_read_cfg_msg(milf,bc,rti,&conf);
    if (cc) {
       printf("mil1553_read_cfg_msg:Error:%d\n",cc);
@@ -1506,6 +1507,7 @@ int cc;
 
    arg++;
 
+   bzero((void *) &acq, sizeof(acq_msg));
    cc = mil1553_read_acq_msg(milf,bc,rti,&acq);
    if (cc) {
       printf("mil1553_read_acq_msg:Error:%d\n",cc);
@@ -1526,6 +1528,7 @@ int cc;
 
    arg++;
 
+   bzero((void *) &ctrl, sizeof(ctrl_msg));
    cc = mil1553_read_ctrl_msg(milf,bc,rti,&ctrl);
    if (cc) {
       printf("mil1553_read_ctrl_msg:Error:%d\n",cc);
