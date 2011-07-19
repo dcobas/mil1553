@@ -656,3 +656,332 @@ void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect
 		break;
 	}
 }
+
+/* ===================================== */
+
+/**
+ * @brief Read Config message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param conf_ptr - Points to destination message
+ * @return zero if OK else error
+ */
+
+#define RETRIES 2
+
+int mil1553_read_cfg_msg(int fn, int bc, int rti, conf_msg *conf_ptr) {
+
+struct quick_data_buffer send_buf = { 0 },
+			 *quickptr_req = &send_buf,
+			 receive_buf = { 0 },
+			 *quickptr_ctl = &receive_buf;
+req_msg *req_ptr;
+conf_msg *loc_conf_ptr;
+short mbno = 1;
+int cc, retries;
+struct timeval cur_time = { 0 };
+
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(fn,bc);
+
+retry:
+
+   quickptr_req->bc     = bc;
+   quickptr_req->rt     = rti;
+   quickptr_req->stamp  = 0;
+   quickptr_req->error  = 0;
+   quickptr_req->pktcnt = sizeof(req_msg);
+   quickptr_req->next   = NULL;
+
+   /* Initialize request message */
+
+   req_ptr = (req_msg*) &(quickptr_req->pkt);
+   req_ptr->family     = POW_FAM;
+   req_ptr->type       = TYPE;
+   req_ptr->sub_family = SUB_FAMILY;
+   req_ptr->member     = mbno;
+   req_ptr->service    = RS_CONF;
+   req_ptr->cycle.machine  = 0;
+   req_ptr->cycle.pls_line = 0;
+   req_ptr->specialist     = 0;
+
+   /* will also set current time in RTI */
+
+   gettimeofday(&cur_time, NULL);
+   req_ptr->protocol_date.sec  = (int)cur_time.tv_sec;
+   req_ptr->protocol_date.usec = (int)cur_time.tv_usec;
+
+   /* Send request message to G64 */
+
+   cc = mil1553_send_quick_data(fn,quickptr_req);
+   if (cc) {
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_send_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   quickptr_ctl->bc     = bc;
+   quickptr_ctl->rt     = rti;
+   quickptr_ctl->next   = NULL;
+   quickptr_ctl->pktcnt = sizeof(conf_msg);
+
+   /* Wait for the reply message */
+
+   cc = mil1553_get_quick_data(fn,quickptr_ctl);
+   if (cc) {
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_get_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   /* Check for correct service, retry if its wrong */
+
+   loc_conf_ptr = (conf_msg*) &(quickptr_ctl->pkt);
+   if (loc_conf_ptr->service != RS_CONF) {
+      if (retries++ < RETRIES) goto retry;
+   }
+   milib_unlock_bc(fn,bc);
+
+   memcpy(conf_ptr,loc_conf_ptr,sizeof(conf_msg));
+
+   return cc;
+}
+
+/* ============================= */                                                                                                                                 
+
+/**
+ * @brief Read Acquisition message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param acq_ptr  - Points to destination message
+ * @return zero if OK else error
+ */
+
+int mil1553_read_acq_msg(int fn, int bc, int rti, acq_msg *acq_ptr) {
+
+struct quick_data_buffer send_buf = { 0 },
+			 *quickptr_req = &send_buf,
+			 receive_buf = { 0 },
+			 *quickptr_ctl = &receive_buf;
+req_msg *req_ptr;
+acq_msg *loc_acq_ptr;
+short mbno = 1;
+int cc, retries;
+struct timeval cur_time = { 0 };
+
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(fn,bc);
+
+retry:
+
+   quickptr_req->bc     = bc;
+   quickptr_req->rt     = rti;
+   quickptr_req->stamp  = 0;
+   quickptr_req->error  = 0;
+   quickptr_req->pktcnt = sizeof(req_msg);
+   quickptr_req->next   = NULL;
+
+   /* Initialize request message */
+
+   req_ptr = (req_msg*) &(quickptr_req->pkt);
+   req_ptr->family         = POW_FAM;
+   req_ptr->type           = TYPE;
+   req_ptr->sub_family     = SUB_FAMILY;
+   req_ptr->member         = mbno;
+   req_ptr->service        = RS_REF;
+   req_ptr->cycle.machine  = 0;
+   req_ptr->cycle.pls_line = 0;
+   req_ptr->specialist     = 0;
+
+   /* will also set current time in RTI */
+
+   gettimeofday(&cur_time, NULL);
+   req_ptr->protocol_date.sec  = (int)cur_time.tv_sec;
+   req_ptr->protocol_date.usec = (int)cur_time.tv_usec;
+
+   /* Send request message to G64 */
+
+   cc = mil1553_send_quick_data(fn,quickptr_req);
+   if (cc) {
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_send_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   quickptr_ctl->bc = bc;
+   quickptr_ctl->rt = rti;
+   quickptr_ctl->next = NULL;
+
+   /* expected answer: we'll wait for packet 44 bytes long (22 words) */
+
+   quickptr_ctl->pktcnt = sizeof(acq_msg);
+
+   cc = mil1553_get_quick_data(fn,quickptr_ctl);
+   if (cc) {
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_get_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   /* Check for correct service, retry if its wrong */
+
+   loc_acq_ptr = (acq_msg*) &(quickptr_ctl->pkt);
+   if (loc_acq_ptr->service != RS_REF) {
+      if (retries++ < RETRIES) goto retry;
+   }
+   milib_unlock_bc(fn,bc);
+
+   memcpy(acq_ptr,loc_acq_ptr,sizeof(acq_msg));
+
+   return cc;
+}
+
+/* ============================= */                                                                                                                                 
+
+/**
+ * @brief Read back Control message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param ctrl_ptr - Points to destination message
+ * @return zero if OK else error
+ */
+
+int mil1553_read_ctl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
+
+   struct quick_data_buffer send_buf = { 0 },
+			    *quickptr_req = &send_buf,
+			    receive_buf = { 0 },
+			    *quickptr_ctl = &receive_buf;
+   req_msg *req_ptr;
+   ctrl_msg *loc_ctrl_ptr;
+   short mbno = 1;
+   int cc, retries;
+
+   retries = 0;
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(fn,bc);
+
+retry:
+
+   quickptr_req->bc     = bc;
+   quickptr_req->rt     = rti;
+   quickptr_req->stamp  = 0;
+   quickptr_req->error  = 0;
+   quickptr_req->pktcnt = sizeof(req_msg);
+   quickptr_req->next   = NULL;
+
+   /* Initialize request message */
+
+   req_ptr               = (req_msg*) &(quickptr_req->pkt);
+   req_ptr->family       = POW_FAM;
+   req_ptr->type         = TYPE;
+   req_ptr->sub_family   = SUB_FAMILY;
+   req_ptr->member       = mbno;
+   req_ptr->service      = RS_ECHO;
+   req_ptr->cycle.machine  = 0;
+   req_ptr->cycle.pls_line = 0;
+   req_ptr->specialist     = 0;
+
+   cc = mil1553_send_quick_data(fn,quickptr_req);
+   if (cc) {
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_send_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   quickptr_ctl->bc   = bc;
+   quickptr_ctl->rt   = rti;
+   quickptr_ctl->next = NULL;
+
+   quickptr_ctl->pktcnt = sizeof(ctrl_msg);
+   cc = mil1553_get_quick_data(fn,quickptr_ctl);
+   if (cc) {
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_get_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   /* Check for correct service, retry if its wrong */
+
+   loc_ctrl_ptr = (ctrl_msg*) &(quickptr_ctl->pkt);
+   if (loc_ctrl_ptr->service != RS_ECHO) {
+      if (retries++ < RETRIES) goto retry;
+   }
+   milib_unlock_bc(fn,bc);
+
+   memcpy(ctrl_ptr,loc_ctrl_ptr,sizeof(ctrl_msg));
+
+   return cc;
+}
+
+/* ============================= */                                                                                                                                 
+
+/**
+ * @brief Write Control message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param ctrl_ptr - Points to source message
+ * @return zero if OK else error
+ */
+
+int mil1553_write_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
+
+   struct quick_data_buffer receive_buf = { 0 },
+			   *quickptr_ctl = &receive_buf;
+   int cc, retries;
+   ctrl_msg *loc_ctrl_ptr;
+   struct timeval cur_time = { 0 };
+   retries = 0;
+
+   loc_ctrl_ptr = (ctrl_msg*) &(quickptr_ctl->pkt);
+   memcpy(loc_ctrl_ptr,ctrl_ptr,sizeof(ctrl_msg));
+
+   /* Wait for the BC lock */
+
+   milib_lock_bc(fn,bc);
+
+retry:
+
+   ctrl_ptr->service = RS_REF;
+
+   /* send current time */
+
+   gettimeofday(&cur_time, NULL); /* get current time */
+   ctrl_ptr->protocol_date.sec  = (int)cur_time.tv_sec;
+   ctrl_ptr->protocol_date.usec = (int)cur_time.tv_usec;
+
+   /* Send ctrl_msg to G64 */
+
+   milib_lock_bc(fn,bc);
+
+   cc = mil1553_send_quick_data(fn,quickptr_ctl);
+   if (cc) {
+      if (retries++ < RETRIES) goto retry;
+      milib_unlock_bc(fn,bc);
+      printf("mil1553_send_quick_data:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return cc;
+   }
+
+   milib_unlock_bc(fn,bc);
+   return cc;
+}
+

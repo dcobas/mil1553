@@ -133,4 +133,48 @@ void serialize_conf_msg(conf_msg *conf_p);
 void mil1553_print_error(int cc);
 void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect_service);
 
+/**
+ * @brief Read Config message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param conf_ptr - Points to destination message
+ * @return zero if OK else error
+ */
+
+int mil1553_read_cfg_msg(int fn, int bc, int rti, conf_msg *conf_ptr);
+
+/**
+ * @brief Read Acquisition message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param acq_ptr  - Points to destination message
+ * @return zero if OK else error
+ */
+
+int mil1553_read_acq_msg(int fn, int bc, int rti, acq_msg *acq_ptr);
+
+/**
+ * @brief Read back Control message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param ctrl_ptr - Points to destination message
+ * @return zero if OK else error
+ */
+
+int mil1553_read_ctl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr);
+
+/**
+ * @brief Write Control message with locking and retry
+ * @param fn       - File handle returned from the init routine
+ * @param bc       - Bus controller 1..NB
+ * @param rti      - RTI number 1..NR
+ * @param ctrl_ptr - Points to source message
+ * @return zero if OK else error
+ */
+
+int mil1553_write_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr);
+
 #endif
