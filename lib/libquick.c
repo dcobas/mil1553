@@ -521,7 +521,7 @@ void mil1553_print_error(int cc) {
 
 /* ===================================== */
 
-void print_req_msg(req_msg *req_p) {
+void mil1553_print_req_msg(req_msg *req_p) {
 
 	printf("==> RequestMessage:\n");
 	printf("   Family     :%02d",req_p->family);
@@ -549,7 +549,7 @@ void print_req_msg(req_msg *req_p) {
 
 /* ===================================== */
 
-void print_ctrl_msg(ctrl_msg *ctrl_p) {
+void mil1553_print_ctrl_msg(ctrl_msg *ctrl_p) {
 
 	printf("==> ControlMessage:\n");
 	printf("   ccsact     :%02d change:%02d",ctrl_p->ccsact,ctrl_p->ccsact_change);
@@ -564,7 +564,7 @@ void print_ctrl_msg(ctrl_msg *ctrl_p) {
 
 /* ===================================== */
 
-void print_acq_msg(acq_msg *acq_p) {
+void mil1553_print_acq_msg(acq_msg *acq_p) {
 
 	printf("==> AcquisitionMessage:\n");
 	printf("   PhysicalStatus :%02d",acq_p->phys_status);
@@ -612,7 +612,7 @@ void print_acq_msg(acq_msg *acq_p) {
 
 /* ===================================== */
 
-void print_conf_msg(conf_msg *conf_p) {
+void mil1553_print_conf_msg(conf_msg *conf_p) {
 
 	printf("==> ConfigurationMessage:\n");
 	printf("   i_nominal resolution :%f %f\n",conf_p->i_nominal,conf_p->resolution);
@@ -627,7 +627,7 @@ void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect
 
 	req_msg *req_p = (req_msg *) quick_pt->pkt;
 
-	print_req_msg(req_p);
+	mil1553_print_req_msg(req_p);
 
 	if ((expect_service >= 0) && (expect_service != req_p->service)) {
 		printf("WARNING: Expected service:%d\n",expect_service);
@@ -638,17 +638,17 @@ void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect
 
 		case RS_REF:
 			if (!rflag)
-				print_ctrl_msg((ctrl_msg *) quick_pt->pkt);
+				mil1553_print_ctrl_msg((ctrl_msg *) quick_pt->pkt);
 			else
-				print_acq_msg((acq_msg *) quick_pt->pkt);
+				mil1553_print_acq_msg((acq_msg *) quick_pt->pkt);
 		break;
 
 		case RS_ECHO:
-			print_ctrl_msg((ctrl_msg*)quick_pt->pkt);
+			mil1553_print_ctrl_msg((ctrl_msg*)quick_pt->pkt);
 		break;
 
 		case RS_CONF:
-			print_conf_msg((conf_msg*)quick_pt->pkt);
+			mil1553_print_conf_msg((conf_msg*)quick_pt->pkt);
 		break;
 
 		default:
@@ -859,7 +859,7 @@ retry:
  * @return zero if OK else error
  */
 
-int mil1553_read_ctl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
+int mil1553_read_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
 
    struct quick_data_buffer send_buf = { 0 },
 			    *quickptr_req = &send_buf,
@@ -946,7 +946,7 @@ int mil1553_write_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
 
    struct quick_data_buffer receive_buf = { 0 },
 			   *quickptr_ctl = &receive_buf;
-   int cc, retries;
+   int cc, retries, mbno = 1;
    ctrl_msg *loc_ctrl_ptr;
    struct timeval cur_time = { 0 };
    retries = 0;
@@ -960,17 +960,31 @@ int mil1553_write_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
 
 retry:
 
-   ctrl_ptr->service = RS_REF;
+   quickptr_ctl->bc     = bc;
+   quickptr_ctl->rt     = rti;
+   quickptr_ctl->stamp  = 0;
+   quickptr_ctl->error  = 0;
+   quickptr_ctl->pktcnt = sizeof(ctrl_msg);
+   quickptr_ctl->next   = NULL;
+
+   /* Initialize request message */
+
+   loc_ctrl_ptr->family         = POW_FAM;
+   loc_ctrl_ptr->type           = TYPE;
+   loc_ctrl_ptr->sub_family     = SUB_FAMILY;
+   loc_ctrl_ptr->member         = mbno;
+   loc_ctrl_ptr->service        = RS_REF;
+   loc_ctrl_ptr->cycle.machine  = 0;
+   loc_ctrl_ptr->cycle.pls_line = 0;
+   loc_ctrl_ptr->specialist     = 0;
 
    /* send current time */
 
    gettimeofday(&cur_time, NULL); /* get current time */
-   ctrl_ptr->protocol_date.sec  = (int)cur_time.tv_sec;
-   ctrl_ptr->protocol_date.usec = (int)cur_time.tv_usec;
+   loc_ctrl_ptr->protocol_date.sec  = (int)cur_time.tv_sec;
+   loc_ctrl_ptr->protocol_date.usec = (int)cur_time.tv_usec;
 
    /* Send ctrl_msg to G64 */
-
-   milib_lock_bc(fn,bc);
 
    cc = mil1553_send_quick_data(fn,quickptr_ctl);
    if (cc) {
@@ -984,4 +998,3 @@ retry:
    milib_unlock_bc(fn,bc);
    return cc;
 }
-

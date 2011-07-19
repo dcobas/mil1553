@@ -132,6 +132,10 @@ void serialize_conf_msg(conf_msg *conf_p);
 
 void mil1553_print_error(int cc);
 void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect_service);
+void mil1553_print_req_msg(req_msg *req_p);
+void mil1553_print_ctrl_msg(ctrl_msg *ctrl_p);
+void mil1553_print_acq_msg(acq_msg *acq_p);
+void mil1553_print_conf_msg(conf_msg *conf_p);
 
 /**
  * @brief Read Config message with locking and retry
@@ -164,7 +168,7 @@ int mil1553_read_acq_msg(int fn, int bc, int rti, acq_msg *acq_ptr);
  * @return zero if OK else error
  */
 
-int mil1553_read_ctl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr);
+int mil1553_read_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr);
 
 /**
  * @brief Write Control message with locking and retry
