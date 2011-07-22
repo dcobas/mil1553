@@ -1026,9 +1026,10 @@ short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt
 		wc += HEADER_SIZE;
 
 		wptr = (unsigned short *) qptr->pkt;
-		swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
+		// swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
 		for (i=HEADER_SIZE, j=0; i<wc; i++,j++) {
-			txbuf[i] = wptr[j];
+			swab(&wptr[j],&txbuf[i],sizeof(short));
+			// txbuf[i] = wptr[j];
 		}
 		cc = rtilib_send_eqp(fn,qptr->bc,qptr->rt,wc,txbuf);
 		if (cc) {
@@ -1101,9 +1102,10 @@ short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt)
 		msh = (struct msg_header_s *) &rxbuf[1];
 		wptr = (unsigned short *) qptr->pkt;
 		for (i=0,j=HEADER_SIZE+1; i<wc; i++,j++) {
-			wptr[i] = rxbuf[j];
+			swab(&rxbuf[j],&wptr[i],sizeof(short));
+			// wptr[i] = rxbuf[j];
 		}
-		swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
+		// swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
 		qptr->error = 0;
 Next_qp:        qptr = qptr->next;
 	}
