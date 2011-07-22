@@ -53,16 +53,14 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: pci_procos.c,v 1.1 2011/07/
 #define UPW(a) ((a >> 16) & 0x0ffff)
 #define LOW(a) (a & 0x0ffff)
 
-// #if defined(__BIG_ENDIAN__)
-#if 1
-
+#if defined(__BIG_ENDIAN__)
 #define htons(x) (x)
 #define htonl(x) (x)
-#define htonx(x,y) {x = y;}
+#define htonx(a,b) {a = b};
 #define ntohs(x) (x)
 #define ntohl(x) (x)
 #define ntohx(x) (x)
-// #include <drvrutil/mil1553quicklib.h>
+#include <drvrutil/mil1553quicklib.h>
 
 #else
 #include <byteswap.h>
@@ -96,7 +94,7 @@ static /* __inline__ */ void __htonx(float *a, float b) {
 static int mil1533_init_done = 0;
 static int mil1533_fh = (-1);
 
-static short send_quick_data(struct quick_data_buffer *p)
+static short send_quick_data (struct quick_data_buffer *p)
 {
     int cc;
 
@@ -107,7 +105,7 @@ static short send_quick_data(struct quick_data_buffer *p)
 	}
 	mil1533_init_done = 1;
     }
-    cc = mil1553_send_quick_data(mil1533_fh, p);
+    cc = mil1553_send_raw_quick_data_net(mil1533_fh, p);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
@@ -115,7 +113,7 @@ static short send_quick_data(struct quick_data_buffer *p)
     return 0;
 }
 
-static short get_quick_data(struct quick_data_buffer *p)
+static short get_quick_data (struct quick_data_buffer *p)
 {
     int cc;
 
@@ -126,7 +124,7 @@ static short get_quick_data(struct quick_data_buffer *p)
 	}
 	mil1533_init_done = 1;
     }
-    cc = mil1553_get_quick_data(mil1533_fh, p);
+    cc = mil1553_get_raw_quick_data_net(mil1533_fh, p);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;

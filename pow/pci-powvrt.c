@@ -54,8 +54,7 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 1.1 2011/07/
 
 #include "pow_messages.h"	/* ctrl. and acqn. message formats */
 
-// #if defined(__BIG_ENDIAN__)
-#if 1
+#if defined(__BIG_ENDIAN__)
 
 #define htons(x) (x)
 #define ntohs(x) (x)
@@ -92,50 +91,43 @@ extern void eqm_ptr_iv (int, col_descr *, data_array *, int, int *, int, int,
 #include <libquick.h>
 
 static int mil1533_init_done = 0;
-static int milf = (-1);
-
-static int init_quick_data()
-{
-    if (mil1533_init_done == 0) {
-	if ((milf = mil1553_init_quickdriver ()) < 0) {
-	    perror ("mil1553_init_quickdriver");
-	    return (-1);
-	}
-	mil1533_init_done = 1;
-    }
-    return 0;
-}
-
-/* ========================================== */
+static int mil1533_fh = (-1);
 
 static short send_quick_data (struct quick_data_buffer *p)
 {
     int cc;
 
-    cc = init_quick_data();
-    if (!cc) {
-	cc = mil1553_send_quick_data(milf, p);
-	if ((cc) && (cc != EINPROGRESS)) {
-	    mil1553_print_error(cc);
-	    return cc;
+    if (mil1533_init_done == 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
+	    perror ("mil1553_init_quickdriver");
+	    return (-1);
 	}
+	mil1533_init_done = 1;
+    }
+
+    cc = mil1553_send_raw_quick_data_net(mil1533_fh, p);
+    if ((cc) && (cc != EINPROGRESS)) {
+	mil1553_print_error(cc);
+	return cc;
     }
     return 0;
 }
-
-/* ========================================== */
 
 static short get_quick_data (struct quick_data_buffer *p)
 {
     int cc;
 
-    cc = init_quick_data();
-    if (!cc) {
-	cc = mil1553_get_quick_data(milf, p);
-	if ((cc) && (cc != EINPROGRESS)) {
-	    mil1553_print_error(cc);
-	    return cc;
+    if (mil1533_init_done == 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
+	    perror ("mil1553_init_quickdriver");
+	    return (-1);
 	}
+	mil1533_init_done = 1;
+    }
+    cc = mil1553_get_raw_quick_data_net(mil1533_fh, p);
+    if ((cc) && (cc != EINPROGRESS)) {
+	mil1553_print_error(cc);
+	return cc;
     }
     return 0;
 }
@@ -1516,21 +1508,7 @@ static void DoAcquisition (Action *cact)
     tr_nb = -1;
 
     /* Get acqn. messages from all existing G64s */
-
-    /**
-      * To be more secure first ask for the acquisition data (see libquick mil1553_read_acq_msg)
-      * because if the proco has accessed the hardware the Rx and Tx buffers are overwritten.
-      * Hence in this case you will loose an acquisition and provoke a lot of alarms.
-      * I recomend that you lock the driver, request the acquisition message via send_quick
-      * then read the acquisition via get_quick, check the service is what you want and try
-      * again if its not, and finally unlock the driver. (see libquick mil1553_read_acq_msg)
-      * Here reliability of acquisition is being sacrificed against speed as it is assumed that
-      * the acq message is in the buffer and hasnt been overwritten.
-      * PS: The acq message can only be read once per trigger.
-      */
-
     cc = get_quick_data (cact->acq);
-
     if (cc) {   /* MIL-1553 global error */
 	for (i = 0; i <= cact->nb; i++)
 	    cact->er[i] = EQP_QCKDATERR;	/* log error */
@@ -1914,17 +1892,13 @@ int main (int argc, char **argv)
 		    usleep (delay_flg * 1000);
 		    notwaited = 0;
 		}
-		milib_lock_all_bc(milf);    /* Wait for the locks */
 		DoAcquisition (act);
-		milib_unlock_all_bc(milf);  /* Give up the locks to others */
 	    }
 	}
 	/* Now do all control actions */
 	for (act = act0; act; act = act->next) {
 	    if ((irpt == act->ci) && (act->first == 0))
-		milib_lock_all_bc(milf);    /* Wait for the locks */
 		DoControl (act);
-		milib_unlock_all_bc(milf);  /* Give up the locks to others */
 	}
 
     }
