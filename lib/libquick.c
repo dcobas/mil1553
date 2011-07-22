@@ -20,8 +20,9 @@
 
 #include <libquick.h>
 #include <stdlib.h>
-#include <byteswap.h>
 #include <time.h>
+#include <sys/time.h>
+#include <arpa/inet.h>
 
 void swab(const void *from, void *to, ssize_t n);
 
@@ -553,10 +554,10 @@ void mil1553_print_ctrl_msg(ctrl_msg *ctrl_p) {
 
 	printf("==> ControlMessage:\n");
 	printf("   ccsact     :%02d change:%02d",ctrl_p->ccsact,ctrl_p->ccsact_change);
-	if (ctrl_p->ccsact == 0) printf(" ==> Off");
-	if (ctrl_p->ccsact == 1) printf(" ==> StandBy");
-	if (ctrl_p->ccsact == 2) printf(" ==> On");
-	if (ctrl_p->ccsact == 3) printf(" ==> Reset");
+	if (ctrl_p->ccsact == 1) printf(" ==> Off");
+	if (ctrl_p->ccsact == 2) printf(" ==> StandBy");
+	if (ctrl_p->ccsact == 3) printf(" ==> On");
+	if (ctrl_p->ccsact == 4) printf(" ==> Reset");
 	printf("\n");
 	printf("   ccv|[1-3]  :%f %f %f %f\n",ctrl_p->ccv,ctrl_p->ccv1,ctrl_p->ccv2,ctrl_p->ccv3);
 	printf("<==\n");
@@ -983,4 +984,128 @@ retry:
 
    milib_unlock_bc(fn,bc);
    return cc;
+}
+
+/* =============================================================== */
+/* These routines swap words in the message so as to be compatible */
+/* with the POW equipment module. The byte order will end up the   */
+/* same as with Yuries old driver (possibly network format)        */
+
+/**
+  * @brief send a raw quick data buffer network order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
+
+	struct msg_header_s *msh;
+	struct quick_data_buffer *qptr;
+	unsigned short *wptr;
+	int i, j, cc, wc, occ;
+	unsigned short txbuf[TX_BUF_SIZE];
+
+	occ = 0;    /* Clear overall completion code */
+
+	qptr = quick_pt;
+	while (qptr) {
+
+		msh  = build_message_header(qptr);
+		wptr = (unsigned short *) msh;
+		for (i=0; i<HEADER_SIZE; i++)
+			txbuf[i] = wptr[i];
+		free(msh);
+
+		wc = (qptr->pktcnt + 1)/2;
+		if (wc > MESS_SIZE)
+			wc = MESS_SIZE;
+		wc += HEADER_SIZE;
+
+		wptr = (unsigned short *) qptr->pkt;
+		swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
+		for (i=HEADER_SIZE, j=0; i<wc; i+=2,j+=2) {
+			txbuf[i] = wptr[j];
+		}
+		cc = rtilib_send_eqp(fn,qptr->bc,qptr->rt,wc,txbuf);
+		if (cc) {
+			qptr->error = (short) cc;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
+		} else
+			qptr->error = 0;
+
+		qptr = qptr->next;
+	}
+	return occ;
+}
+
+/**
+  * @brief get a raw quick data buffer network order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
+
+	struct msg_header_s *msh;
+	struct quick_data_buffer *qptr;
+	unsigned short *wptr;
+	int i, j, cc, wc, occ;
+	unsigned short rxbuf[RX_BUF_SIZE], str, rti;
+
+	occ = 0;    /* Clear overall completion code */
+
+	qptr = quick_pt;
+	while (qptr) {
+
+		wc = (qptr->pktcnt + 1)/2;
+		if (wc > MESS_SIZE)
+			wc = MESS_SIZE;
+		wc += HEADER_SIZE;
+
+		cc = rtilib_recv_eqp(fn,qptr->bc,qptr->rt,wc,rxbuf);
+		if (cc) {
+			qptr->error = (short) cc;
+			occ = cc;  /* Overall cc error, continue with next */
+			goto Next_qp;
+		}
+		str = rxbuf[0];
+		if (str & STR_TIM) {
+			qptr->error = ETIMEDOUT;
+			occ = qptr->error;
+			goto Next_qp;
+		}
+		if (str & STR_ME) {
+			qptr->error = EPROTO;
+			occ = qptr->error;
+			goto Next_qp;
+		}
+		if (str & STR_BUY) {
+			qptr->error = EBUSY;
+			occ = qptr->error;
+			goto Next_qp;
+		}
+		rti = (str & STR_RTI_MASK) >> STR_RTI_SHIFT;
+		if (qptr->rt != rti) {
+			qptr->error = ENODEV;
+			occ = qptr->error;
+			goto Next_qp;
+		}
+		msh = (struct msg_header_s *) &rxbuf[1];
+		wptr = (unsigned short *) qptr->pkt;
+		for (i=0,j=HEADER_SIZE+1; i<wc; i+=2,j+=2) {
+			wptr[i] = rxbuf[j];
+		}
+		swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
+		qptr->error = 0;
+Next_qp:        qptr = qptr->next;
+	}
+	return occ;
 }

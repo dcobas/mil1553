@@ -181,4 +181,28 @@ int mil1553_read_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr);
 
 int mil1553_write_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr);
 
+/**
+  * @brief send a raw quick data buffer network order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
+
+/**
+  * @brief get a raw quick data buffer network order
+  * @param file handle returned from the init routine
+  * @param pointer to data buffer
+  * @return 0 success, else standard system error
+  *
+  * Using this call on a power supply requires underatanding how data structures
+  * need to be serialized. EXPERTS ONLY
+  */
+
+short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
+
 #endif
