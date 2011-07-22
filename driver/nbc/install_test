@@ -1,0 +1,13 @@
+#!/bin/sh
+echo Installing mil1553 driver...
+# echo 8 > /proc/sys/kernel/printk
+/sbin/insmod mil1553.ko bcs=1 pci_buses=1 pci_slots=13
+
+MAJOR=`cat /proc/devices | awk '{if ($2 == "mil1553") printf $1}'`
+echo Making nodes for ${MODULE} major device mil1553 ${MAJOR}
+if [ -z "$MAJOR" ]; then
+	echo "driver mil1553 not installed !"
+	exit 2
+fi
+rm -f /dev/mil1553
+/bin/mknod  -m 0666 /dev/mil1553 c ${MAJOR} 0
