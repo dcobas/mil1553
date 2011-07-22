@@ -50,6 +50,7 @@ int read_cfg_msg();  /* Read power supply config */
 int read_acq_msg();  /* Read acquisition */
 int read_ctl_msg();  /* Read pow control settings */
 int write_ctl_msg(); /* Write pow control settings */
+int edit_ctl_msg();  /* Edit pow control settings */
 
 /* Jtag backend to public code */
 
@@ -101,6 +102,7 @@ typedef enum {
    CMDRACQ,    /* Read power supply acquisition */
    CmdRCTL,    /* Read power control values */
    CmdWCTL,    /* Write power control values */
+   CmdECTL,    /* Edit power control values */
 
    CmdCMDS } CmdId;
 
@@ -156,7 +158,8 @@ static Cmd cmds[CmdCMDS] = {
    { CmdRCNF,    "rcnf",  "POW read config"          ,""                   ,read_cfg_msg      },
    { CMDRACQ,    "racq",  "POW read acquisition"     ,""                   ,read_acq_msg      },
    { CmdRCTL,    "rctl",  "POW read control values"  ,""                   ,read_ctl_msg      },
-   { CmdWCTL,    "wctl",  "POW write control values" ,""                   ,write_ctl_msg     }
+   { CmdWCTL,    "wctl",  "POW write control values" ,""                   ,write_ctl_msg     },
+   { CmdECTL,    "ectl",  "POW edit control values"  ,""                   ,edit_ctl_msg      }
 
    };
 

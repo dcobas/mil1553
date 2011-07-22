@@ -1521,9 +1521,10 @@ int cc;
 
 /* ============================= */                                                                                                                                 
 
+static ctrl_msg ctrl;
+
 int read_ctl_msg(int arg) {
 
-ctrl_msg ctrl;
 int cc;
 
    arg++;
@@ -1545,14 +1546,14 @@ int cc;
 int EditCCV(ctrl_msg *ctrl_ptr) {
 
 #define VALUES 5
-#define ACVALS 4
+#define ACVALS 5
 
    unsigned char ccsact;
    char c, *cp, str[128];
    float ccv, ccv1, ccv2, ccv3;
    int res, n, p, np;
    char *vnms[VALUES] = { "ccsact", "ccv", "ccv1", "ccv2", "ccv3" };
-   char *anms[ACVALS] = { "Off","StandBy","On","Reset" };
+   char *anms[ACVALS] = { "Zero", "Off","StandBy","On","Reset" };
    float *ptrs[VALUES -1];
 
    res = 0;
@@ -1569,7 +1570,7 @@ int EditCCV(ctrl_msg *ctrl_ptr) {
    ptrs[3] = &ctrl_ptr->ccv3;
 
    printf("EditCtrl: [?]Help [/]Open [CR]Next [.][q]Exit \n");
-   printf("ccsact:0=Off, 1=Standby, 2=On, 3=Reset\n");
+   printf("ccsact:1=Off, 2=Standby, 3=On, 4=Reset\n");
 
    p = 0;
    c = '\n';
@@ -1618,13 +1619,13 @@ int EditCCV(ctrl_msg *ctrl_ptr) {
 
 /* ============================= */                                                                                                                                 
 
-int write_ctl_msg(int arg) {
+int edit_ctl_msg(int arg) {
 
-ctrl_msg ctrl;
 int cc;
 
    arg++;
 
+   bzero((void *) &ctrl, sizeof(ctrl_msg));
    cc = mil1553_read_ctrl_msg(milf,bc,rti,&ctrl);
    if (cc) {
       printf("mil1553_read_ctrl_msg:Error:%d\n",cc);
@@ -1640,6 +1641,24 @@ int cc;
       mil1553_print_error(cc);
       return arg;
    }
+   return arg;
+}
 
+/* ============================= */                                                                                                                                 
+
+int write_ctl_msg(int arg) {
+
+int cc;
+
+   arg++;
+
+   cc = mil1553_write_ctrl_msg(milf,bc,rti,&ctrl);
+   if (cc) {
+      printf("mil1553_write_ctrl_msg:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return arg;
+   }
+
+   mil1553_print_ctrl_msg(&ctrl);
    return arg;
 }
