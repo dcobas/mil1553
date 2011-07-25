@@ -49,3 +49,12 @@ clean:
 	-$(RM) $(MILIB).$(CPU).so $(MILIB).$(CPU).a $(MILIB).$(CPU).o
 	-$(RM) $(RTILIB).$(CPU).so $(RTILIB).$(CPU).a $(RTILIB).$(CPU).o
 	-$(RM) $(QCKLIB).$(CPU).so $(QCKLIB).$(CPU).a $(QCKLIB).$(CPU).o
+
+install:
+	dsc_install libmil1553.$(CPU).a /ps/local/$(CPU)/mil1553
+	dsc_install librti.$(CPU).a /ps/local/$(CPU)/mil1553
+	dsc_install libquick.$(CPU).a /ps/local/$(CPU)/mil1553
+	dsc_install libmil1553.h /ps/local/$(CPU)/mil1553
+	dsc_install librti.h /ps/local/$(CPU)/mil1553
+	dsc_install libquick.h /ps/local/$(CPU)/mil1553
+	dsc_install pow_messages.h /ps/local/$(CPU)/mil1553

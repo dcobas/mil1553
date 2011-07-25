@@ -27,7 +27,7 @@ static char *editor = "e";
 
 /* ============================= */
 
-char *defaultconfigpath = "./mil1553test.config";
+char *defaultconfigpath = "/usr/local/mil1553/mil1553test.config";
 
 char *configpath = NULL;
 char localconfigpath[128];  /* After a CD */

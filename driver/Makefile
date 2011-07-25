@@ -13,8 +13,13 @@ CFLAGS=-g -Wall
 
 modules: 
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
+
 clean:
 	rm -f *.o *.a *.pyc *.so
 	rm -rf L865 L864 ppc 
 	make -C $(KERNELSRC) M=`pwd` clean
 
+install: mil1553.ko
+	dsc_install mil1553.ko /acc/dsc/lab/L865/$(KVER)/mil1553;
+	dsc_install mil1553.ko /acc/dsc/oper/L865/$(KVER)/mil1553;
+	dsc_install mil1553.ko /acc/dsc/oplhc/L865/$(KVER)/mil1553;
