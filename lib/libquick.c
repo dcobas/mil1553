@@ -4,18 +4,11 @@
  */
 
 /**
- * This code was derrived by experimenting with the hardware.
- * The way data must be serialized and deserialized is not always symetric.
- * It was quite a challenge to find out what I needed to do to make things work.
- * I would strongly advise against anyone using the raw data IO calls on a power supply.
+ * I would advise against anyone using the raw data IO calls on a power supply.
  * I have added the correct logic for serializing the power supply data structures.
- *
- * In conclusion unless you are some sort of pervert don't even think about calling
- *    mil1553_send_raw_quick_data or mil1553_get_raw_quick_data
- *
- * Instead use
- *    mil1553_send_quick_data or mil1553_get_quick_data
- * which do the correct conversions for you to and from native format
+ * In fact the POW EM and RT task does convert the packet part of the QDP message
+ * into network format using hton/l/s/x. I have provided send/receive with the _net
+ * suffix that converts packets to network order by calling swab.
  */
 
 #include <libquick.h>
@@ -59,30 +52,25 @@ struct msg_header_s {
 #define QDP_SINGLE_PACKET 3
 #define QDP_QUICK_TYPE 31
 
-static struct msg_header_s *build_message_header(struct quick_data_buffer *quick_pt) {
+static void build_message_header(struct quick_data_buffer *quick_pt,
+						 struct msg_header_s *msh) {
 
 	static unsigned short dest_transport = 0x8000;
-	struct msg_header_s *msh;
 
-	msh = (struct msg_header_s *) malloc(sizeof(struct msg_header_s));
-	if (msh) {
+	bzero((void *) msh, sizeof(struct msg_header_s));
 
-		bzero((void *) msh, sizeof(struct msg_header_s));
+	msh->packet_size           = quick_pt->pktcnt;
+	msh->version               = QDP_VERSION;
+	msh->source_address        = ((quick_pt->bc+1) << 8) | 0xFF;
+	msh->destination_address   = ((quick_pt->bc+1) << 8) | quick_pt->rt;
+	msh->packet_type           = QDP_QUICK_TYPE;
+	msh->sequence              = QDP_SINGLE_PACKET;
+	msh->source_transport      = quick_pt->stamp;
+	msh->destination_transport = dest_transport++;
+	msh->session_error         = 0;
 
-		msh->packet_size           = quick_pt->pktcnt;
-		msh->version               = QDP_VERSION;
-		msh->source_address        = ((quick_pt->bc+1) << 8) | 0xFF;
-		msh->destination_address   = ((quick_pt->bc+1) << 8) | quick_pt->rt;
-		msh->packet_type           = QDP_QUICK_TYPE;
-		msh->sequence              = QDP_SINGLE_PACKET;
-		msh->source_transport      = quick_pt->stamp;
-		msh->destination_transport = dest_transport++;
-		msh->session_error         = 0;
-
-		if (dest_transport == 0xFFFF)
-			dest_transport = 0x8000;
-	}
-	return msh;
+	if (dest_transport == 0xFFFF)
+		dest_transport = 0x8000;
 }
 
 #ifdef DEBUG
@@ -132,7 +120,7 @@ int mil1553_init_quickdriver(void) {
 
 short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 
-	struct msg_header_s *msh;
+	struct msg_header_s msh;
 	struct quick_data_buffer *qptr;
 	unsigned short *wptr;
 	int i, j, cc, wc, occ;
@@ -143,14 +131,11 @@ short mil1553_send_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 	qptr = quick_pt;
 	while (qptr) {
 
-		msh  = build_message_header(qptr);
-		wptr = (unsigned short *) msh;
-#ifdef DEBUG
-		mil1553_print_message_header(msh);
-#endif
+		build_message_header(qptr,&msh);
+		wptr = (unsigned short *) &msh;
+
 		for (i=0; i<HEADER_SIZE; i++)
 			txbuf[i] = wptr[i];
-		free(msh);
 
 		wc = (qptr->pktcnt + 1)/2;
 		if (wc > MESS_SIZE)
@@ -230,9 +215,6 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 			goto Next_qp;
 		}
 		msh = (struct msg_header_s *) &rxbuf[1];
-#ifdef DEBUG
-		mil1553_print_message_header(msh);
-#endif
 		wptr = (unsigned short *) qptr->pkt;
 		for (i=0,j=HEADER_SIZE+1; i<wc; i++,j++)
 			wptr[i] = rxbuf[j];
@@ -298,7 +280,11 @@ void FloatPrint(float f) {
 #endif
 
 /* (3) Swap bytes in a float that is read back after writing */
+/*     Apparently this "feature" is only needed for old power-supplies */
+/*     where there is a bug in the way floats are returned out of */
+/*     network order. */
 
+#ifdef OLD_POWER_SUPPLY_BUG
 static float FloatByteSwap(float f) {
   union {
     float f;
@@ -313,12 +299,13 @@ static float FloatByteSwap(float f) {
 
   return dat2.f;
 }
+#endif
 
 /**
  * These are the serialization routines that convert the structures defined
  * in pow_messages.h for transmition over the MIL1553 cable to/from a power supply.
  * Reading back a control message reflects the way floats are stored on the
- * power supply and requires special handling.
+ * power supply and requires special handling (See: OLD_POWER_SUPPLY_BUG).
  * In general floats are just word swapped. You don't need to call these
  * functions if you are not using the raw send/receive routines.
  */
@@ -332,10 +319,17 @@ void serialize_read_ctrl_msg(ctrl_msg *ctrl_p) {
 
 	FieldSwap((unsigned char *) &ctrl_p->ccsact_change);
 
+#ifdef OLD_POWER_SUPPLY_BUG
 	ctrl_p->ccv  = FloatByteSwap(ctrl_p->ccv);
 	ctrl_p->ccv1 = FloatByteSwap(ctrl_p->ccv1);
 	ctrl_p->ccv2 = FloatByteSwap(ctrl_p->ccv2);
 	ctrl_p->ccv3 = FloatByteSwap(ctrl_p->ccv3);
+#else
+	FloatWordSwap(&ctrl_p->ccv);
+	FloatWordSwap(&ctrl_p->ccv1);
+	FloatWordSwap(&ctrl_p->ccv2);
+	FloatWordSwap(&ctrl_p->ccv3);
+#endif
 
 	FieldSwap((unsigned char *) &ctrl_p->ccv_change);
 	FieldSwap((unsigned char *) &ctrl_p->ccv2_change);
@@ -1003,7 +997,7 @@ retry:
 
 short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt) {
 
-	struct msg_header_s *msh;
+	struct msg_header_s msh;
 	struct quick_data_buffer *qptr;
 	unsigned short *wptr;
 	int i, j, cc, wc, occ;
@@ -1014,11 +1008,10 @@ short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt
 	qptr = quick_pt;
 	while (qptr) {
 
-		msh  = build_message_header(qptr);
-		wptr = (unsigned short *) msh;
+		build_message_header(qptr,&msh);
+		wptr = (unsigned short *) &msh;
 		for (i=0; i<HEADER_SIZE; i++)
 			txbuf[i] = wptr[i];
-		free(msh);
 
 		wc = (qptr->pktcnt + 1)/2;
 		if (wc > MESS_SIZE)
@@ -1026,11 +1019,9 @@ short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt
 		wc += HEADER_SIZE;
 
 		wptr = (unsigned short *) qptr->pkt;
-		// swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
-		for (i=HEADER_SIZE, j=0; i<wc; i++,j++) {
+		for (i=HEADER_SIZE, j=0; i<wc; i++,j++)
 			swab(&wptr[j],&txbuf[i],sizeof(short));
-			// txbuf[i] = wptr[j];
-		}
+
 		cc = rtilib_send_eqp(fn,qptr->bc,qptr->rt,wc,txbuf);
 		if (cc) {
 			qptr->error = (short) cc;
@@ -1101,11 +1092,9 @@ short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt)
 		}
 		msh = (struct msg_header_s *) &rxbuf[1];
 		wptr = (unsigned short *) qptr->pkt;
-		for (i=0,j=HEADER_SIZE+1; i<wc; i++,j++) {
+		for (i=0,j=HEADER_SIZE+1; i<wc; i++,j++)
 			swab(&rxbuf[j],&wptr[i],sizeof(short));
-			// wptr[i] = rxbuf[j];
-		}
-		// swab(qptr->pkt,qptr->pkt,qptr->pktcnt);
+
 		qptr->error = 0;
 Next_qp:        qptr = qptr->next;
 	}
