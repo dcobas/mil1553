@@ -157,7 +157,7 @@ static Cmd cmds[CmdCMDS] = {
 
    { CmdRCNF,    "rcnf",  "POW read config"          ,""                   ,read_cfg_msg      },
    { CMDRACQ,    "racq",  "POW read acquisition"     ,""                   ,read_acq_msg      },
-   { CmdRCTL,    "rctl",  "POW read control values"  ,""                   ,read_ctl_msg      },
+   { CmdRCTL,    "rctl",  "POW read control values"  ,"0|1 new/old"        ,read_ctl_msg      },
    { CmdWCTL,    "wctl",  "POW write control values" ,""                   ,write_ctl_msg     },
    { CmdECTL,    "ectl",  "POW edit control values"  ,""                   ,edit_ctl_msg      }
 

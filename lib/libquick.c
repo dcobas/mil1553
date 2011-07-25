@@ -284,7 +284,6 @@ void FloatPrint(float f) {
 /*     where there is a bug in the way floats are returned out of */
 /*     network order. */
 
-#ifdef OLD_POWER_SUPPLY_BUG
 static float FloatByteSwap(float f) {
   union {
     float f;
@@ -299,13 +298,12 @@ static float FloatByteSwap(float f) {
 
   return dat2.f;
 }
-#endif
 
 /**
  * These are the serialization routines that convert the structures defined
  * in pow_messages.h for transmition over the MIL1553 cable to/from a power supply.
  * Reading back a control message reflects the way floats are stored on the
- * power supply and requires special handling (See: OLD_POWER_SUPPLY_BUG).
+ * power supply and requires special handling (See: mil1553_old_power_supply).
  * In general floats are just word swapped. You don't need to call these
  * functions if you are not using the raw send/receive routines.
  */
@@ -315,21 +313,23 @@ void serialize_req_msg(req_msg  *req_p) {
 	FieldSwap((unsigned char *) &req_p->type);
 }
 
+int mil1553_old_power_supply = 0;
+
 void serialize_read_ctrl_msg(ctrl_msg *ctrl_p) {
 
 	FieldSwap((unsigned char *) &ctrl_p->ccsact_change);
 
-#ifdef OLD_POWER_SUPPLY_BUG
-	ctrl_p->ccv  = FloatByteSwap(ctrl_p->ccv);
-	ctrl_p->ccv1 = FloatByteSwap(ctrl_p->ccv1);
-	ctrl_p->ccv2 = FloatByteSwap(ctrl_p->ccv2);
-	ctrl_p->ccv3 = FloatByteSwap(ctrl_p->ccv3);
-#else
-	FloatWordSwap(&ctrl_p->ccv);
-	FloatWordSwap(&ctrl_p->ccv1);
-	FloatWordSwap(&ctrl_p->ccv2);
-	FloatWordSwap(&ctrl_p->ccv3);
-#endif
+	if (mil1553_old_power_supply) {
+		ctrl_p->ccv  = FloatByteSwap(ctrl_p->ccv);
+		ctrl_p->ccv1 = FloatByteSwap(ctrl_p->ccv1);
+		ctrl_p->ccv2 = FloatByteSwap(ctrl_p->ccv2);
+		ctrl_p->ccv3 = FloatByteSwap(ctrl_p->ccv3);
+	} else {
+		FloatWordSwap(&ctrl_p->ccv);
+		FloatWordSwap(&ctrl_p->ccv1);
+		FloatWordSwap(&ctrl_p->ccv2);
+		FloatWordSwap(&ctrl_p->ccv3);
+	}
 
 	FieldSwap((unsigned char *) &ctrl_p->ccv_change);
 	FieldSwap((unsigned char *) &ctrl_p->ccv2_change);

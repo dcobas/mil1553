@@ -1522,12 +1522,26 @@ int cc;
 /* ============================= */                                                                                                                                 
 
 static ctrl_msg ctrl;
+extern int mil1553_old_power_supply;
 
 int read_ctl_msg(int arg) {
 
+ArgVal   *v;                                                                                                                                                        
+AtomType  at;                                                                                                                                                       
 int cc;
 
    arg++;
+   v = &(vals[arg]);                                                                                                                                                
+   at = v->Type;                                                                                                                                                    
+   if (at == Numeric) {                                                                                                                                             
+      mil1553_old_power_supply = v->Number;
+      if (mil1553_old_power_supply)
+	 printf("Warning: Old power supply firmware float decoding\n");
+      else
+	 printf("New power supply firmware float decoding\n");
+
+      arg++;
+   }
 
    bzero((void *) &ctrl, sizeof(ctrl_msg));
    cc = mil1553_read_ctrl_msg(milf,bc,rti,&ctrl);
