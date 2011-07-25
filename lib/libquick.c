@@ -189,29 +189,29 @@ short mil1553_get_raw_quick_data(int fn, struct quick_data_buffer *quick_pt) {
 		cc = rtilib_recv_eqp(fn,qptr->bc,qptr->rt,wc,rxbuf);
 		if (cc) {
 			qptr->error = (short) cc;
-			occ = cc;  /* Overall cc error, continue with next */
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		str = rxbuf[0];
 		if (str & STR_TIM) {
 			qptr->error = ETIMEDOUT;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		if (str & STR_ME) {
 			qptr->error = EPROTO;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		if (str & STR_BUY) {
 			qptr->error = EBUSY;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		rti = (str & STR_RTI_MASK) >> STR_RTI_SHIFT;
 		if (qptr->rt != rti) {
 			qptr->error = ENODEV;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		msh = (struct msg_header_s *) &rxbuf[1];
@@ -1065,29 +1065,29 @@ short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt)
 		cc = rtilib_recv_eqp(fn,qptr->bc,qptr->rt,wc,rxbuf);
 		if (cc) {
 			qptr->error = (short) cc;
-			occ = cc;  /* Overall cc error, continue with next */
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		str = rxbuf[0];
 		if (str & STR_TIM) {
 			qptr->error = ETIMEDOUT;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		if (str & STR_ME) {
 			qptr->error = EPROTO;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		if (str & STR_BUY) {
 			qptr->error = EBUSY;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		rti = (str & STR_RTI_MASK) >> STR_RTI_SHIFT;
 		if (qptr->rt != rti) {
 			qptr->error = ENODEV;
-			occ = qptr->error;
+			occ = EINPROGRESS;  /* Overall cc error, continue with next */
 			goto Next_qp;
 		}
 		msh = (struct msg_header_s *) &rxbuf[1];
