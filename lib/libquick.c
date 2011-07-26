@@ -809,6 +809,7 @@ retry:
    loc_conf_ptr = (conf_msg*) &(quickptr_ctl->pkt);
    if (loc_conf_ptr->service != RS_CONF) {
       if (retries++ < RETRIES) goto retry;
+      else cc = EPROTO;
    }
    milib_unlock_bc(fn,bc);
 
@@ -900,8 +901,10 @@ retry:
    /* Check for correct service, retry if its wrong */
 
    loc_acq_ptr = (acq_msg*) &(quickptr_ctl->pkt);
-   if (loc_acq_ptr->service != RS_REF) {
+   if ((loc_acq_ptr->service != RS_REF)
+   ||  (loc_acq_ptr->protocol_date.sec == 0)) {  /* Sometimes its all zero and RS_REF is zero */
       if (retries++ < RETRIES) goto retry;
+      else cc = EPROTO;
    }
    milib_unlock_bc(fn,bc);
 
@@ -983,6 +986,7 @@ retry:
    loc_ctrl_ptr = (ctrl_msg*) &(quickptr_ctl->pkt);
    if (loc_ctrl_ptr->service != RS_ECHO) {
       if (retries++ < RETRIES) goto retry;
+      else cc = EPROTO;
    }
    milib_unlock_bc(fn,bc);
 
