@@ -30,5 +30,3 @@ void milib_decode_txreg(unsigned int txreg, unsigned int *wc, unsigned int *sa, 
 void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, unsigned int tr, unsigned int rti);
 int milib_lock_bc(int fn, int bc);
 int milib_unlock_bc(int fn, int bc);
-int milib_lock_all_bc(int fn);
-int milib_unlock_all_bc(int fn);

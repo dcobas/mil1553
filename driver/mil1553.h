@@ -180,8 +180,6 @@ typedef enum {
 
 	mil1553LOCK_BC,           /** Lock a BC for transaction by a client */
 	mil1553UNLOCK_BC,         /** Unlock a BC after transaction complete */
-	mil1553LOCK_ALL_BC,       /** Lock all BC for transaction by a client */
-	mil1553UNLOCK_ALL_BC,     /** Unlock all BC after transaction complete */
 
 	mil1553LAST               /** For range checking (LAST - FIRST) */
 
@@ -216,7 +214,5 @@ typedef enum {
 #define MIL1553_RECV             PIOWR(mil1553RECV,            struct mil1553_recv_s)
 #define MIL1553_LOCK_BC          PIOW(mil1553LOCK_BC,          unsigned long)
 #define MIL1553_UNLOCK_BC        PIOW(mil1553UNLOCK_BC,        unsigned long)
-#define MIL1553_LOCK_ALL_BC      PIOW(mil1553LOCK_ALL_BC,      unsigned long)
-#define MIL1553_UNLOCK_ALL_BC    PIOW(mil1553UNLOCK_ALL_BC,    unsigned long)
 
 #endif

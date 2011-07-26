@@ -123,10 +123,7 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 	"RECV",
 
 	"LOCK_BC",
-	"UNLOCK_BC",
-	"LOCK_ALL_BC",
-	"UNLOCK_ALL_BC",
-
+	"UNLOCK_BC"
 };
 
 /**
@@ -1078,7 +1075,6 @@ int mil1553_install(void)
 	struct mil1553_device_s *mdev;
 
 	memset(&wa, 0, sizeof(struct working_area_s));
-	mutex_init(&wa.bc_lock);
 
 	if (check_args()) {
 
@@ -1093,6 +1089,7 @@ int mil1553_install(void)
 			spin_lock_init(&mdev->lock);
 			mdev->tx_queue = &wa.tx_queue[i];
 			spin_lock_init(&mdev->tx_queue->lock);
+			mutex_init(&mdev->bc_lock);
 
 			mdev->pdev = add_next_dev(pdev,mdev);
 			if (!mdev->pdev)
@@ -1154,12 +1151,16 @@ int mil1553_open(struct inode *inode, struct file *filp) {
 int mil1553_close(struct inode *inode, struct file *filp) {
 
 	struct client_s         *client;
+	struct mil1553_device_s *mdev;
+	int                      bc;
 
 	client = (struct client_s *) filp->private_data;
 	if (client) {
-		if (client->bcs_locked) {
-			client->bcs_locked = 0;
-			mutex_unlock(&wa.bc_lock);
+		bc = client->bc_locked;
+		if (bc) {
+			mdev = get_dev(bc);
+			if (mdev)
+				mutex_unlock(&mdev->bc_lock);
 		}
 		kfree(client);
 		filp->private_data = NULL;
@@ -1397,20 +1398,34 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				goto error_exit;
 		break;
 
-		case mil1553LOCK_ALL_BC:
 		case mil1553LOCK_BC:
-			if (!client->bcs_locked) {
-				mutex_lock(&wa.bc_lock);
-				client->bcs_locked = 1;
+			bc = *ularg;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
 			}
+			if (client->bc_locked != 0) {
+				cc = -EDEADLK;
+				goto error_exit;
+			}
+			mutex_lock(&mdev->bc_lock);
+			client->bc_locked = bc;
 		break;
 
-		case mil1553UNLOCK_ALL_BC:
 		case mil1553UNLOCK_BC:
-			if (client->bcs_locked) {
-				client->bcs_locked = 0;
-				mutex_unlock(&wa.bc_lock);
+			bc = *ularg;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
 			}
+			if (client->bc_locked != bc) {
+				cc = -ENOLCK;
+				goto error_exit;
+			}
+			client->bc_locked = 0;
+			mutex_unlock(&mdev->bc_lock);
 		break;
 
 		default:

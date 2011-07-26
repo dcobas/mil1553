@@ -208,21 +208,3 @@ int milib_unlock_bc(int fn, int bc) {
 		return errno;
 	return 0;
 }
-
-int milib_lock_all_bc(int fn) {
-
-	int cc = 0;
-	cc = ioctl(fn,MIL1553_LOCK_ALL_BC,&cc);
-	if (cc < 0)
-		return errno;
-	return 0;
-}
-
-int milib_unlock_all_bc(int fn) {
-
-	int cc = 0;
-	cc = ioctl(fn,MIL1553_UNLOCK_ALL_BC,&cc);
-	if (cc < 0)
-		return errno;
-	return 0;
-}
