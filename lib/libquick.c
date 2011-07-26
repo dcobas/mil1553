@@ -715,6 +715,7 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
       milib_unlock_bc(fn,bc);
+      cc = quickptr_req->error;
       return cc;
    }
 
@@ -728,6 +729,7 @@ retry:
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
       milib_unlock_bc(fn,bc);
+      cc = quickptr_req->error;
       return cc;
    }
 
@@ -805,6 +807,7 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
       milib_unlock_bc(fn,bc);
+      cc = quickptr_req->error;
       return cc;
    }
 
@@ -819,6 +822,7 @@ retry:
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
       milib_unlock_bc(fn,bc);
+      cc = quickptr_req->error;
       return cc;
    }
 
@@ -887,6 +891,7 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
       milib_unlock_bc(fn,bc);
+      cc = quickptr_req->error;
       return cc;
    }
 
@@ -898,6 +903,7 @@ retry:
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
       milib_unlock_bc(fn,bc);
+      cc = quickptr_req->error;
       return cc;
    }
 
@@ -973,6 +979,7 @@ retry:
    if (cc) {
       if (retries++ < RETRIES) goto retry;
       milib_unlock_bc(fn,bc);
+      cc = quickptr_ctl->error;
       return cc;
    }
 
