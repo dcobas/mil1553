@@ -299,6 +299,18 @@ static float FloatByteSwap(float f) {
   return dat2.f;
 }
 
+/* (4) Swap words in 32 bit integers */
+
+void WordSwap(int *ip) {
+
+unsigned int l, r;
+
+   r = (*ip & 0xFFFF0000) >> 16;
+   l = (*ip & 0x0000FFFF) << 16;
+
+   *ip = l | r;
+}
+
 /**
  * These are the serialization routines that convert the structures defined
  * in pow_messages.h for transmition over the MIL1553 cable to/from a power supply.
@@ -311,6 +323,8 @@ static float FloatByteSwap(float f) {
 void serialize_req_msg(req_msg  *req_p) {
 
 	FieldSwap((unsigned char *) &req_p->type);
+	WordSwap(&req_p->protocol_date.sec);
+	WordSwap(&req_p->protocol_date.usec);
 }
 
 int mil1553_old_power_supply = 0;
@@ -514,11 +528,50 @@ void mil1553_print_error(int cc) {
 	}
 }
 
+/* ============================= */
+
+static char *TimeToStr(int t) {
+
+static char tbuf[128];
+
+char tmp[128];
+char *yr, *ti, *md, *mn, *dy;
+
+   bzero((void *) tbuf, 128);
+   bzero((void *) tmp, 128);
+
+   if (t) {
+      ctime_r ((time_t *) &t, tmp);  /* Day Mon DD HH:MM:SS YYYY\n\0 */
+
+      tmp[3] = 0;
+      dy = &(tmp[0]);
+      tmp[7] = 0;
+      mn = &(tmp[4]);
+      tmp[10] = 0;
+      md = &(tmp[8]);
+      if (md[0] == ' ') md[0] = '0';
+      tmp[19] = 0;
+      ti = &(tmp[11]);
+      tmp[24] = 0;
+      yr = &(tmp[20]);
+
+      sprintf (tbuf, "%s-%s/%s/%s %s"  , dy, md, mn, yr, ti);
+    } else
+      sprintf (tbuf, "--- Zero ---");
+    return tbuf;
+}
+
 /* ===================================== */
 
 void mil1553_print_req_msg(req_msg *req_p) {
 
-	printf("==> RequestMessage:\n");
+int sec, usec;
+
+	sec  = req_p->protocol_date.sec;
+	usec = req_p->protocol_date.usec;
+
+	printf("==> RequestMessage: ");
+	printf("Sec:0x%08X Usec:0x%08X %s\n",sec,usec,TimeToStr(sec));
 	printf("   Family     :%02d",req_p->family);
 	if (req_p->family == 3) printf(" => POWer-convertor");
 	printf("\n");
@@ -546,7 +599,13 @@ void mil1553_print_req_msg(req_msg *req_p) {
 
 void mil1553_print_ctrl_msg(ctrl_msg *ctrl_p) {
 
-	printf("==> ControlMessage:\n");
+int sec, usec;
+
+	sec  = ctrl_p->protocol_date.sec;
+	usec = ctrl_p->protocol_date.usec;
+
+	printf("==> ControlMessage: ");
+	printf("Sec:0x%08X Usec:0x%08X %s\n",sec,usec,TimeToStr(sec));
 	printf("   ccsact     :%02d change:%02d",ctrl_p->ccsact,ctrl_p->ccsact_change);
 	if (ctrl_p->ccsact == 1) printf(" ==> Off");
 	if (ctrl_p->ccsact == 2) printf(" ==> StandBy");
@@ -561,7 +620,13 @@ void mil1553_print_ctrl_msg(ctrl_msg *ctrl_p) {
 
 void mil1553_print_acq_msg(acq_msg *acq_p) {
 
-	printf("==> AcquisitionMessage:\n");
+int sec, usec;
+
+	sec  = acq_p->protocol_date.sec;
+	usec = acq_p->protocol_date.usec;
+
+	printf("==> AcquisitionMessage: ");
+	printf("Sec:0x%08X Usec:0x%08X %s\n",sec,usec,TimeToStr(sec));
 	printf("   PhysicalStatus :%02d",acq_p->phys_status);
 	if (acq_p->phys_status == 0) printf(" ==> NotDefined");
 	if (acq_p->phys_status == 1) printf(" ==> Operational");
@@ -609,7 +674,13 @@ void mil1553_print_acq_msg(acq_msg *acq_p) {
 
 void mil1553_print_conf_msg(conf_msg *conf_p) {
 
-	printf("==> ConfigurationMessage:\n");
+int sec, usec;
+
+	sec  = conf_p->protocol_date.sec;
+	usec = conf_p->protocol_date.usec;
+
+	printf("==> ConfigurationMessage: ");
+	printf("Sec:0x%08X Usec:0x%08X %s\n",sec,usec,TimeToStr(sec));
 	printf("   i_nominal resolution :%f %f\n",conf_p->i_nominal,conf_p->resolution);
 	printf("   i_max i_min di_dt    :%f %f %f\n",conf_p->i_max,conf_p->i_min,conf_p->di_dt);
 	printf("   mode                 :%f\n",conf_p->mode);
