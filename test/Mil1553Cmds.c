@@ -807,7 +807,8 @@ int ver, cc;
       printf("milib_get_drv_version:Error:%d\n",cc);
       mil1553_print_error(cc);
    }
-      printf("Driver:  %s - %d\n",TimeToStr(ver),ver);
+   printf("Driver:  %s - %d\n",TimeToStr(ver),ver);
+   printf("Test  :  %s - %s\n",__DATE__,__TIME__);
 
    arg++;
    return arg;
@@ -1655,6 +1656,8 @@ int cc;
       mil1553_print_error(cc);
       return arg;
    }
+
+   mil1553_print_ctrl_msg(&ctrl);
    return arg;
 }
 

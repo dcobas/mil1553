@@ -517,6 +517,10 @@ void mil1553_print_error(int cc) {
 				fprintf(stderr,"RTI busy, STR.BUY");
 			break;
 
+			case EAGAIN:
+				fprintf(stderr,"Wrong service number read back, try again");
+			break;
+
 			case EINPROGRESS:
 				fprintf(stderr,"QDP Transaction partial failure");
 			break;
@@ -786,7 +790,8 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
       milib_unlock_bc(fn,bc);
-      cc = quickptr_req->error;
+      if (quickptr_req->error)
+	 cc = quickptr_req->error;
       return cc;
    }
 
@@ -800,7 +805,8 @@ retry:
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
       milib_unlock_bc(fn,bc);
-      cc = quickptr_req->error;
+      if (quickptr_req->error)
+	 cc = quickptr_req->error;
       return cc;
    }
 
@@ -809,7 +815,7 @@ retry:
    loc_conf_ptr = (conf_msg*) &(quickptr_ctl->pkt);
    if (loc_conf_ptr->service != RS_CONF) {
       if (retries++ < RETRIES) goto retry;
-      else cc = EPROTO;
+      else cc = EAGAIN;
    }
    milib_unlock_bc(fn,bc);
 
@@ -834,7 +840,7 @@ int mil1553_read_acq_msg(int fn, int bc, int rti, acq_msg *acq_ptr) {
 struct quick_data_buffer send_buf = { 0 },
 			 *quickptr_req = &send_buf,
 			 receive_buf = { 0 },
-			 *quickptr_ctl = &receive_buf;
+			 *quickptr_acq = &receive_buf;
 req_msg *req_ptr;
 acq_msg *loc_acq_ptr;
 short mbno = 1;
@@ -879,32 +885,34 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
       milib_unlock_bc(fn,bc);
-      cc = quickptr_req->error;
+      if (quickptr_req->error)
+	 cc = quickptr_req->error;
       return cc;
    }
 
-   quickptr_ctl->bc = bc;
-   quickptr_ctl->rt = rti;
-   quickptr_ctl->next = NULL;
+   quickptr_acq->bc = bc;
+   quickptr_acq->rt = rti;
+   quickptr_acq->next = NULL;
 
    /* expected answer: we'll wait for packet 44 bytes long (22 words) */
 
-   quickptr_ctl->pktcnt = sizeof(acq_msg);
+   quickptr_acq->pktcnt = sizeof(acq_msg);
 
-   cc = mil1553_get_quick_data(fn,quickptr_ctl);
+   cc = mil1553_get_quick_data(fn,quickptr_acq);
    if (cc) {
       milib_unlock_bc(fn,bc);
-      cc = quickptr_req->error;
+      if (quickptr_acq->error)
+	 cc = quickptr_acq->error;
       return cc;
    }
 
    /* Check for correct service, retry if its wrong */
 
-   loc_acq_ptr = (acq_msg*) &(quickptr_ctl->pkt);
+   loc_acq_ptr = (acq_msg *) &(quickptr_acq->pkt);
    if ((loc_acq_ptr->service != RS_REF)
    ||  (loc_acq_ptr->protocol_date.sec == 0)) {  /* Sometimes its all zero and RS_REF is zero */
       if (retries++ < RETRIES) goto retry;
-      else cc = EPROTO;
+      else cc = EAGAIN;
    }
    milib_unlock_bc(fn,bc);
 
@@ -965,7 +973,8 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
       milib_unlock_bc(fn,bc);
-      cc = quickptr_req->error;
+      if (quickptr_req->error)
+	 cc = quickptr_req->error;
       return cc;
    }
 
@@ -977,7 +986,8 @@ retry:
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
       milib_unlock_bc(fn,bc);
-      cc = quickptr_req->error;
+      if (quickptr_req->error)
+	 cc = quickptr_req->error;
       return cc;
    }
 
@@ -986,7 +996,7 @@ retry:
    loc_ctrl_ptr = (ctrl_msg*) &(quickptr_ctl->pkt);
    if (loc_ctrl_ptr->service != RS_ECHO) {
       if (retries++ < RETRIES) goto retry;
-      else cc = EPROTO;
+      else cc = EAGAIN;
    }
    milib_unlock_bc(fn,bc);
 
@@ -1054,7 +1064,8 @@ retry:
    if (cc) {
       if (retries++ < RETRIES) goto retry;
       milib_unlock_bc(fn,bc);
-      cc = quickptr_ctl->error;
+      if (quickptr_ctl->error)
+	 cc = quickptr_ctl->error;
       return cc;
    }
 
