@@ -91,23 +91,23 @@ extern void eqm_ptr_iv (int, col_descr *, data_array *, int, int *, int, int,
 #include <libquick.h>
 
 static int mil1533_init_done = 0;
-static int mil1533_fh = (-1);
+static int milf = (-1);
 
 static short send_quick_data (struct quick_data_buffer *p)
 {
     int cc;
 
     if (mil1533_init_done == 0) {
-	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
+	if ((milf = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
 	mil1533_init_done = 1;
     }
 
-    milib_lock_bc(mil1533_fh,p->bc);
-    cc = mil1553_send_raw_quick_data_net(mil1533_fh, p);
-    milib_unlock_bc(mil1533_fh,p->bc);
+    milib_lock_bc(milf,p->bc);
+    cc = mil1553_send_raw_quick_data_net(milf, p);
+    milib_unlock_bc(milf,p->bc);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
@@ -120,20 +120,37 @@ static short get_quick_data (struct quick_data_buffer *p)
     int cc;
 
     if (mil1533_init_done == 0) {
-	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
+	if ((milf = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
 	mil1533_init_done = 1;
     }
-    milib_lock_bc(mil1533_fh,p->bc);
-    cc = mil1553_get_raw_quick_data_net(mil1533_fh, p);
-    milib_unlock_bc(mil1533_fh,p->bc);
+    milib_lock_bc(milf,p->bc);
+    cc = mil1553_get_raw_quick_data_net(milf, p);
+    milib_unlock_bc(milf,p->bc);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
     }
     return 0;
+}
+
+/* Refresh the drivers known list of RTIs for each BC */
+/* This takes 0.1ms for each BC */
+
+void refresh_rti_list() {
+
+    int bc;
+    int up_rtis;
+    int bcs_count = 0;
+
+    milib_get_bcs_count(milf, &bcs_count);
+    for (bc=1; bc<=bcs_count; bc++) {
+	milib_lock_bc(milf, bc);
+	milib_get_up_rtis(milf, bc, &up_rtis);
+	milib_unlock_bc(milf, bc);
+    }
 }
 
 /*--------------------------------------------------------------------------*/
@@ -1763,7 +1780,6 @@ static void GetCmdLineOptions (int argc, char **argv)
 
 }
 
-
 /*====================================================*/
 /* Main program                                       */
 /* optional: name of the accelerator (PSB or CPS)     */
@@ -1835,6 +1851,7 @@ int main (int argc, char **argv)
 	    for (act = act0; act; act = act->next)
 		DoControl (act);
 
+	    refresh_rti_list();
 	    usleep (1200000);	/* sleep for 1.2 sec */
 	}
     }
@@ -1859,6 +1876,8 @@ int main (int argc, char **argv)
 		fflush (stderr);
 	    }
 	}
+
+	refresh_rti_list();
 
 	/* After all done open the lock for other processes */
 	/* they take it and do what they want. This should avoid */
