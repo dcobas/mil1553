@@ -105,7 +105,9 @@ static short send_quick_data (struct quick_data_buffer *p)
 	mil1533_init_done = 1;
     }
 
+    milib_lock_bc(mil1533_fh,p->bc);
     cc = mil1553_send_raw_quick_data_net(mil1533_fh, p);
+    milib_unlock_bc(mil1533_fh,p->bc);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
@@ -124,7 +126,9 @@ static short get_quick_data (struct quick_data_buffer *p)
 	}
 	mil1533_init_done = 1;
     }
+    milib_lock_bc(mil1533_fh,p->bc);
     cc = mil1553_get_raw_quick_data_net(mil1533_fh, p);
+    milib_unlock_bc(mil1533_fh,p->bc);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
