@@ -45,6 +45,7 @@ int ReadRxBuf();     /* Read RTI rxbuf */
 int ReadTxBuf();     /* Read RTI txbuf */
 int WriteRxBuf();    /* Write RTI rxbuf from memory */
 int WriteTxBuf();    /* Write RTI txbuf from memory */
+int GetSetSpeed();   /* Select bus controler speed */
 
 int read_cfg_msg();  /* Read power supply config */
 int read_acq_msg();  /* Read acquisition */
@@ -97,6 +98,7 @@ typedef enum {
    CmdRTX,     /* RTI read txbuf */
    CmdWRX,     /* RTI write rxbuf */
    CmdWTX,     /* RTI write txbuf */
+   CmdSPEED,   /* Get set the bus speed */
 
    CmdRCNF,    /* Read power supply config */
    CMDRACQ,    /* Read power supply acquisition */
@@ -154,6 +156,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdRTX,     "rtx",   "RTI read txbuf (receive)" ,"wc"                 ,ReadTxBuf         },
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
+   { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
 
    { CmdRCNF,    "rcnf",  "POW read config"          ,""                   ,read_cfg_msg      },
    { CMDRACQ,    "racq",  "POW read acquisition"     ,""                   ,read_acq_msg      },

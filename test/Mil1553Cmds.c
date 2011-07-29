@@ -925,6 +925,47 @@ int cc;
 
 /* ============================= */
 
+int GetSetSpeed(int arg) {      /* Select bus controler speed */
+
+ArgVal   *v;
+AtomType  at;
+int tbc = 0;
+int speed = 0;
+int cc, i;
+struct mil1553_dev_info_s dev_info;
+
+   arg++;
+
+   for (i=0; i<SPEEDS; i++)
+      printf("%1d => %s ",i,speed_to_str(i));
+   printf("\n");
+
+   v = &(vals[arg]);
+   at = v->Type;
+   if (at == Numeric) {
+      speed = v->Number;
+      if ((speed >= 0) && (speed < SPEEDS)) {
+	 cc = milib_set_bus_speed(milf, bc, speed);
+	 if (cc) {
+	    printf("milib_set_bus_speed:Error:%d\n",cc);
+	    mil1553_print_error(cc);
+	 }
+      }
+   }
+   dev_info.bc = bc;
+   cc = milib_get_bc_info(milf,&dev_info);
+   if (cc) {
+      printf("milib_get_bc_info:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return arg;
+   }
+   printf("BC:%d BusSpeed:%d => %s\n",bc,dev_info.speed,speed_to_str(dev_info.speed));
+
+   return arg;
+}
+
+/* ============================= */
+
 int GetUpRtis(int arg) {     /* Get up RTIs */
 
 unsigned short sig;

@@ -208,3 +208,17 @@ int milib_unlock_bc(int fn, int bc) {
 		return errno;
 	return 0;
 }
+
+int milib_set_bus_speed(int fn, int bc, int speed) {
+
+	int cc = 0;
+	struct mil1553_bus_speed_s bs;
+	bs.speed = speed;
+	bs.bc = bc;
+
+	cc = ioctl(fn,MIL1553_SET_BUS_SPEED,&bs);
+
+	if (cc < 0)
+		return errno;
+	return 0;
+}
