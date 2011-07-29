@@ -1270,7 +1270,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				goto error_exit;
 			}
 			memory_map = mdev->memory_map;
-			reg = ((bus_speed->speed << CMD_SPEED_SHIFT) & CMD_SPEED_MASK) | CMD_POLL_OFF;
+			reg = ((bus_speed->speed << CMD_SPEED_SHIFT) & CMD_SPEED_MASK) | POLLING_OFF;
 			iowrite32be(reg,&memory_map->cmd);
 		break;
 
