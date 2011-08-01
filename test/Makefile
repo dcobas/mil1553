@@ -29,7 +29,7 @@ mil1553test.$(CPU): mil1553test.$(CPU).o
 clean:
 	rm -f *.o *.$(CPU)
 
-install:
+install: mil1553test.$(CPU) mil1553test.config MIL1553.regs
 	@for f in $(ACCS); do \
 	    dsc_install mil1553test.$(CPU) /acc/dsc/$$f/$(CPU)/mil1553; \
 	    dsc_install mil1553test.config /acc/dsc/$$f/$(CPU)/mil1553; \

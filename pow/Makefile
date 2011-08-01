@@ -14,14 +14,12 @@ LDLIBS=-lgm -ldscrt $(TGMLIBS) -ldrvrutil -lquick -lerr -lerr_dummy $(XTRALIBS) 
 else
 PROCS=pci_procos.c
 RTS=  pci-powvrt.c
-CFLAGS +=-I/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib
-CFLAGS +=-I/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/driver
-#LDLIBS=-lgm -ldscrt $(TGMLIBS) -L/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib -lquick.L865 -lmil1553.L865 -lrti.L865 -ldrvrutil  -lerr $(XTRALIBS)
-LDLIBS=-lgm -ldscrt $(TGMLIBS) \
-/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib/libquick.L865.a \
-/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib/libmil1553.L865.a \
-/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib/librti.L865.a \
--ldrvrutil  -lerr $(XTRALIBS)
+CFLAGS +=-I /acc/local/$(CPU)/mil1553
+# CFLAGS +=-I/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib
+# CFLAGS +=-I/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/driver
+# LDLIBS=-lgm -ldscrt $(TGMLIBS) -L/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib -lquick.L865 -lmil1553.L865 -lrti.L865 -ldrvrutil  -lerr $(XTRALIBS)
+LDFLAGS += -L /acc/local/L865/mil1553 
+LDLIBS=-lgm -ldscrt $(TGMLIBS) -lquick -lmil1553 -lrti -ldrvrutil  -lerr $(XTRALIBS)
 endif
 RTX=
 
@@ -52,5 +50,5 @@ pow-v_procos.$(CPU).o: pow_messages.h
 powvrt-pci.$(CPU).o: powvrt-pci.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) -c $< -o $@
 
-powvrt-pci.$(CPU): powvrt-pci.$(CPU).o
-	$(LINK.o) $^  $(LOADLIBES) $(LDLIBS) -o $@
+powvrt-pci.$(CPU): powvrt-pci.$(CPU).o 
+	$(LINK.o) $^  $(LOADLIBES) $(LDFLAGS) $(LDLIBS) -o $@
