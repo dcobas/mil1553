@@ -16,7 +16,12 @@ PROCS=pci_procos.c
 RTS=  pci-powvrt.c
 CFLAGS +=-I/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib
 CFLAGS +=-I/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/driver
-LDLIBS=-lgm -ldscrt $(TGMLIBS) -L/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib -lquick.L865 -lmil1553.L865 -lrti.L865 -ldrvrutil  -lerr $(XTRALIBS)
+#LDLIBS=-lgm -ldscrt $(TGMLIBS) -L/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib -lquick.L865 -lmil1553.L865 -lrti.L865 -ldrvrutil  -lerr $(XTRALIBS)
+LDLIBS=-lgm -ldscrt $(TGMLIBS) \
+/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib/libquick.L865.a \
+/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib/libmil1553.L865.a \
+/acc/src/dsc/drivers/cohtdrep/lewis/new_mil1553/lib/librti.L865.a \
+-ldrvrutil  -lerr $(XTRALIBS)
 endif
 RTX=
 
