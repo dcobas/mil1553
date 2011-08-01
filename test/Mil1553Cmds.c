@@ -929,7 +929,6 @@ int GetSetSpeed(int arg) {      /* Select bus controler speed */
 
 ArgVal   *v;
 AtomType  at;
-int tbc = 0;
 int speed = 0;
 int cc, i;
 struct mil1553_dev_info_s dev_info;
