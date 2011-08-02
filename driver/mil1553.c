@@ -413,8 +413,8 @@ static int raw_write(struct mil1553_device_s *mdev,
  * I.E The queue tx_size should be empty, otherwise it disrupts the bus
  */
 
-#define TRIES 100
-#define BETWEEN_TRIES_US 100
+#define TRIES 50
+#define BETWEEN_TRIES_US 200
 #define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
 static uint32_t _get_up_rtis(struct mil1553_device_s *mdev)
