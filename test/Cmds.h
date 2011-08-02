@@ -143,7 +143,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWMEM,    "wmem",  "Write from memory to dev" ,"start,count"        ,RawWrite          },
    { CmdEMEM,    "emem",  "Alloc/Set/Edit memory"    ,"start/count,value"  ,EditMem           },
    { CmdEREG,    "ereg",  "Edit registers"           ,"reg|name,val"       ,EditRegs          },
-   { CmdRTIS,    "rtis",  "Get up RTIs"              ,""                   ,GetUpRtis         },
+   { CmdRTIS,    "rtis",  "Get up RTIs"              ,"reset"              ,GetUpRtis         },
    { CmdSPK,     "spk",   "Send packets"             ,"start,count"        ,SendPackets       },
    { CmdEPK,     "epk",   "Edit packets"             ,"start,count"        ,EditPackets       },
 

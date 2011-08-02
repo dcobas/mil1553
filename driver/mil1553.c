@@ -407,6 +407,7 @@ static int raw_write(struct mil1553_device_s *mdev,
  * =========================================================
  * @brief      Get the up_rtis for a given BC
  * @param mdev Mill1553 device
+ * @param cflg Clear up RTI mask before detecting
  * @return     Mask of up RTIs
  *
  * This routine should never be run while packets are being processed
@@ -417,12 +418,22 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_US 200
 #define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
-static uint32_t _get_up_rtis(struct mil1553_device_s *mdev)
+static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg)
 {
 	struct memory_map_s *memory_map;
 	uint32_t cmd;
-	uint32_t up_rtis = 0; /* online RTI's */
+	uint32_t up_rtis;
 	int i;
+
+	/**
+	 * In this way new RTIs get added as more bits get set
+	 * but they are never removed  unless cflg is set
+	 */
+
+	if (cflg)                        /* Clear flag set ? */
+		up_rtis = 0;             /* Yes - No up RTIs to start */
+	else
+		up_rtis = mdev->up_rtis; /* No - RTI's that are or were on line */
 
 	/* Do nothing if queue is not empty */
 
@@ -465,11 +476,11 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev)
 	return up_rtis;
 }
 
-static uint32_t get_up_rtis(struct mil1553_device_s *mdev)
+static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg)
 {
 	uint32_t res;
 	spin_lock(&mdev->lock);
-	res = _get_up_rtis(mdev);
+	res = _get_up_rtis(mdev,cflg);
 	spin_unlock(&mdev->lock);
 	return res;
 }
@@ -488,7 +499,7 @@ static int check_rti_up(struct mil1553_device_s *mdev, unsigned int rtin)
 
 	up_rtis = mdev->up_rtis;
 	if (!up_rtis)
-		up_rtis = get_up_rtis(mdev);
+		up_rtis = get_up_rtis(mdev,0);
 	mask = 1 << rtin;
 	if (mask & up_rtis)
 		return 1;
@@ -1060,7 +1071,7 @@ static void init_device(struct mil1553_device_s *mdev) {
 	mdev->snum_h = ioread32be(&memory_map->snum_h);
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
-	get_up_rtis(mdev);
+	get_up_rtis(mdev,1);
 }
 
 /**
@@ -1184,8 +1195,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 	struct memory_map_s *memory_map;
 
-	int cc = 0;
-	unsigned int cnt, blen, bc;
+	int bc, cc = 0, cflg;
+	unsigned int cnt, blen;
 
 	uint32_t reg;
 
@@ -1362,12 +1373,17 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553GET_UP_RTIS:
 			bc = *ularg;
+			cflg = 0;
+			if (bc < 0) {       /* If the bc is negative, reset up RTIs mask */
+				bc = -bc;
+				cflg = 1;
+			}
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			*ularg = get_up_rtis(mdev);
+			*ularg = get_up_rtis(mdev,cflg);
 		break;
 
 		case mil1553SEND:

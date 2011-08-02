@@ -968,13 +968,24 @@ struct mil1553_dev_info_s dev_info;
 int GetUpRtis(int arg) {     /* Get up RTIs */
 
 unsigned short sig;
-int up_rtis, i, count, cc;
+int up_rtis, i, count, cc, rbc;
+ArgVal   *v;
+AtomType  at;
 
    arg++;
    up_rtis = 0;
    count = 0;
 
-   cc = milib_get_up_rtis(milf, bc, &up_rtis);
+   rbc = bc;
+   v = &(vals[arg]);
+   at = v->Type;
+   if (at == Numeric) {
+      if (v->Number) rbc = -rbc;
+      arg++;
+      printf("Resetting up RTI mask for BC:%d\n",bc);
+   }
+
+   cc = milib_get_up_rtis(milf, rbc, &up_rtis);
    if (cc) {
       printf("milib_get_up_rtis:Error:%d\n",cc);
       mil1553_print_error(cc);
