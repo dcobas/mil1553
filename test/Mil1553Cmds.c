@@ -989,6 +989,7 @@ AtomType  at;
    if (cc) {
       printf("milib_get_up_rtis:Error:%d\n",cc);
       mil1553_print_error(cc);
+      return arg;
    }
 
    printf("up_rtis:0x%08X",up_rtis);
