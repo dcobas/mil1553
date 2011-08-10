@@ -10,6 +10,8 @@
 .nfs*
 *ppc4*
 *L865*
+*L866*
 .es*
 play
+*tmp*
 RCS
