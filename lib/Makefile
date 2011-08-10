@@ -6,7 +6,7 @@ CPU=L865
 
 include /acc/dsc/src/co/Make.auto
 
-CFLAGS= -g -Wall -I. -I../driver
+CFLAGS= -g -Wall -I. -I../driver -fPIC
 
 MILSRC=$(MILIB).c $(MILIB).h $(RTILIB).c $(RTILIB).h $(QCKLIB).c $(QCKLIB).h
 
