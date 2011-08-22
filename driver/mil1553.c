@@ -372,7 +372,8 @@ static int raw_read(struct mil1553_device_s *mdev,
 
 static int _raw_write(struct mil1553_device_s *mdev,
 		      struct mil1553_riob_s *riob,
-		      void *buf) {
+		      void *buf)
+{
 
 	int i;
 	uint32_t *uip, *hip;
@@ -1036,7 +1037,8 @@ struct pci_dev *add_next_dev(struct pci_dev *pcur,
  * @param dev       PCI device handle
  */
 
-void release_device(struct mil1553_device_s *mdev) {
+void release_device(struct mil1553_device_s *mdev)
+{
 
 	pci_iounmap(mdev->pdev, (void *) mdev->memory_map);
 	pci_release_region(mdev->pdev, BAR2);
@@ -1057,7 +1059,8 @@ void release_device(struct mil1553_device_s *mdev) {
 
 #define INITIAL_SPEED (CMD_SPEED_1M << CMD_SPEED_SHIFT)
 
-static void init_device(struct mil1553_device_s *mdev) {
+static void init_device(struct mil1553_device_s *mdev)
+{
 
 	struct memory_map_s *memory_map = mdev->memory_map;
 	uint32_t cmd;
@@ -1136,7 +1139,8 @@ int mil1553_install(void)
  * Place pointer to client in the file private data pointer
  */
 
-int mil1553_open(struct inode *inode, struct file *filp) {
+int mil1553_open(struct inode *inode, struct file *filp)
+{
 
 	struct client_s *client;
 
@@ -1159,7 +1163,8 @@ int mil1553_open(struct inode *inode, struct file *filp) {
  * Close
  */
 
-int mil1553_close(struct inode *inode, struct file *filp) {
+int mil1553_close(struct inode *inode, struct file *filp)
+{
 
 	struct client_s         *client;
 	struct mil1553_device_s *mdev;
@@ -1474,7 +1479,8 @@ error_exit:
  * =========================================================
  */
 
-long mil1553_ioctl_ulck(struct file *filp, unsigned int cmd, unsigned long arg) {
+long mil1553_ioctl_ulck(struct file *filp, unsigned int cmd, unsigned long arg)
+{
 	int res;
 
 	res = mil1553_ioctl(filp->f_dentry->d_inode, filp, cmd, arg);
@@ -1486,7 +1492,8 @@ long mil1553_ioctl_ulck(struct file *filp, unsigned int cmd, unsigned long arg) 
  */
 
 int mil1553_ioctl_lck(struct inode *inode, struct file *filp,
-		      unsigned int cmd, unsigned long arg) {
+		      unsigned int cmd, unsigned long arg)
+{
 	int res;
 
 	res = mil1553_ioctl(inode, filp, cmd, arg);
@@ -1498,7 +1505,8 @@ int mil1553_ioctl_lck(struct inode *inode, struct file *filp,
  * Uninstall the driver
  */
 
-void mil1553_uninstall(void) {
+void mil1553_uninstall(void)
+{
 	int bc;
 	struct mil1553_device_s *mdev;
 
