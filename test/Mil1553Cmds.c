@@ -526,7 +526,7 @@ int n, radix, nadr;
 int EditMem(int arg) { /* Address */
 ArgVal   *v;
 AtomType  at;
-int address;
+int i, address, len, val;
 
    arg++;
    address = 0;
@@ -535,9 +535,30 @@ int address;
    if (at == Numeric) {
       arg++;
       address = v->Number;
+
       v = &(vals[arg]);
       at = v->Type;
-      if (address >= memlen) address = 0;
+      if (at == Numeric) {
+	 arg++;
+	 len = v->Number;
+
+	 v = &(vals[arg]);
+	 at = v->Type;
+	 if (at == Numeric) {
+	    arg++;
+	    val = v->Number;
+	 } else {
+	    val = len;
+	    len = MAX_REGS;
+	 }
+
+	 if (address >= memlen) address = 0;
+	 if (len + address > MAX_REGS) len = MAX_REGS - address;
+
+	 printf("Setting mem[%d..%d] = %d\n",address,len,val);
+	 for (i=address; i<address+len; i++)
+	    mem[i] = val;
+      }
    }
 
    EditBuffer(address);
@@ -731,8 +752,7 @@ struct mil1553_riob_s riob;
    }
 
    if ((start + regs) > MAX_REGS) {
-      printf("Bad Address:Start:%d + Count:%d = Address:%d\n",start,regs,start+regs);
-      return arg;
+      regs = MAX_REGS - start;
    }
 
    printf("Read registers from:%02d to:%02d = count:%02d\n",start,regs,start+regs);
@@ -779,8 +799,7 @@ int cc;
    }
 
    if ((start + regs) > MAX_REGS) {
-      printf("Bad Address:Start:%d + Count:%d = Address:%d\n",start,regs,start+regs);
-      return arg;
+      regs = MAX_REGS - start;
    }
 
    printf("Write registers from:%02d to:%02d = count:%02d\n",start,regs,start+regs);

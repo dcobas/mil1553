@@ -141,9 +141,9 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWAIT,    "wi",    "Wait interrupt"           ,""                   ,WaitInterrupt     },
    { CmdRMEM,    "rmem",  "Read from dev to memory"  ,"start,count"        ,RawRead           },
    { CmdWMEM,    "wmem",  "Write from memory to dev" ,"start,count"        ,RawWrite          },
-   { CmdEMEM,    "emem",  "Alloc/Set/Edit memory"    ,"start/count,value"  ,EditMem           },
+   { CmdEMEM,    "emem",  "Set Edit memory"          ,"start,[count],value",EditMem           },
    { CmdEREG,    "ereg",  "Edit registers"           ,"reg|name,val"       ,EditRegs          },
-   { CmdRTIS,    "rtis",  "Get up RTIs"              ,"reset"              ,GetUpRtis         },
+   { CmdRTIS,    "rtis",  "Get up RTIs"              ,"bc(resets)"         ,GetUpRtis         },
    { CmdSPK,     "spk",   "Send packets"             ,"start,count"        ,SendPackets       },
    { CmdEPK,     "epk",   "Edit packets"             ,"start,count"        ,EditPackets       },
 
