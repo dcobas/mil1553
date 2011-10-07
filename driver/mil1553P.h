@@ -143,7 +143,10 @@ struct mil1553_device_s {
 	uint32_t             busy_done;   /** Bus controller busy/done status */
 	uint32_t             up_rtis;     /** Last known up rtis mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
-	struct mutex bc_lock;             /** Transaction lock mutex */
+	struct mutex         bc_lock;     /** Transaction lock mutex */
+	wait_queue_head_t    wait_queue;  /** Kernel thread/Isr sync */
+	uint32_t             icnt;        /** Device interrupt count */
+	struct task_struct  *kthread;     /** Device kernel thread */
 };
 
 /**

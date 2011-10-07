@@ -181,6 +181,9 @@ typedef enum {
 	mil1553LOCK_BC,           /** Lock a BC for transaction by a client */
 	mil1553UNLOCK_BC,         /** Unlock a BC after transaction complete */
 
+	mil1553QUEUE_SIZE,        /** Returns the number of items on clients queue */
+	mil1553RESET,             /** Resets a bus controller */
+
 	mil1553LAST               /** For range checking (LAST - FIRST) */
 
 } mil1553_ioctl_function_t;
@@ -214,5 +217,7 @@ typedef enum {
 #define MIL1553_RECV             PIOWR(mil1553RECV,            struct mil1553_recv_s)
 #define MIL1553_LOCK_BC          PIOW(mil1553LOCK_BC,          unsigned long)
 #define MIL1553_UNLOCK_BC        PIOW(mil1553UNLOCK_BC,        unsigned long)
+#define MIL1553_QUEUE_SIZE       PIOR(mil1553QUEUE_SIZE,       unsigned long)
+#define MIL1553_RESET            PIOW(mil1553RESET,            unsigned long)
 
 #endif

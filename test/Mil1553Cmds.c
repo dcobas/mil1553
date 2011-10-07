@@ -984,6 +984,22 @@ struct mil1553_dev_info_s dev_info;
 
 /* ============================= */
 
+int GetQueueSize(int arg) {
+int qsze, cc;
+
+   arg++;
+   cc = milib_get_queue_size(milf, &qsze);
+   if (cc) {
+      printf("milib_get_queue_size:Error:%d\n",cc);
+      mil1553_print_error(cc);
+      return arg;
+   }
+   printf("Current Qsize:%d\n", qsze);
+   return arg;
+}
+
+/* ============================= */
+
 int GetUpRtis(int arg) {     /* Get up RTIs */
 
 unsigned short sig;
@@ -1246,6 +1262,21 @@ int item_num = 0;
       if (item_num >= MAX_ITEMS) item_num = 0;
    }
    edit_items(item_num);
+   return arg;
+}
+
+/* ============================= */
+
+int ResetBc(int arg) {   /* Edit packets */
+int cc;
+
+   arg++;
+
+   cc = milib_reset(milf,bc);
+   if (cc) {
+      printf("millib_get_up_rtis:Error:%d\n",cc);
+      mil1553_print_error(cc);
+   }
    return arg;
 }
 

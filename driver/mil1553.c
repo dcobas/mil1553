@@ -20,6 +20,7 @@
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+#include <linux/kthread.h>
 
 #include "mil1553.h"
 #include "mil1553P.h"
@@ -879,6 +880,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((isrc & ISRC_IRQ) == 0)
 		return IRQ_NONE;
 
+	mdev->icnt++;
+	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
+
 	wa.isrdebug |= 0x1;
 
 	bc = mdev->bc;
@@ -1078,6 +1082,60 @@ static void init_device(struct mil1553_device_s *mdev)
 }
 
 /**
+ * Kernel thread to handle RTI timeouts
+ * If the RTI fails to respond this thread will
+ * start the next item on the device queue
+ */
+
+#define RTI_TIMEOUT 10000 /** Timeout for RTI in milliseconds */
+
+int mil1553_kthread(void *arg)
+{
+	struct mil1553_device_s *mdev = arg;
+	int icnt, cc;
+	uint32_t *wp, *rp;
+	struct tx_queue_s *tx_queue;
+	unsigned long flags;
+
+	printk("mil1553 thread:running:%d\n",mdev->bc);
+	while (1) {
+
+		icnt = mdev->icnt;
+		cc = wait_event_interruptible_timeout(mdev->wait_queue,
+						     icnt != mdev->icnt,
+						     msecs_to_jiffies(RTI_TIMEOUT));
+		if (cc == 0) {
+			tx_queue = mdev->tx_queue;
+
+			spin_lock_irqsave(&tx_queue->lock,flags);
+			rp = &tx_queue->rp;
+			wp = &tx_queue->wp;
+			get_next_rp(rp,*wp,QSZ);
+			spin_unlock_irqrestore(&tx_queue->lock,flags);
+
+			if (get_queue_size(*rp,*wp,QSZ) == 0) {
+				mdev->busy_done = BC_DONE;
+			} else {
+				printk("mil1553:thread:start\n");
+				_start_tx(0,mdev);
+			}
+			continue;
+		}
+
+		if (cc == -ERESTARTSYS) {
+			printk("mil1553:thread:interrupted by signal\n");
+			continue;
+		}
+
+		if (cc < 0) {
+			printk("mil1553:thread:error:%d Exit\n",cc);
+			do_exit(cc);
+		}
+	}
+	return cc;
+}
+
+/**
  * =========================================================
  * Installer, hunt down modules and install them
  */
@@ -1121,7 +1179,10 @@ int mil1553_install(void)
 
 			mdev->bc = bc;
 
+			init_waitqueue_head(&mdev->wait_queue);
 			init_device(mdev);
+			mdev->kthread = kthread_run(mil1553_kthread,mdev,"mil1553:%d",mdev->bc);
+
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
 			pdev = mdev->pdev;
@@ -1201,11 +1262,12 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	struct memory_map_s *memory_map;
 
 	int bc, cc = 0, cflg;
+	uint32_t *wp, *rp;
 	unsigned int cnt, blen;
 
 	uint32_t reg;
 
-	unsigned long *ularg;
+	unsigned long *ularg, flags;
 
 	struct mil1553_riob_s       *riob;
 	struct mil1553_device_s     *mdev;
@@ -1214,7 +1276,9 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	struct mil1553_bus_speed_s  *bus_speed;
 	struct mil1553_dev_info_s   *dev_info;
 
-	struct client_s *client = (struct client_s *) filp->private_data;
+	struct rx_queue_s *rx_queue;
+	struct tx_queue_s *tx_queue;
+	struct client_s   *client = (struct client_s *) filp->private_data;
 
 	ionr = _IOC_NR(cmd);
 	iodr = _IOC_DIR(cmd);
@@ -1274,6 +1338,22 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			memory_map = mdev->memory_map;
 			reg = ioread32be(&memory_map->hstat);
 			*ularg = (reg & HSTAT_STAT_MASK) >> HSTAT_STAT_SHIFT;
+		break;
+
+		case mil1553RESET:             /** Reads the status register */
+
+			bc = *ularg;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
+			tx_queue = mdev->tx_queue;
+			spin_lock_irqsave(&tx_queue->lock,flags);
+			tx_queue->rp = 0;
+			tx_queue->wp = 0;
+			mdev->busy_done = BC_DONE;
+			spin_unlock_irqrestore(&tx_queue->lock,flags);
 		break;
 
 		case mil1553SET_BUS_SPEED:     /** Set the bus speed */
@@ -1410,6 +1490,15 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			kfree(buf);
 			if (cc <= 0)
 				goto error_exit;
+		break;
+
+		case mil1553QUEUE_SIZE:
+			rx_queue = &client->rx_queue;
+			spin_lock_irqsave(&rx_queue->lock,flags);
+			wp = &rx_queue->wp;
+			rp = &rx_queue->rp;
+			*ularg = get_queue_size(*rp,*wp,QSZ);
+			spin_unlock_irqrestore(&rx_queue->lock,flags);
 		break;
 
 		case mil1553RECV:

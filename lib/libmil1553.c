@@ -127,6 +127,25 @@ int milib_recv(int fn, struct mil1553_recv_s *recv) {
 	return 0;
 }
 
+int milib_get_queue_size(int fn, int *size) {
+
+	int cc;
+	*size = 0;
+	cc = ioctl(fn,MIL1553_QUEUE_SIZE,size);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+int milib_reset(int fn, int bc) {
+
+	int cc;
+	cc = ioctl(fn,MIL1553_RESET,&bc);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
 int milib_write_reg(int fn, int bc, int reg_num, int reg_val) {
 
 	struct mil1553_riob_s riob;

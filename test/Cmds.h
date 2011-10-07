@@ -34,6 +34,7 @@ int EditRegs();      /* Edit registers */
 int GetUpRtis();     /* Get up RTIs */
 int SendPackets();   /* Send packets */
 int EditPackets();   /* Edit packets */
+int ResetBc();       /* Reset bus controller */
 
 int GetSetRti();     /* Get set current RTI */
 int EditCsr();       /* Edit RTI csr */
@@ -46,6 +47,8 @@ int ReadTxBuf();     /* Read RTI txbuf */
 int WriteRxBuf();    /* Write RTI rxbuf from memory */
 int WriteTxBuf();    /* Write RTI txbuf from memory */
 int GetSetSpeed();   /* Select bus controler speed */
+
+int GetQueueSize();  /* Get the client queue size */
 
 int read_cfg_msg();  /* Read power supply config */
 int read_acq_msg();  /* Read acquisition */
@@ -88,6 +91,7 @@ typedef enum {
    CmdRTIS,    /* Get up RTIs */
    CmdSPK,     /* Send packets */
    CmdEPK,     /* Edit packets */
+   CmdRESET,   /* Reset bus controller */
 
    CmdRTI,     /* Get set current RTI */
    CmdCSR,     /* Edit CSR register */
@@ -99,6 +103,8 @@ typedef enum {
    CmdWRX,     /* RTI write rxbuf */
    CmdWTX,     /* RTI write txbuf */
    CmdSPEED,   /* Get set the bus speed */
+
+   CmdQSZE,    /* Get clients queue size */
 
    CmdRCNF,    /* Read power supply config */
    CMDRACQ,    /* Read power supply acquisition */
@@ -146,6 +152,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdRTIS,    "rtis",  "Get up RTIs"              ,"bc(resets)"         ,GetUpRtis         },
    { CmdSPK,     "spk",   "Send packets"             ,"start,count"        ,SendPackets       },
    { CmdEPK,     "epk",   "Edit packets"             ,"start,count"        ,EditPackets       },
+   { CmdRESET,   "reset", "Reset bus controller"     ,""                   ,ResetBc           },
 
    { CmdRTI,     "rti",   "Get set current RTI"      ,"rti number"         ,GetSetRti         },
    { CmdCSR,     "csr",   "Edit CSR register"        ,"set,clear bits"     ,EditCsr           },
@@ -157,6 +164,8 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
+
+   { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 
    { CmdRCNF,    "rcnf",  "POW read config"          ,""                   ,read_cfg_msg      },
    { CMDRACQ,    "racq",  "POW read acquisition"     ,""                   ,read_acq_msg      },
