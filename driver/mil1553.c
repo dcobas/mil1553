@@ -420,7 +420,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_US 200
 #define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
-static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg)
+static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 {
 	struct memory_map_s *memory_map;
 	uint32_t cmd;
@@ -460,9 +460,10 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg)
  * This frig masks an underlying hardware error.
  */
 
-	for (i=0; i <TRIES; i++) {
+	for (i=0; i<tries; i++) {
 		up_rtis |= ioread32be(&memory_map->up_rtis);
-		udelay(BETWEEN_TRIES_US);
+		if (i)
+			udelay(BETWEEN_TRIES_US);
 	}
 
 	/* Switch off hardware RTI polling and restore cmd register */
@@ -478,11 +479,11 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg)
 	return up_rtis;
 }
 
-static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg)
+static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 {
 	uint32_t res;
 	spin_lock(&mdev->lock);
-	res = _get_up_rtis(mdev,cflg);
+	res = _get_up_rtis(mdev,cflg,tries);
 	spin_unlock(&mdev->lock);
 	return res;
 }
@@ -501,7 +502,7 @@ static int check_rti_up(struct mil1553_device_s *mdev, unsigned int rtin)
 
 	up_rtis = mdev->up_rtis;
 	if (!up_rtis)
-		up_rtis = get_up_rtis(mdev,0);
+		up_rtis = get_up_rtis(mdev,0,TRIES);
 	mask = 1 << rtin;
 	if (mask & up_rtis)
 		return 1;
@@ -780,7 +781,7 @@ static int send_items(struct client_s *client,
 int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 {
 	unsigned long flags;
-	int i, cc, res, wc;
+	int i, cc, wc, qs;
 	struct rx_queue_s *rx_queue;
 	struct rti_interrupt_s *rti_interrupt;
 	uint32_t *wp, *rp, icnt;
@@ -789,12 +790,13 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 	client->timeout = mrecv->timeout;
 
 	do {
-		res = 0;
 		rx_queue = &client->rx_queue;
 		spin_lock_irqsave(&rx_queue->lock,flags);
 		wp = &rx_queue->wp;
 		rp = &rx_queue->rp;
-		if (get_queue_size(*rp,*wp,QSZ) > 0) {
+
+		qs = get_queue_size(*rp,*wp,QSZ);
+		if (qs > 0) {
 
 			rti_interrupt = &rx_queue->rti_interrupt[*rp];
 
@@ -825,10 +827,9 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 			}
 
 			get_next_rp(rp,*wp,QSZ);
-			res = 1;
 		}
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
-		if (res)
+		if (qs)
 			return 0;
 
 		icnt = client->icnt;
@@ -1078,7 +1079,7 @@ static void init_device(struct mil1553_device_s *mdev)
 	mdev->snum_h = ioread32be(&memory_map->snum_h);
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
-	get_up_rtis(mdev,1);
+	get_up_rtis(mdev,1,TRIES);
 }
 
 /**
@@ -1087,33 +1088,42 @@ static void init_device(struct mil1553_device_s *mdev)
  * start the next item on the device queue
  */
 
-#define RTI_TIMEOUT 10 /** Timeout for RTI in milliseconds */
+#define RTI_TIMEOUT 1000 /** Timeout for RTI in milliseconds */
 
 int mil1553_kthread(void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
-	int icnt, cc;
+	int icnt, cc, qs;
 	uint32_t *wp, *rp;
 	struct tx_queue_s *tx_queue;
 	unsigned long flags;
 
 	printk("mil1553 kernel thread:running:%d\n",mdev->bc);
+
+	tx_queue = mdev->tx_queue;
+	rp = &tx_queue->rp;
+	wp = &tx_queue->wp;
+
 	do {
 
 		icnt = mdev->icnt;
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
 						     icnt != mdev->icnt,
 						     msecs_to_jiffies(RTI_TIMEOUT));
+		if (cc > 0)
+			printk("mil1553:thread:wake:qsz:%d icnt:%d\n",
+			       get_queue_size(*rp,*wp,QSZ),
+			       mdev->icnt);
+
 		if (cc == 0) {
-			tx_queue = mdev->tx_queue;
+
+			get_up_rtis(mdev,0,1);
 
 			spin_lock_irqsave(&tx_queue->lock,flags);
-			rp = &tx_queue->rp;
-			wp = &tx_queue->wp;
-			get_next_rp(rp,*wp,QSZ);
+			qs = get_next_rp(rp,*wp,QSZ);
 			spin_unlock_irqrestore(&tx_queue->lock,flags);
 
-			if (get_queue_size(*rp,*wp,QSZ) == 0) {
+			if (!qs) {
 				mdev->busy_done = BC_DONE;
 			} else {
 				printk("mil1553:thread:start\n");
@@ -1469,7 +1479,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			*ularg = get_up_rtis(mdev,cflg);
+			*ularg = get_up_rtis(mdev,cflg,TRIES);
 		break;
 
 		case mil1553SEND:
