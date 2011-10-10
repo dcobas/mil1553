@@ -1087,7 +1087,7 @@ static void init_device(struct mil1553_device_s *mdev)
  * start the next item on the device queue
  */
 
-#define RTI_TIMEOUT 10000 /** Timeout for RTI in milliseconds */
+#define RTI_TIMEOUT 10 /** Timeout for RTI in milliseconds */
 
 int mil1553_kthread(void *arg)
 {
@@ -1097,8 +1097,8 @@ int mil1553_kthread(void *arg)
 	struct tx_queue_s *tx_queue;
 	unsigned long flags;
 
-	printk("mil1553 thread:running:%d\n",mdev->bc);
-	while (1) {
+	printk("mil1553 kernel thread:running:%d\n",mdev->bc);
+	do {
 
 		icnt = mdev->icnt;
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
@@ -1129,10 +1129,10 @@ int mil1553_kthread(void *arg)
 
 		if (cc < 0) {
 			printk("mil1553:thread:error:%d Exit\n",cc);
-			do_exit(cc);
+			break;
 		}
-	}
-	return cc;
+	} while (!kthread_should_stop());
+	return 0;
 }
 
 /**
@@ -1182,7 +1182,8 @@ int mil1553_install(void)
 			init_waitqueue_head(&mdev->wait_queue);
 			init_device(mdev);
 			mdev->kthread = kthread_run(mil1553_kthread,mdev,"mil1553:%d",mdev->bc);
-
+			if (IS_ERR(mdev->kthread))
+				mdev->kthread = NULL;
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
 			pdev = mdev->pdev;
@@ -1601,6 +1602,8 @@ void mil1553_uninstall(void)
 
 	for (bc=0; bc<wa.bcs; bc++) {
 		mdev = &wa.mil1553_dev[bc];
+		if (mdev->kthread)
+			kthread_stop(mdev->kthread);
 		release_device(mdev);
 	}
 	unregister_chrdev(mil1553_major,mil1553_major_name);
