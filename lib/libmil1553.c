@@ -241,3 +241,54 @@ int milib_set_bus_speed(int fn, int bc, int speed) {
 		return errno;
 	return 0;
 }
+
+/**
+ * @brief Provide a user level mdrop interface for legacy code
+ */
+
+static int mdrop_fn = 0;
+
+short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, char *buf) {
+
+	int cc;
+	struct mil1553_send_s send;
+	struct mil1553_recv_s recv;
+	struct mil1553_tx_item_s txitm;
+	unsigned int txreg;
+
+
+	if (!mdrop_fn) {
+		cc = milib_handle_open();
+		if (cc < 0)
+			return cc;
+		mdrop_fn = cc;
+	}
+
+	milib_encode_txreg(&txreg,wc,sa,tr,rti);
+
+	txitm.bc = bc;
+	txitm.rti_number = rti;
+	txitm.txreg = txreg;
+	txitm.no_reply = 0;
+	bcopy(buf,txitm.txbuf,wc*2);
+
+	send.item_count = 1;
+	send.tx_item_array = &txitm;
+
+	cc = milib_send(mdrop_fn, &send);
+	if (cc)
+		return -1;
+	bzero((void *) &recv, sizeof(struct mil1553_recv_s));
+	recv.pk_type = TX_ALL;
+	recv.timeout = 100;
+	cc = milib_recv(mdrop_fn, &recv);
+	*status = recv.interrupt.rxbuf[0];
+	if (cc)
+		return -1;
+
+	if ((recv.interrupt.bc != bc)
+	||  (recv.interrupt.rti_number != rti))
+		return -1;
+
+	return 0;
+}

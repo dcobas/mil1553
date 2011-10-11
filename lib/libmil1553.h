@@ -33,3 +33,4 @@ int milib_unlock_bc(int fn, int bc);
 int milib_set_bus_speed(int fn, int bc, int speed);
 int milib_get_queue_size(int fn, int *size);
 int milib_reset(int fn, int bc);
+short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, char *buf);
