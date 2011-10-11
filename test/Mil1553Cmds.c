@@ -418,10 +418,10 @@ int n, earg;
 
 /* ============================= */
 
-unsigned long get_mem(int address) {
+unsigned int get_mem(int address) {
 
 int i;
-unsigned long data = 0;
+unsigned int data = 0;
 
    i = address/sizeof(int);
    data = ((int *) mem)[i];
@@ -430,7 +430,7 @@ unsigned long data = 0;
 
 /* ============================= */
 
-void set_mem(int address, unsigned long data) {
+void set_mem(int address, unsigned int data) {
 
 int i;
 
@@ -477,7 +477,7 @@ struct regdesc *reg;
 
 void EditBuffer(int address) {
 
-unsigned long addr, data;
+unsigned int addr, data;
 char c, *cp, str[128];
 int n, radix, nadr;
 
@@ -1523,7 +1523,7 @@ int WriteRxBuf(int arg) {
                                                                                                                                                                     
 ArgVal   *v;                                                                                                                                                        
 AtomType  at;                                                                                                                                                       
-int wc, cc;
+int i, wc, cc;
 unsigned short *rxbuf;
                                                                                                                                                                     
    arg++;                                                                                                                                                           
@@ -1538,6 +1538,11 @@ unsigned short *rxbuf;
    }
 
    rxbuf = (unsigned short *) &mem[RXBUF];
+   for (i=0; i<wc+1; i++) {
+      if (!(i % 4)) printf("\nWord:%02d ",i);
+      printf("0x%04hX ",rxbuf[i]);
+   }
+   printf("\n");
 
    cc = rtilib_write_rxbuf(milf, bc, rti, wc, (unsigned short *) &rxbuf[0]);
    if (cc) {
@@ -1555,7 +1560,7 @@ int WriteTxBuf(int arg) {
                                                                                                                                                                     
 ArgVal   *v;                                                                                                                                                        
 AtomType  at;                                                                                                                                                       
-int wc, cc;
+int i, wc, cc;
 unsigned short *txbuf;
 
    arg++;                                                                                                                                                           
@@ -1570,6 +1575,11 @@ unsigned short *txbuf;
    }
 
    txbuf = (unsigned short *) &mem[TXBUF];
+   for (i=0; i<wc+1; i++) {
+      if (!(i % 4)) printf("\nWord:%02d ",i);
+      printf("0x%04hX ",txbuf[i]);
+   }
+   printf("\n");
                                                                                                                                                                     
    cc = rtilib_write_txbuf(milf, bc, rti, wc, (unsigned short *) &txbuf[0]);
    if (cc) {

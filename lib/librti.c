@@ -135,7 +135,7 @@ int rtilib_send_receive(int fn,
 		recv.timeout = 100;
 
 		cc = milib_recv(fn, &recv);
-		if (cc < 0)
+		if (cc)
 			return cc;
 
 		if (rxbuf) {

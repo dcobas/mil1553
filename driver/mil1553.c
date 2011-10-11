@@ -668,7 +668,7 @@ static int send_items(struct client_s *client,
 		printk("mil1553:send_items:item_count:%d\n",item_count);
 
 
-	if (item_count <=0)
+	if (item_count <= 0)
 		return 0;
 
 	/* Check the RTIs are up */
@@ -718,8 +718,13 @@ static int send_items(struct client_s *client,
 		tx_item.no_reply = item_array[i].no_reply;
 
 		wc = (tx_item.txreg & TXREG_WC_MASK) >> TXREG_WC_SHIFT;
-		for (j=0; j<wc; j++)
+		for (j=0; j<wc; j++) {
 			tx_item.txbuf[j] = item_array[i].txbuf[j];
+			if (client->debug_level > 7) {
+				if (!(j % 4)) printk("\nSend:%02d ",j);
+				printk("0x%04hX ",tx_item.txbuf[j]);
+			}
+		}
 
 		/* Users can be interrupted on ALL, START and END items in the transaction */
 
@@ -836,9 +841,11 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		cc = wait_event_interruptible_timeout(client->wait_queue,
 						     icnt != client->icnt,
 						     client->timeout);
-		if (cc == 0)
+		if (cc == 0) {
+			if (client->debug_level > 4)
+				printk("mil1553:read_queue:wait_event_interruptible_timeout:timedout\n");
 			return -ETIME;
-
+		}
 		if (cc == -ERESTARTSYS) {
 			printk("mil1553:read_queue:interrupted by signal\n");
 			cc = -EINTR;
@@ -1493,14 +1500,19 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			cc = copy_from_user(buf, msend->tx_item_array, blen);
 			if (cc) {
 				kfree(buf);
+				if (client->debug_level > 4)
+					printk("mil1553:SEND:copy_from_user:bytes_not_copied:%d\n",cc);
 				goto error_exit;
 			}
 			cc = send_items(client,
 					msend->item_count,
-					msend->tx_item_array);
+					(struct mil1553_tx_item_s *) buf);
 			kfree(buf);
-			if (cc <= 0)
+			if (cc <= 0) {
+				if (client->debug_level > 4)
+					printk("mil1553:SEND:send_items:returned:%d\n",cc);
 				goto error_exit;
+			}
 		break;
 
 		case mil1553QUEUE_SIZE:
@@ -1515,8 +1527,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		case mil1553RECV:
 			mrecv = mem;
 			cc = read_queue(client,mrecv);
-			if (cc)
+			if (cc) {
+				if (client->debug_level > 4)
+					printk("mil1553:RECV:read_queue:returned:%d\n",cc);
 				goto error_exit;
+			}
 		break;
 
 		case mil1553LOCK_BC:
