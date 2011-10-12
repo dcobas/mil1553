@@ -407,13 +407,27 @@ static int raw_write(struct mil1553_device_s *mdev,
 
 /**
  * =========================================================
- * @brief      Get the up_rtis for a given BC
- * @param mdev Mill1553 device
- * @param cflg Clear up RTI mask before detecting
- * @return     Mask of up RTIs
+ * @brief       Get the up_rtis for a given BC
+ * @param mdev  Mill1553 device
+ * @param cflg  Clear up RTI mask before detecting
+ * @param tries The number of tries to read the RTI mask (See below)
+ * @return      Mask of up RTIs
  *
  * This routine should never be run while packets are being processed
  * I.E The queue tx_size should be empty, otherwise it disrupts the bus
+ *
+ * The CBMIA does not reliably detect the RTI present bit mask.
+ * In general if we loop 50 times or-ing in bits the mask has a high
+ * probability of being correct. In order to avoid the christmass tree
+ * effect, in general (unless the clear flag is set) the detected RTI
+ * mask is or-ed with the previous value. The down side of this is that
+ * RTIs that die or get switched off are not removed from the mask.
+ * A kernel thread for each CBMIA calls get_up_rtis with the special tries
+ * value of 1. In this case there is no wait in the try loop and the value
+ * is not or-ed with its previous value. After the kernel thread has a new
+ * mask value built up over TRIES samples it puts in the new mask in the
+ * CBMIA device context. Hence in this way RTIs can get removed, and the
+ * christmass tree lights don't flash on and off randomly.
  */
 
 #define TRIES 50
@@ -439,8 +453,12 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 
 	/* Do nothing if queue is not empty */
 
-	if (get_queue_size(mdev->tx_queue->rp,mdev->tx_queue->wp,QSZ) > 0)
-		return mdev->up_rtis;
+	if (get_queue_size(mdev->tx_queue->rp,mdev->tx_queue->wp,QSZ) > 0) {
+		if (tries > 1)
+			return mdev->up_rtis;
+		else
+			return 0;
+	}
 
 	/* Interrupts off */
 
@@ -475,7 +493,8 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 
 	iowrite32be(INTEN_INF,&memory_map->inten);
 
-	mdev->up_rtis = up_rtis;
+	if (tries > 1)
+		mdev->up_rtis = up_rtis;
 	return up_rtis;
 }
 
@@ -1090,17 +1109,22 @@ static void init_device(struct mil1553_device_s *mdev)
 }
 
 /**
- * Kernel thread to handle RTI timeouts
- * If the RTI fails to respond this thread will
- * start the next item on the device queue
+ * A kernel thread to handle RTI timeouts and up RTI mask.
+ * Each RTI interrupt this thread wakes up and does nothing.
+ * When there are no RTI interrupts the wait will time out.
+ * A timeout either means the RTI failed to interrupt or there
+ * are no transactions going on. In this case its a good time
+ * to sample the up RTI mask, and reset the transmit queue.
+ * N.B. If an RTI times out the entire tx_item queue is thrown
+ * away when the transmit queue read and write pointers are reset.
  */
 
-#define RTI_TIMEOUT 1000 /** Timeout for RTI in milliseconds */
+#define RTI_TIMEOUT 10 /** Timeout for RTI in milliseconds */
 
 int mil1553_kthread(void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
-	int icnt, cc, qs;
+	int icnt, cc, tries = 0, rti_mask = 0;
 	uint32_t *wp, *rp;
 	struct tx_queue_s *tx_queue;
 	unsigned long flags;
@@ -1117,36 +1141,19 @@ int mil1553_kthread(void *arg)
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
 						     icnt != mdev->icnt,
 						     msecs_to_jiffies(RTI_TIMEOUT));
-		if (cc > 0)
-			printk("mil1553:thread:wake:qsz:%d icnt:%d\n",
-			       get_queue_size(*rp,*wp,QSZ),
-			       mdev->icnt);
-
 		if (cc == 0) {
-
-			get_up_rtis(mdev,0,1);
+			rti_mask |= get_up_rtis(mdev,0,1);
+			if (++tries > TRIES) {
+				mdev->up_rtis = rti_mask;
+				tries = 0;
+				rti_mask = 0;
+			}
 
 			spin_lock_irqsave(&tx_queue->lock,flags);
-			qs = get_next_rp(rp,*wp,QSZ);
+			tx_queue->rp = 0;
+			tx_queue->wp = 0;
+			mdev->busy_done = BC_DONE;
 			spin_unlock_irqrestore(&tx_queue->lock,flags);
-
-			if (!qs) {
-				mdev->busy_done = BC_DONE;
-			} else {
-				printk("mil1553:thread:start\n");
-				_start_tx(0,mdev);
-			}
-			continue;
-		}
-
-		if (cc == -ERESTARTSYS) {
-			printk("mil1553:thread:interrupted by signal\n");
-			continue;
-		}
-
-		if (cc < 0) {
-			printk("mil1553:thread:error:%d Exit\n",cc);
-			break;
 		}
 	} while (!kthread_should_stop());
 	return 0;
@@ -1366,12 +1373,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			tx_queue = mdev->tx_queue;
-			spin_lock_irqsave(&tx_queue->lock,flags);
-			tx_queue->rp = 0;
-			tx_queue->wp = 0;
-			mdev->busy_done = BC_DONE;
-			spin_unlock_irqrestore(&tx_queue->lock,flags);
+			init_device(mdev);
 		break;
 
 		case mil1553SET_BUS_SPEED:     /** Set the bus speed */
