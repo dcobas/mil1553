@@ -321,6 +321,30 @@ static int get_next_rp(uint32_t *rp, uint32_t wp, uint32_t qsz)
 
 /**
  * =========================================================
+ * @brief Reset a TX queue
+ * @param mdev pointer to cbmia device context
+ *
+ * When an RTI times out, the tx_queue may still have items
+ * on it. The client has already seen a timeout so the remaining
+ * items on the queue need to be cleaned up.
+ */
+
+static void reset_tx_queue(struct mil1553_device_s *mdev)
+{
+	struct tx_queue_s *tx_queue;
+	unsigned long flags;
+
+	tx_queue = mdev->tx_queue;
+
+	spin_lock_irqsave(&tx_queue->lock,flags);
+	tx_queue->rp = 0;
+	tx_queue->wp = 0;
+	mdev->busy_done = BC_DONE;
+	spin_unlock_irqrestore(&tx_queue->lock,flags);
+}
+
+/**
+ * =========================================================
  * @brief           Read U32 integers from mapped address space
  * @param mdev      Mill1553 device
  * @param riob      IO buffer descriptor
@@ -417,7 +441,7 @@ static int raw_write(struct mil1553_device_s *mdev,
  * I.E The queue tx_size should be empty, otherwise it disrupts the bus
  *
  * The CBMIA does not reliably detect the RTI present bit mask.
- * In general if we loop 50 times or-ing in bits the mask has a high
+ * In general if we loop many times or-ing in bits the mask has a high
  * probability of being correct. In order to avoid the christmass tree
  * effect, in general (unless the clear flag is set) the detected RTI
  * mask is or-ed with the previous value. The down side of this is that
@@ -808,6 +832,7 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 	struct rx_queue_s *rx_queue;
 	struct rti_interrupt_s *rti_interrupt;
 	uint32_t *wp, *rp, icnt;
+	struct mil1553_device_s *mdev;
 
 	client->pk_type = mrecv->pk_type;
 	client->timeout = mrecv->timeout;
@@ -817,11 +842,10 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		spin_lock_irqsave(&rx_queue->lock,flags);
 		wp = &rx_queue->wp;
 		rp = &rx_queue->rp;
+		rti_interrupt = &rx_queue->rti_interrupt[*rp];
 
 		qs = get_queue_size(*rp,*wp,QSZ);
 		if (qs > 0) {
-
-			rti_interrupt = &rx_queue->rti_interrupt[*rp];
 
 			mrecv->interrupt.bc         = rti_interrupt->bc;
 			mrecv->interrupt.rti_number = rti_interrupt->rti_number;
@@ -862,6 +886,13 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		if (cc == 0) {
 			if (client->debug_level > 4)
 				printk("mil1553:read_queue:wait_event_interruptible_timeout:timedout\n");
+
+			/* If there was a timeout, reset the queue of the last device */
+
+			mdev = get_dev(rti_interrupt->bc);
+			if (mdev)
+				reset_tx_queue(mdev);
+
 			return -ETIME;
 		}
 		if (cc == -ERESTARTSYS) {
@@ -1108,31 +1139,16 @@ static void init_device(struct mil1553_device_s *mdev)
 }
 
 /**
- * A kernel thread to handle RTI timeouts and up RTI mask.
- * Each RTI interrupt this thread wakes up and does nothing.
- * When there are no RTI interrupts the wait will time out.
- * A timeout either means the RTI failed to interrupt or there
- * are no transactions going on. In this case its a good time
- * to sample the up RTI mask, and reset the transmit queue.
- * N.B. If an RTI times out the entire tx_item queue is thrown
- * away when the transmit queue read and write pointers are reset.
+ * This kernel thread is needed to maintain the mask of up RTIs
+ * per device. It gets instantiated once per device.
  */
-
-#define RTI_TIMEOUT 10 /** Timeout for RTI in milliseconds */
 
 int mil1553_kthread(void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
 	int icnt, cc, tries = 0, rti_mask = 0;
-	uint32_t *wp, *rp;
-	struct tx_queue_s *tx_queue;
-	unsigned long flags;
 
 	printk("mil1553 kernel thread:running:%d\n",mdev->bc);
-
-	tx_queue = mdev->tx_queue;
-	rp = &tx_queue->rp;
-	wp = &tx_queue->wp;
 
 	do {
 
@@ -1147,12 +1163,6 @@ int mil1553_kthread(void *arg)
 				tries = 0;
 				rti_mask = 0;
 			}
-
-			spin_lock_irqsave(&tx_queue->lock,flags);
-			tx_queue->rp = 0;
-			tx_queue->wp = 0;
-			mdev->busy_done = BC_DONE;
-			spin_unlock_irqrestore(&tx_queue->lock,flags);
 		}
 	} while (!kthread_should_stop());
 	return 0;
@@ -1236,7 +1246,7 @@ int mil1553_open(struct inode *inode, struct file *filp)
 	memset(client,0,sizeof(struct client_s));
 
 	init_waitqueue_head(&client->wait_queue);
-	client->timeout = msecs_to_jiffies(TIMEOUT);
+	client->timeout = msecs_to_jiffies(RTI_TIMEOUT);
 	spin_lock_init(&client->rx_queue.lock);
 
 	filp->private_data = client;
@@ -1285,7 +1295,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 	struct memory_map_s *memory_map;
 
-	int bc, cc = 0, cflg;
+	int bc, cc = 0;
 	uint32_t *wp, *rp;
 	unsigned int cnt, blen;
 
@@ -1372,6 +1382,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				goto error_exit;
 			}
 			init_device(mdev);
+			reset_tx_queue(mdev);
 		break;
 
 		case mil1553SET_BUS_SPEED:     /** Set the bus speed */
@@ -1476,17 +1487,12 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553GET_UP_RTIS:
 			bc = *ularg;
-			cflg = 0;
-			if (bc < 0) {       /* If the bc is negative, reset up RTIs mask */
-				bc = -bc;
-				cflg = 1;
-			}
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			*ularg = get_up_rtis(mdev,cflg,TRIES);
+			*ularg = mdev->up_rtis;
 		break;
 
 		case mil1553SEND:
@@ -1517,9 +1523,9 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553QUEUE_SIZE:
 			rx_queue = &client->rx_queue;
-			spin_lock_irqsave(&rx_queue->lock,flags);
 			wp = &rx_queue->wp;
 			rp = &rx_queue->rp;
+			spin_lock_irqsave(&rx_queue->lock,flags);
 			*ularg = get_queue_size(*rp,*wp,QSZ);
 			spin_unlock_irqrestore(&rx_queue->lock,flags);
 		break;

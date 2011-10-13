@@ -132,7 +132,7 @@ int rtilib_send_receive(int fn,
 		bzero((void *) &recv, sizeof(struct mil1553_recv_s));
 
 		recv.pk_type = TX_ALL;
-		recv.timeout = 100;
+		recv.timeout = RTI_TIMEOUT;
 
 		cc = milib_recv(fn, &recv);
 		if (cc)
