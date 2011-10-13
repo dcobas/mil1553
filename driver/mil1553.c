@@ -431,7 +431,7 @@ static int raw_write(struct mil1553_device_s *mdev,
  */
 
 #define TRIES 50
-#define BETWEEN_TRIES_US 200
+#define BETWEEN_TRIES_US 1000
 #define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
 static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
@@ -468,7 +468,7 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 	/* Remember cmd register and switch on hardware RTI polling */
 
 	cmd = ioread32be(&memory_map->cmd);
-	iowrite32be(0,&memory_map->cmd);
+	iowrite32be(0,&memory_map->cmd);    /* Polling now on */
 
 /**
  * Note about this next loop:
@@ -479,9 +479,8 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
  */
 
 	for (i=0; i<tries; i++) {
+		udelay(BETWEEN_TRIES_US);
 		up_rtis |= ioread32be(&memory_map->up_rtis);
-		if (i)
-			udelay(BETWEEN_TRIES_US);
 	}
 
 	/* Switch off hardware RTI polling and restore cmd register */
@@ -1142,7 +1141,7 @@ int mil1553_kthread(void *arg)
 						     icnt != mdev->icnt,
 						     msecs_to_jiffies(RTI_TIMEOUT));
 		if (cc == 0) {
-			rti_mask |= get_up_rtis(mdev,0,1);
+			rti_mask |= get_up_rtis(mdev,1,1);
 			if (++tries > TRIES) {
 				mdev->up_rtis = rti_mask;
 				tries = 0;
@@ -1302,7 +1301,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	struct mil1553_dev_info_s   *dev_info;
 
 	struct rx_queue_s *rx_queue;
-	struct tx_queue_s *tx_queue;
 	struct client_s   *client = (struct client_s *) filp->private_data;
 
 	ionr = _IOC_NR(cmd);
