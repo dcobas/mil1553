@@ -29,3 +29,9 @@ mdaccept.$(CPU): main.$(CPU).o libtest.$(CPU).a ../../lib/libmil1553.$(CPU).o ..
 clean:
 	rm -f *.$(CPU).o
 	rm -f libtest.$(CPU).a
+
+
+
+
+ANSI.h:  $(OBJS:.$(CPU).o=.c)
+	cproto -es -f2 -o $@ $(CPPFLAGS) -I. -I../../driver -I../../lib $^

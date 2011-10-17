@@ -60,22 +60,36 @@ short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, ch
 	send.item_count = 1;
 	send.tx_item_array = &txitm;
 
-	cc = milib_send(mfn, &send);
-	if (cc)
-		return -1;
 	bzero((void *) &recv, sizeof(struct mil1553_recv_s));
 	recv.pk_type = TX_ALL;
-	recv.timeout = 100;
+	recv.timeout = 1;
+	cc = milib_recv(mfn, &recv);
+
+	cc = milib_send(mfn, &send);
+	if (cc)
+		{
+// fprintf(stderr, "mdrop: error in milib_send for mdrop\n");
+		milib_reset(mfn, bc);
+		return -1;
+		}
+	bzero((void *) &recv, sizeof(struct mil1553_recv_s));
+	recv.pk_type = TX_ALL;
+	recv.timeout = 1000;
 	cc = milib_recv(mfn, &recv);
 	*status = recv.interrupt.rxbuf[0];
 	if (cc)
+		{ fprintf(stderr, "mdrop: error in milib_recv for mdrop\n");
+		milib_reset(mfn, bc);
 		return -1;
+		}
 
-	if ((recv.interrupt.bc != bc)
-	||  (recv.interrupt.rti_number != rti))
+	if ((recv.interrupt.bc != bc) ||  (recv.interrupt.rti_number != rti))
+		{ fprintf(stderr, "mdrop: error in milib_recv for mdrop bad bc/rt %d/%d\n", (int)recv.interrupt.bc-1, (int)recv.interrupt.rti_number);
+		milib_reset(mfn, bc);
 		return -1;
+		}
 
-	bcopy(&recv.interrupt.rxbuf[1],buf,TX_BUF_SIZE);
+	bcopy(&recv.interrupt.rxbuf[tr],buf,TX_BUF_SIZE);
 
 	return 0;
 }
