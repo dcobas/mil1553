@@ -47,6 +47,7 @@ short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, ch
 	struct mil1553_recv_s recv;
 	struct mil1553_tx_item_s txitm;
 	unsigned int txreg;
+	bc++;
 
 	milib_encode_txreg(&txreg,wc,sa,tr,rti);
 
@@ -73,6 +74,8 @@ short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, ch
 	if ((recv.interrupt.bc != bc)
 	||  (recv.interrupt.rti_number != rti))
 		return -1;
+
+	bcopy(&recv.interrupt.rxbuf[1],buf,TX_BUF_SIZE);
 
 	return 0;
 }
@@ -106,6 +109,7 @@ int clr_csr(unsigned short bc,
 	    unsigned short *csr,
 	    unsigned short *status)
 {
+	bc++;
 	if (rtilib_clear_csr(mfn, (int) bc, (int) rti, *csr))
 		return -1;
 
@@ -122,6 +126,7 @@ int set_csr(unsigned short bc,
 	    unsigned short *csr,
 	    unsigned short *status)
 {
+	bc++;
 	if (rtilib_set_csr(mfn, (int) bc, (int) rti, *csr))
 		return -1;
 
@@ -137,6 +142,7 @@ int get_csr(unsigned short bc,
 	    unsigned short *csr,
 	    unsigned short *status)
 {
+	bc++;
 	if (rtilib_read_csr(mfn, (int) bc, (int) rti, csr, status))
 		return -1;
 
@@ -153,6 +159,7 @@ int get_tx_buf(unsigned short bc,
 	       unsigned short *buf,
 	       unsigned short *status)
 {
+	bc++;
 	if (rtilib_read_txbuf(mfn, (int) bc, (int) rti, (int) wc, buf))
 		return -1;
 
@@ -172,6 +179,7 @@ int set_tx_buf(unsigned short bc,
 	       unsigned short *buf,
 	       unsigned short *status)
 {
+	bc++;
 	if (rtilib_write_txbuf(mfn, (int) bc, (int) rti, (int) wc, buf))
 		return -1;
 
@@ -191,6 +199,7 @@ int get_rx_buf(unsigned short bc,
 	       unsigned short *buf,
 	       unsigned short *status)
 {
+	bc++;
 	if (rtilib_read_rxbuf(mfn, (int) bc, (int) rti, (int) wc, buf))
 		return -1;
 
@@ -210,6 +219,7 @@ int set_rx_buf(unsigned short bc,
 	       unsigned short *buf,
 	       unsigned short *status)
 {
+	bc++;
 	if (rtilib_write_rxbuf(mfn, (int) bc, (int) rti, (int) wc, buf))
 		return -1;
 

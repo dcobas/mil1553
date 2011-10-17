@@ -2,7 +2,7 @@ CPU=L865
 
 include /acc/dsc/src/co/Make.auto
 
-CFLAGS= -O -I. -I../../driver -I../../lib
+CFLAGS= -g -I. -I../../driver -I../../lib
 
 OBJS= tst_csr.$(CPU).o csr.$(CPU).o print.$(CPU).o \
       bounce.$(CPU).o broadcst.$(CPU).o buffer.$(CPU).o \
