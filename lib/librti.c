@@ -87,6 +87,33 @@ char *rtilib_str_to_str(unsigned short str) {
 	return res;
 }
 
+/**
+ * =====================================
+ * There can be leftover stuff on the
+ * from previous transactions on the
+ * callers queue. This routine insures
+ * that a transaction starts off with a
+ * clean slate.
+ */
+
+int rtilib_empty_queue(int fn) {
+
+	int cc, qsz;
+	struct mil1553_recv_s recv;
+
+	while (milib_get_queue_size(fn,&qsz)) {
+
+		recv.pk_type = TX_ALL;
+		recv.timeout = 1;
+
+		cc = milib_recv(fn, &recv);
+		if (cc)
+			return cc;
+	}
+	usleep(1000);
+	return 0;
+}
+
 /* ===================================== */
 
 int rtilib_send_receive(int fn,
@@ -104,6 +131,8 @@ int rtilib_send_receive(int fn,
 	struct mil1553_recv_s recv;
 	unsigned int txreg;
 	int i, cc;
+
+	rtilib_empty_queue(fn);
 
 	milib_encode_txreg(&txreg,wc,sa,tr,rti);
 
