@@ -1791,3 +1791,173 @@ int cc;
    mil1553_print_ctrl_msg(&ctrl);
    return arg;
 }
+
+/**
+ * =========================================================
+ * I am very worried by the fact that these tests will fail
+ * without a usleep after each transaction.
+ * Why the hardware fails on 0xEDC7 ?
+ */
+
+#define MAX_ERRORS 5
+#define LOOPS 1000
+
+int test_rxbuf(unsigned short data) {
+
+int i, loops, cc, errcnt;
+unsigned short rxbuf[TX_BUF_SIZE];
+
+   errcnt = 0;
+
+   for (loops=0; loops<LOOPS; loops++) {
+
+      if (errcnt > MAX_ERRORS)
+	 return errcnt;
+
+      memset(rxbuf,~data,TX_BUF_SIZE*2);
+      cc = rtilib_write_rxbuf(milf, bc, rti, TX_BUF_SIZE-1, rxbuf);
+      if (cc) {
+	 printf("rtilib_write_rxbuf:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+	 errcnt++;
+      }
+      usleep(100);
+
+      memset(rxbuf,data,TX_BUF_SIZE*2);
+      cc = rtilib_write_rxbuf(milf, bc, rti, TX_BUF_SIZE-1, rxbuf);
+      if (cc) {
+	 printf("rtilib_write_rxbuf:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+	 errcnt++;
+      }
+      usleep(100);
+
+      memset(rxbuf,~data,TX_BUF_SIZE*2);
+      cc = rtilib_read_rxbuf(milf, bc, rti, TX_BUF_SIZE-1, rxbuf);
+      if (cc) {
+	 printf("rtilib_read_rxbuf:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+	 errcnt++;
+      }
+      usleep(100);
+
+      for (i=1; i<TX_BUF_SIZE; i++) {
+	 if (rxbuf[i] != data) {
+	    if (++errcnt > MAX_ERRORS) {
+	       printf("test_rxbuf:Too many errors test:0x%04X ABORT\n\n",data);
+	       break;
+	    }
+	    printf("test_rxbuf:rxbuf:address:%d wrote:0x%04X read:0x%04X ERROR\n",
+		   i,data,rxbuf[i]);
+	 }
+      }
+   }
+   printf("test_rxbuf:data:0x%04X:",data);
+   if (errcnt)
+      printf("%d Errors:FAILED\n",errcnt);
+   else
+      printf("PASS:OK\n");
+   return errcnt;
+}
+
+/* ============================= */                                                                                                                                 
+
+int test_txbuf(unsigned short data) {
+
+int i, loops, cc, errcnt;
+unsigned short txbuf[TX_BUF_SIZE];
+
+   errcnt = 0;
+
+   for (loops=0; loops<LOOPS; loops++) {
+
+      if (errcnt > MAX_ERRORS)
+	 return errcnt;
+
+      memset(txbuf,~data,TX_BUF_SIZE*2);
+      cc = rtilib_write_txbuf(milf, bc, rti, TX_BUF_SIZE-1, txbuf);
+      if (cc) {
+	 printf("rtilib_write_txbuf:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+	 errcnt++;
+      }
+      usleep(100);
+
+      memset(txbuf,data,TX_BUF_SIZE*2);
+      cc = rtilib_write_txbuf(milf, bc, rti, TX_BUF_SIZE-1, (unsigned short *) &txbuf[0]);
+      if (cc) {
+	 printf("rtilib_write_txbuf:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+	 errcnt++;
+      }
+      usleep(100);
+
+      memset(txbuf,~data,TX_BUF_SIZE*2);
+      cc = rtilib_read_txbuf(milf, bc, rti, TX_BUF_SIZE-1, txbuf);
+      if (cc) {
+	 printf("rtilib_read_txbuf:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+	 errcnt++;
+      }
+      usleep(100);
+
+      for (i=1; i<TX_BUF_SIZE; i++) {
+	 if (txbuf[i] != data) {
+	    if (++errcnt > MAX_ERRORS) {
+	       printf("test_txbuf:Too many errors test:0x%04X ABORT\n\n",data);
+	       break;
+	    }
+	    printf("test_txbuf:txbuf:address:%d wrote:0x%04X read:0x%04X ERROR\n",
+		   i,data,txbuf[i]);
+	 }
+      }
+   }
+   printf("test_txbuf:data:0x%04X:",data);
+   if (errcnt)
+      printf("%d Errors:FAILED\n",errcnt);
+   else
+      printf("PASS:OK\n");
+   return errcnt;
+}
+
+/* ============================= */                                                                                                                                 
+
+#define PATTERNS 15
+
+static short patterns[PATTERNS] = {
+
+   0x0000, 0xFFFF, 0x5555, 0xAAAA, 0x5A5A,
+   0xA5A5, 0x1111, 0x2222, 0x4444, 0x8888,
+   0xEEEE, 0xDDDD, 0xBBBB, 0x7777, 0xEDC7
+
+ };
+
+
+int test_rti(int arg) {
+
+int i, errcnt;
+
+   arg++;
+
+   errcnt = 0;
+   printf("Testing complete RTI logic except for the g64 interface\n");
+   for (i=0; i<PATTERNS; i++) {
+      milib_lock_bc(milf,bc);
+      errcnt += test_rxbuf(patterns[i]);
+      errcnt += test_txbuf(patterns[i]);
+      milib_unlock_bc(milf,bc);
+      if (errcnt > MAX_ERRORS*2) {
+	    printf("test_rti:Too many errors:%d ABORT\n\n",errcnt);
+	    break;
+      }
+      printf("\n");
+   }
+
+   printf("test_rti:errors:%d:",errcnt);
+   if (errcnt)
+      printf("FAILED\n");
+   else
+      printf("PASS\n");
+
+   return arg;
+}

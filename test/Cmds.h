@@ -56,6 +56,8 @@ int read_ctl_msg();  /* Read pow control settings */
 int write_ctl_msg(); /* Write pow control settings */
 int edit_ctl_msg();  /* Edit pow control settings */
 
+int test_rti();      /* RTI test */
+
 /* Jtag backend to public code */
 
 FILE *inp;
@@ -111,6 +113,8 @@ typedef enum {
    CmdRCTL,    /* Read power control values */
    CmdWCTL,    /* Write power control values */
    CmdECTL,    /* Edit power control values */
+
+   CmdRTIT,    /* Perform RTI test */
 
    CmdCMDS } CmdId;
 
@@ -171,7 +175,9 @@ static Cmd cmds[CmdCMDS] = {
    { CMDRACQ,    "racq",  "POW read acquisition"     ,""                   ,read_acq_msg      },
    { CmdRCTL,    "rctl",  "POW read control values"  ,"0|1 new/old"        ,read_ctl_msg      },
    { CmdWCTL,    "wctl",  "POW write control values" ,""                   ,write_ctl_msg     },
-   { CmdECTL,    "ectl",  "POW edit control values"  ,""                   ,edit_ctl_msg      }
+   { CmdECTL,    "ectl",  "POW edit control values"  ,""                   ,edit_ctl_msg      },
+
+   { CmdRTIT,    "trti",  "Perform RTI test"         ,""                   ,test_rti          }
 
    };
 
