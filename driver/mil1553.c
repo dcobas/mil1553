@@ -760,6 +760,8 @@ static int send_items(struct client_s *client,
 		tx_item.no_reply = item_array[i].no_reply;
 
 		wc = (tx_item.txreg & TXREG_WC_MASK) >> TXREG_WC_SHIFT;
+		if (wc == 0)
+			wc = TX_BUF_SIZE; /** Thats 32 because wc==0 means all words */
 		for (j=0; j<wc; j++) {
 			tx_item.txbuf[j] = item_array[i].txbuf[j];
 			if (client->debug_level > 7) {
@@ -854,7 +856,8 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 			mrecv->pk_type              = client->pk_type;
 
 			wc = rti_interrupt->wc +1;
-			if (wc > RX_BUF_SIZE) wc = RX_BUF_SIZE;
+			if ((wc == 0) || (wc > RX_BUF_SIZE))
+				wc = RX_BUF_SIZE;
 
 			for (i=0; i<wc; i++)
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
@@ -981,6 +984,8 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			rti_interrupt->rti_number =
 				(isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
+			if (rti_interrupt->wc == 0)
+				rti_interrupt->wc = RX_BUF_SIZE;
 			rti_interrupt->bc = bc;
 
 			/* Remember rxbuf is accessed as u32 but wc is the u16 count */
