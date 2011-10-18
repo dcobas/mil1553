@@ -22,8 +22,8 @@ libtest.$(CPU).a: $(OBJS)
 	$(RANLIB) $@
 
 
-mdaccept.$(CPU): main.$(CPU).o libtest.$(CPU).a ../../lib/libmil1553.$(CPU).o ../../lib/librti.$(CPU).o
-	$(CC) -o mdaccept.$(CPU) main.$(CPU).o -L. -ltest.$(CPU) ../../lib/libmil1553.$(CPU).o ../../lib/librti.$(CPU).o
+mdaccept.$(CPU): main.$(CPU).o libtest.$(CPU).a ../../lib/libmil1553.$(CPU).o ../../lib/librti.$(CPU).o ../../lib/libquick.$(CPU).o
+	$(CC) -o mdaccept.$(CPU) main.$(CPU).o -L. -ltest.$(CPU) ../../lib/libmil1553.$(CPU).o ../../lib/librti.$(CPU).o ../../lib/libquick.$(CPU).o
 
 
 clean:

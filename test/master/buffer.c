@@ -59,9 +59,9 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
 	    BAD1 ("\rtst_rst_pointer:System error in reset_R_pointer\n");
     }
     /* write 32 words */
-    for (pt = buf, i = 0; i < 32; i++)
+    for (pt = buf, i = 0; i < 31; i++)
 	*pt++ = i;
-    if (fun_wr (bc, rt, 64, (char *) buf, &status) == (-1)) {
+    if (fun_wr (bc, rt, 31, (char *) buf, &status) == (-1)) {
 	if (Fl_buf == 0)
 	    BAD1 ("\rtst_rst_pointer:System error in write_T_buf\n")
 	else
@@ -78,7 +78,7 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
     /* read 16 words and compare */
     for (pt = buf, i = 0; i < 16; i++)
 	*pt++ = 0;
-    if (fun_rd (bc, rt, 32, (char *) buf, &status) == (-1)) {
+    if (fun_rd (bc, rt, 31, (char *) buf, &status) == (-1)) {
 	if (Fl_buf == 0)
 	    BAD1 ("\rtst_rst_pointer:System error in read_T_buf\n")
 	else
@@ -88,7 +88,7 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
 	if (*pt != i) {
 	    convbin (*pt, str1);
 	    convbin (i, str2);
-	    print (1, "\nDATA error in tst_rst_pointer:\n read [%s] write [%s]\n", str1, str2);
+	    print (1, "\nDATA error in tst_rst_pointer:\n read [%s] write [%s] %d\n", str1, str2, i);
 	    erreur++;
 	    if (t_err)
 		return (erreur);
@@ -141,13 +141,13 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
     /* read 16 words and compare */
     for (pt = buf, i = 0; i < 16; i++)
 	*pt++ = 0;
-    if (fun_rd (bc, rt, 32, (char *) buf, &status) == (-1)) {
+    if (fun_rd (bc, rt, 31, (char *) buf, &status) == (-1)) {
 	if (Fl_buf == 0)
 	    BAD1 ("\rtst_rst_pointer:System error in read_T_buf\n")
 	else
 	    BAD1 ("\rtst_rst_pointer:System error in read_R_buf\n");
     }
-    for (pt = buf, i = 16; i < 32; i++, pt++) {
+    for (pt = buf, i = 16; i < 31; i++, pt++) {
 	if (*pt != i) {
 	    convbin (*pt, str1);
 	    convbin (i, str2);
@@ -177,12 +177,12 @@ int tst_buffer (short flg,	/* bit du csr (RRP ou RTP) */
 	Fl_buf = 0;
     do {
 	full_buff (data_code, buf1);
-	for (size_of_portion = 2; size_of_portion <= 256;
+	for (size_of_portion = 2; size_of_portion <= 31;
 	     size_of_portion += 2) {
 
 	    /* clear buffer */
 	    print (2, "clear buffer\n");
-	    for (pt = buf2, i = 0; i < 128; i++)
+	    for (pt = buf2, i = 0; i < 31; i++)
 		*pt++ = 0;	/* clear buffer */
 	    if (fun_wr (bc, rt, size_of_portion, (char *) buf2, &status) ==
 		(-1)) {
@@ -258,24 +258,24 @@ void full_buff (int data_code, unsigned short *buf1)
 
     switch (data_code) {
     case 1:
-	for (i = 0; i < 128; i++)
+	for (i = 0; i < 31; i++)
 	    *buf1++ = 0xaaaa;
 	break;
     case 2:
-	for (i = 0; i < 128; i++)
+	for (i = 0; i < 31; i++)
 	    *buf1++ = 0x5555;
 	break;
     case 3:
-	for (i = 0; i < 128; i++)
+	for (i = 0; i < 31; i++)
 	    *buf1++ = 0xffff;
 	break;
     case 4:
-	for (i = 0; i < 128; i++) {
+	for (i = 0; i < 31; i++) {
 	    *buf1++ = 0xff00;
 	}
 	break;
     case 5:
-	for (i = 0; i < 128; i++) {
+	for (i = 0; i < 31; i++) {
 	    *buf1++ = 0x00ff;
 	}
 	break;

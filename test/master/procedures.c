@@ -125,17 +125,17 @@ int Set_csr (unsigned short pat, char *st)
 int reset (void)
 {
     char st[20];
-    unsigned short csr;
+    unsigned short csr[8];
 
     print (2, "\rReset (MC8) du bc[%d] rt[%d] ", bc, rt);
-    if (mdrop (bc, rt, 1, 0, 8, &status, (char *) &csr) != 0) {
+    if (mdrop (bc, rt, 1, 0, 8, &status, (char *) csr) != 0) {
 	print (1, "\nReset:System error for mdrop mode_code:RESET");
 	return (-1);
     }
     convbin (status, st);
     print (1, "    MC(8) - Status: %s\n", st);
     sleep (4);
-    if (get_csr (bc, rt, &csr, &status) == (-1)) {
+    if (get_csr (bc, rt, csr, &status) == (-1)) {
 	print (1, "\nReset:System error for get_csr");
 	return (-1);
     }

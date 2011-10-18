@@ -36,9 +36,11 @@ int rt30 (void)
 	for (wc = 0; wc < 32; wc++)
 	    mdr (0, sa, wc);
     print (2, "mode data TR[1] SA[1,30] WC[0,31] vers RT[30]\r");
+#if 0
     for (sa = 1; sa < 31; sa++)
 	for (wc = 0; wc < 32; wc++)
 	    mdr (1, sa, wc);
+#endif
     return (erreur);
 }
 

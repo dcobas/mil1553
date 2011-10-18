@@ -16,6 +16,8 @@ int broadcst (void)
     unsigned short data[32];
     char m_str[132];
 
+    return 0;
+
     /*print(0,"Broadcast data\n"); */
     TR = 0;
     SA = 2;

@@ -5,6 +5,8 @@
 
 #include <libmil1553.h>
 #include <librti.h>
+#include <libquick.h>
+#include <errno.h>
 
 /**
  * ======================================
@@ -47,8 +49,8 @@ short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, ch
 	struct mil1553_recv_s recv;
 	struct mil1553_tx_item_s txitm;
 	unsigned int txreg;
-	bc++;
 
+	bc++;
 	milib_encode_txreg(&txreg,wc,sa,tr,rti);
 
 	txitm.bc = bc;
@@ -60,37 +62,32 @@ short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, ch
 	send.item_count = 1;
 	send.tx_item_array = &txitm;
 
-	bzero((void *) &recv, sizeof(struct mil1553_recv_s));
-	recv.pk_type = TX_ALL;
-	recv.timeout = 1;
-	cc = milib_recv(mfn, &recv);
+	rtilib_empty_queue(mfn);
 
 	cc = milib_send(mfn, &send);
-	if (cc)
-		{
-// fprintf(stderr, "mdrop: error in milib_send for mdrop\n");
-		milib_reset(mfn, bc);
+	if (cc) {
+		mil1553_print_error(cc);
+		if (cc == ETIME)
+			milib_reset(mfn, bc);
 		return -1;
-		}
+	}
 	bzero((void *) &recv, sizeof(struct mil1553_recv_s));
 	recv.pk_type = TX_ALL;
-	recv.timeout = 1000;
+	recv.timeout = 5;
 	cc = milib_recv(mfn, &recv);
 	*status = recv.interrupt.rxbuf[0];
-	if (cc)
-		{ fprintf(stderr, "mdrop: error in milib_recv for mdrop\n");
+	if (cc) {
+		mil1553_print_error(cc);
+		if (cc == ETIME)
+			milib_reset(mfn, bc);
+		return -1;
+	}
+	if ((recv.interrupt.bc != bc)
+	||  (recv.interrupt.rti_number != rti)) {
 		milib_reset(mfn, bc);
 		return -1;
-		}
-
-	if ((recv.interrupt.bc != bc) ||  (recv.interrupt.rti_number != rti))
-		{ fprintf(stderr, "mdrop: error in milib_recv for mdrop bad bc/rt %d/%d\n", (int)recv.interrupt.bc-1, (int)recv.interrupt.rti_number);
-		milib_reset(mfn, bc);
-		return -1;
-		}
-
-	bcopy(&recv.interrupt.rxbuf[tr],buf,TX_BUF_SIZE);
-
+	}
+	bcopy(&recv.interrupt.rxbuf[1],buf,TX_BUF_SIZE);
 	return 0;
 }
 
