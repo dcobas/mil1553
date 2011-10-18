@@ -101,6 +101,8 @@ int rtilib_empty_queue(int fn) {
 	int cc, qsz;
 	struct mil1553_recv_s recv;
 
+	usleep(100); // Slow things down for RTI
+
 	while (milib_get_queue_size(fn,&qsz)) {
 
 		recv.pk_type = TX_ALL;
@@ -110,7 +112,6 @@ int rtilib_empty_queue(int fn) {
 		if (cc)
 			return cc;
 	}
-	usleep(1000);
 	return 0;
 }
 
