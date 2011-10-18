@@ -16,7 +16,7 @@ int bounce (void)
     unsigned char str1[20], str2[20];
     char dir;
 
-    seuil = 128;
+    seuil = 32;
     dir = 8;
     /* tell G64 to start bounce with LRR and NEM set */
     csr = LRREQ_BIT + NEM_BIT;
@@ -79,7 +79,7 @@ int bounce (void)
 	flag = 0;
 	i = l;
 	pts = data;
-	ptd = buff;
+	ptd = &buff[1];
 	do {
 	    if (*pts != *ptd) {
 		flag++;

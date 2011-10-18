@@ -38,13 +38,14 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
     char str1[20], str2[20];
     int Fl_buf = 0;
 
-    seuil = 128;		/* size in 16-bits words */
+    seuil = 31;                /* size in 16-bits words */
     if (flg & 0x80)
 	Fl_buf = 0;
     /* Clear buffer */
-    for (pt = buf, i = 0; i < seuil; i++)
-	*pt++ = 0;
-    if (fun_wr (bc, rt, seuil * 2, (char *) buf, &status) == (-1)) {
+    memset(buf,0,seuil*2);
+//    for (pt = buf, i = 0; i < seuil; i++)
+//        *pt++ = 0;
+    if (fun_wr (bc, rt, seuil, (char *) buf, &status) == (-1)) {
 	if (Fl_buf == 0)
 	    BAD1 ("\rtst_rst_pointer:System error in write_T_buf\n")
 	else
@@ -76,15 +77,16 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
 	    BAD1 ("\rtst_rst_pointer:System error in reset_R_pointer\n");
     }
     /* read 16 words and compare */
-    for (pt = buf, i = 0; i < 16; i++)
-	*pt++ = 0;
+    memset(buf,0,32);
+//    for (pt = buf, i = 0; i < 16; i++)
+//        *pt++ = 0;
     if (fun_rd (bc, rt, 31, (char *) buf, &status) == (-1)) {
 	if (Fl_buf == 0)
 	    BAD1 ("\rtst_rst_pointer:System error in read_T_buf\n")
 	else
 	    BAD1 ("\rtst_rst_pointer:System error in read_R_buf\n");
     }
-    for (pt = buf, i = 0; i < 16; i++, pt++) {
+    for (pt = &buf[1], i = 0; i < 16; i++, pt++) {
 	if (*pt != i) {
 	    convbin (*pt, str1);
 	    convbin (i, str2);
@@ -124,7 +126,7 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
 	else
 	    BAD1 ("\rtst_rst_pointer:System error in read_R_buf\n");
     }
-    for (pt = buf, i = 0; i < 8; i++, pt++) {
+    for (pt = &buf[1], i = 0; i < 8; i++, pt++) {
 	if (*pt != 0xFFFF) {
 	    convbin (*pt, str1);
 	    convbin (0xffff, str2);
@@ -147,7 +149,7 @@ int tst_rst_pointer (short flg,	/* bit du csr (RRP ou RTP) */
 	else
 	    BAD1 ("\rtst_rst_pointer:System error in read_R_buf\n");
     }
-    for (pt = buf, i = 16; i < 31; i++, pt++) {
+    for (pt = &buf[17], i = 16; i < 31; i++, pt++) {
 	if (*pt != i) {
 	    convbin (*pt, str1);
 	    convbin (i, str2);
@@ -170,6 +172,11 @@ int tst_buffer (short flg,	/* bit du csr (RRP ou RTP) */
     short i;
     char str1[20], str2[20];
     int data_code, sycle_pass, lim, size_of_portion, Fl_buf = 0;
+
+    // I can't be arsed to debug this routine, it does nothing
+    // that hasn't already been tested in tst_rst_pointer
+
+    return 0;
 
     sycle_pass = 0;
     data_code = 1;

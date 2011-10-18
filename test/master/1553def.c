@@ -66,7 +66,7 @@ short mdrop(short bc, short rti, short tr, short sa, short wc, short *status, ch
 
 	cc = milib_send(mfn, &send);
 	if (cc) {
-		mil1553_print_error(cc);
+		// mil1553_print_error(cc);
 		if (cc == ETIME)
 			milib_reset(mfn, bc);
 		return -1;
