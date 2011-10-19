@@ -1792,6 +1792,23 @@ int cc;
 
 /**
  * =========================================================
+ * @brief My meset command using shorts
+ * @param dst points to destination short array
+ * @param val to be stored
+ * @param sze size in BYTES to be compatible with memset
+ */
+
+void shortset(unsigned short *dst, unsigned short val, int sze) {
+
+int i, cnt;
+
+   cnt = sze/sizeof(short);
+   for (i=0; i<cnt; i++)
+      dst[i] = val;
+}
+
+/**
+ * =========================================================
  * I am very worried by the fact that these tests will fail
  * without a usleep after each transaction.
  * Why the hardware fails on 0xEDC7 ?
@@ -1812,7 +1829,7 @@ unsigned short rxbuf[TX_BUF_SIZE];
       if (errcnt > MAX_ERRORS)
 	 return errcnt;
 
-      memset(rxbuf,~data,TX_BUF_SIZE*2);
+      shortset(rxbuf,~data,TX_BUF_SIZE*2);
       cc = rtilib_write_rxbuf(milf, bc, rti, TX_BUF_SIZE-1, rxbuf);
       if (cc) {
 	 printf("rtilib_write_rxbuf:Error:%d\n",cc);
@@ -1821,7 +1838,7 @@ unsigned short rxbuf[TX_BUF_SIZE];
       }
       usleep(100);
 
-      memset(rxbuf,data,TX_BUF_SIZE*2);
+      shortset(rxbuf,data,TX_BUF_SIZE*2);
       cc = rtilib_write_rxbuf(milf, bc, rti, TX_BUF_SIZE-1, rxbuf);
       if (cc) {
 	 printf("rtilib_write_rxbuf:Error:%d\n",cc);
@@ -1830,7 +1847,7 @@ unsigned short rxbuf[TX_BUF_SIZE];
       }
       usleep(100);
 
-      memset(rxbuf,~data,TX_BUF_SIZE*2);
+      shortset(rxbuf,~data,TX_BUF_SIZE*2);
       cc = rtilib_read_rxbuf(milf, bc, rti, TX_BUF_SIZE-1, rxbuf);
       if (cc) {
 	 printf("rtilib_read_rxbuf:Error:%d\n",cc);
@@ -1872,7 +1889,7 @@ unsigned short txbuf[TX_BUF_SIZE];
       if (errcnt > MAX_ERRORS)
 	 return errcnt;
 
-      memset(txbuf,~data,TX_BUF_SIZE*2);
+      shortset(txbuf,~data,TX_BUF_SIZE*2);
       cc = rtilib_write_txbuf(milf, bc, rti, TX_BUF_SIZE-1, txbuf);
       if (cc) {
 	 printf("rtilib_write_txbuf:Error:%d\n",cc);
@@ -1881,7 +1898,7 @@ unsigned short txbuf[TX_BUF_SIZE];
       }
       usleep(100);
 
-      memset(txbuf,data,TX_BUF_SIZE*2);
+      shortset(txbuf,data,TX_BUF_SIZE*2);
       cc = rtilib_write_txbuf(milf, bc, rti, TX_BUF_SIZE-1, (unsigned short *) &txbuf[0]);
       if (cc) {
 	 printf("rtilib_write_txbuf:Error:%d\n",cc);
@@ -1890,7 +1907,7 @@ unsigned short txbuf[TX_BUF_SIZE];
       }
       usleep(100);
 
-      memset(txbuf,~data,TX_BUF_SIZE*2);
+      shortset(txbuf,~data,TX_BUF_SIZE*2);
       cc = rtilib_read_txbuf(milf, bc, rti, TX_BUF_SIZE-1, txbuf);
       if (cc) {
 	 printf("rtilib_read_txbuf:Error:%d\n",cc);
@@ -1922,12 +1939,11 @@ unsigned short txbuf[TX_BUF_SIZE];
 
 #define PATTERNS 15
 
-static short patterns[PATTERNS] = {
+static unsigned short patterns[PATTERNS] = {
 
-   0x0000, 0xFFFF, 0x5555, 0xAAAA, 0x5A5A,
+   0xEDC7, 0xFFFF, 0x5555, 0xAAAA, 0x5A5A,
    0xA5A5, 0x1111, 0x2222, 0x4444, 0x8888,
-   0xEEEE, 0xDDDD, 0xBBBB, 0x7777, 0xEDC7
-
+   0xEEEE, 0xDDDD, 0xBBBB, 0x7777, 0x0000,
  };
 
 
