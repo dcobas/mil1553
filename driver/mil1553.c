@@ -559,6 +559,30 @@ static int check_rti_up(struct mil1553_device_s *mdev, unsigned int rtin)
 
 /**
  * =========================================================
+ * @brief Get the word count from a txreg
+ * @param txreg
+ * @return the word count
+ *
+ * After much trial and error the behaviour of wc
+ * values on the cbmia seems to be as follows...
+ * On reading data the status is always prefixed and
+ * this plays no part in the word count interpretation.
+ * A value of zero represents a word count of 32 in
+ * the appropriate modes.
+ */
+
+unsigned int get_wc(unsigned int txreg)
+{
+	unsigned int wc;
+
+	wc = (txreg & TXREG_WC_MASK) >> TXREG_WC_SHIFT;
+	if (wc == 0)
+		wc = 32;
+	return wc;
+}
+
+/**
+ * =========================================================
  * @brief Start the RTI with the current tx queue entry.
  * @param mdev is the bus controller descriptor to start
  *
@@ -605,8 +629,7 @@ static void _start_tx(int debug_level,
 	/* Remember txbuf is accessed as u32 but wc is the u16 count */
 	/* Word order is little endian, but hey byte order is big endian !! */
 
-	wc = (tx_item->txreg & TXREG_WC_MASK) >> TXREG_WC_SHIFT;
-
+	wc = get_wc(tx_item->txreg);
 	lregp = (uint32_t *) memory_map->txbuf;
 	for (i=0; i<(wc + 1)/2; i++) {
 		lreg  =  tx_item->txbuf[i*2 + 1] << 16;
@@ -765,9 +788,7 @@ static int send_items(struct client_s *client,
 		tx_item.txreg = item_array[i].txreg;
 		tx_item.no_reply = item_array[i].no_reply;
 
-		wc = (tx_item.txreg & TXREG_WC_MASK) >> TXREG_WC_SHIFT;
-		if (wc == 0)
-			wc = TX_BUF_SIZE; /** Thats 32 because wc==0 means all words */
+		wc = get_wc(tx_item.txreg);
 		for (j=0; j<wc; j++) {
 			tx_item.txbuf[j] = item_array[i].txbuf[j];
 			if (client->debug_level > 7) {
@@ -855,23 +876,21 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		qs = get_queue_size(*rp,*wp,QSZ);
 		if (qs > 0) {
 
+			wc = rti_interrupt->wc; /* This must be in [1..32] */
+
 			mrecv->interrupt.bc         = rti_interrupt->bc;
 			mrecv->interrupt.rti_number = rti_interrupt->rti_number;
-			mrecv->interrupt.wc         = rti_interrupt->wc;
+			mrecv->interrupt.wc         = wc +1; /* Status reg */
 			mrecv->icnt                 = client->icnt;
 			mrecv->pk_type              = client->pk_type;
 
-			wc = rti_interrupt->wc +1;
-			if ((wc == 0) || (wc > RX_BUF_SIZE))
-				wc = RX_BUF_SIZE;
-
-			for (i=0; i<wc; i++)
+			for (i=0; i<wc +1; i++) /* Prepended status */
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
 
 			if (client->debug_level > 4) {
 				printk("mil1553:read_queue:rp:%02d wp:%02d wc:%02d icnt:%02d bc:%02d rti:%02d\n",
 				       *rp,*wp,
-				       rti_interrupt->wc,
+				       wc,
 				       client->icnt,
 				       rti_interrupt->bc,
 				       rti_interrupt->rti_number);
@@ -881,7 +900,6 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 					printk("0x%04X ",rti_interrupt->rxbuf[i]);
 				printk("\n");
 			}
-
 			get_next_rp(rp,*wp,QSZ);
 		}
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
@@ -987,18 +1005,21 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
 			rti_interrupt = &(client->rx_queue.rti_interrupt[*wp]);
+
 			rti_interrupt->rti_number =
 				(isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
 			if (rti_interrupt->wc == 0)
-				rti_interrupt->wc = RX_BUF_SIZE;
+				rti_interrupt->wc = 32;
+
 			rti_interrupt->bc = bc;
 
 			/* Remember rxbuf is accessed as u32 but wc is the u16 count */
 			/* Word order is little endian */
 
 			lregp = (uint32_t *) memory_map->rxbuf;
-			for (i=0; i<(rti_interrupt->wc + 1)/2 ; i++) {
+			for (i=0; i<(rti_interrupt->wc + 2)/2 ; i++) {  /* Prepended status */
 			       lreg  = ioread32be(&lregp[i]);
 			       rti_interrupt->rxbuf[i*2 + 1] = lreg >> 16;
 			       rti_interrupt->rxbuf[i*2 + 0] = lreg & 0xFFFF;
@@ -1546,6 +1567,12 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			if (cc) {
 				if (client->debug_level > 4)
 					printk("mil1553:RECV:read_queue:returned:%d\n",cc);
+
+				/** Clean up after a receive error */
+
+				init_device(mdev);
+				reset_tx_queue(mdev);
+
 				goto error_exit;
 			}
 		break;
