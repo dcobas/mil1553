@@ -713,7 +713,6 @@ int i, cc;
 
    if (isrp->wc) {
       for (i=0; i<RX_BUF_SIZE; i++) {
-	 if (i > isrp->wc) break;
 	 if (!(i % 4)) printf("\n%02d: ",i);
 	 printf("0x%04hX ",words[i]);
       }
@@ -1455,23 +1454,22 @@ unsigned short rxbuf[RX_BUF_SIZE];
                                                                                                                                                                     
    arg++;                                                                                                                                                           
 
-   wc = TX_BUF_SIZE -1;
+   wc = TX_BUF_SIZE;
    v = &(vals[arg]);                                                                                                                                                
    at = v->Type;                                                                                                                                                    
    if (at == Numeric) {                                                                                                                                             
       wc = v->Number;
-      if (wc >= TX_BUF_SIZE) wc = TX_BUF_SIZE -1;
+      if (wc >= TX_BUF_SIZE) wc = TX_BUF_SIZE;
       arg++;
    }
 
    bzero((void *) rxbuf, RX_BUF_SIZE * sizeof(unsigned short));
                                                                                                                                                                     
-   cc = rtilib_read_rxbuf(milf, bc, rti, wc, rxbuf);
+   cc = rtilib_read_rxbuf(milf, bc, rti, 32, rxbuf);
    if (cc) {
       printf("rtilib_read_rxbuf:Error:%d\n",cc);
       mil1553_print_error(cc);
    }
-
 
    for (i=0; i<wc+1; i++) {
       if (!(i % 4)) printf("\nWord:%02d ",i);
@@ -1488,22 +1486,22 @@ int ReadTxBuf(int arg) {
 ArgVal   *v;                                                                                                                                                        
 AtomType  at;                                                                                                                                                       
 int i, wc, cc;
-unsigned short txbuf[TX_BUF_SIZE];
+unsigned short txbuf[TX_BUF_SIZE +1];
                                                                                                                                                                     
    arg++;                                                                                                                                                           
 
-   wc = TX_BUF_SIZE -1;
+   wc = TX_BUF_SIZE;
    v = &(vals[arg]);                                                                                                                                                
    at = v->Type;                                                                                                                                                    
    if (at == Numeric) {                                                                                                                                             
       wc = v->Number;
-      if (wc >= TX_BUF_SIZE) wc = TX_BUF_SIZE -1;
+      if (wc >= TX_BUF_SIZE) wc = TX_BUF_SIZE;
       arg++;
    }
 
    bzero((void *) txbuf, TX_BUF_SIZE * sizeof(unsigned short));
                                                                                                                                                                     
-   cc = rtilib_read_txbuf(milf, bc, rti, wc, txbuf);
+   cc = rtilib_read_txbuf(milf, bc, rti, 32, txbuf);
    if (cc) {
       printf("rtilib_read_txbuf:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1528,17 +1526,17 @@ unsigned short *rxbuf;
                                                                                                                                                                     
    arg++;                                                                                                                                                           
 
-   wc = TX_BUF_SIZE -1;
+   wc = TX_BUF_SIZE;
    v = &(vals[arg]);                                                                                                                                                
    at = v->Type;                                                                                                                                                    
    if (at == Numeric) {                                                                                                                                             
       wc = v->Number;
-      if (wc >= TX_BUF_SIZE) wc = TX_BUF_SIZE -1;
+      if (wc > TX_BUF_SIZE) wc = TX_BUF_SIZE;
       arg++;
    }
 
    rxbuf = (unsigned short *) &mem[RXBUF];
-   for (i=0; i<wc+1; i++) {
+   for (i=0; i<wc; i++) {
       if (!(i % 4)) printf("\nWord:%02d ",i);
       printf("0x%04hX ",rxbuf[i]);
    }
@@ -1565,17 +1563,17 @@ unsigned short *txbuf;
 
    arg++;                                                                                                                                                           
 
-   wc = TX_BUF_SIZE -1;
+   wc = TX_BUF_SIZE;
    v = &(vals[arg]);                                                                                                                                                
    at = v->Type;                                                                                                                                                    
    if (at == Numeric) {                                                                                                                                             
       wc = v->Number;
-      if (wc >= TX_BUF_SIZE) wc = TX_BUF_SIZE -1;
+      if (wc > TX_BUF_SIZE) wc = TX_BUF_SIZE;
       arg++;
    }
 
    txbuf = (unsigned short *) &mem[TXBUF];
-   for (i=0; i<wc+1; i++) {
+   for (i=0; i<wc; i++) {
       if (!(i % 4)) printf("\nWord:%02d ",i);
       printf("0x%04hX ",txbuf[i]);
    }

@@ -191,8 +191,12 @@ char *milib_status_to_str(int stat) {
 
 void milib_decode_txreg(unsigned int txreg, unsigned int *wc, unsigned int *sa, unsigned int *tr, unsigned int *rti) {
 
-	if (wc)
+	if (wc) {
 		*wc  = (txreg & TXREG_WC_MASK)   >> TXREG_WC_SHIFT;
+		if (*wc == 0)
+			*wc = 32;
+	}
+
 	if (sa)
 		*sa  = (txreg & TXREG_SUBA_MASK) >> TXREG_SUBA_SHIFT;
 	if (tr)
@@ -202,6 +206,9 @@ void milib_decode_txreg(unsigned int txreg, unsigned int *wc, unsigned int *sa, 
 }
 
 void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, unsigned int tr, unsigned int rti) {
+
+	if (wc >= 32)
+		wc = 0;
 
 	if (txreg)
 		*txreg = ((wc  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
