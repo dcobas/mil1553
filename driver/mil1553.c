@@ -361,6 +361,9 @@ static int _raw_read(struct mil1553_device_s *mdev,
 	uint32_t *uip, *hip;
 
 	uip = buf;
+	if ((!mdev) || (!mdev->memory_map))
+		return 0;
+
 	hip = (uint32_t *) mdev->memory_map + riob->reg_num;
 
 	for (i=0; i<riob->regs; i++) {
@@ -404,6 +407,9 @@ static int _raw_write(struct mil1553_device_s *mdev,
 	uint32_t *uip, *hip;
 
 	uip = buf;
+	if ((!mdev) || (!mdev->memory_map))
+		return 0;
+
 	hip = (uint32_t *) mdev->memory_map + riob->reg_num;
 
 	for (i=0; i<riob->regs; i++) {
@@ -1483,8 +1489,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = -EFAULT;
 				goto error_exit;
 			}
-			cnt = raw_write(&wa.mil1553_dev[riob->bc],
-					riob, buf);
+			cnt = raw_write(mdev, riob, buf);
 			kfree(buf);
 			if (!cnt || cc)
 				goto error_exit;
