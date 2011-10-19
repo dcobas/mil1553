@@ -124,7 +124,10 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 	"RECV",
 
 	"LOCK_BC",
-	"UNLOCK_BC"
+	"UNLOCK_BC",
+
+	"QUEUE_SIZE",
+	"RESET"
 };
 
 /**
@@ -151,7 +154,8 @@ struct mil1553_device_s *get_dev(int bc)
 
 /**
  * =========================================================
- * Validate insmod args
+ * @brief Validate insmod args
+ * @return 1=OK 0=ERROR
  */
 
 static int check_args(void)
@@ -177,7 +181,10 @@ static int check_args(void)
 
 /**
  * =========================================================
- * Hunt for a BC number given the PCI bus and slot numbers
+ * @brief       Hunt for a BC number
+ * @param bus   The PCI bus
+ * @param slot  The PCI slot number
+ * @return      The bc number or zero if not found
  */
 
 int hunt_bc(int bus, int slot)
@@ -378,6 +385,10 @@ static int _raw_read(struct mil1553_device_s *mdev,
 	return i*sizeof(int);
 }
 
+/**
+ * @brief Just calls _raw_read with spin lock protection
+ */
+
 static int raw_read(struct mil1553_device_s *mdev,
 		    struct mil1553_riob_s *riob,
 		    void *buf)
@@ -423,6 +434,10 @@ static int _raw_write(struct mil1553_device_s *mdev,
 
 	return i*sizeof(int);
 }
+
+/**
+ * @brief Just calls _raw_write with spin lock protection
+ */
 
 static int raw_write(struct mil1553_device_s *mdev,
 		     struct mil1553_riob_s *riob,
@@ -526,6 +541,10 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 		mdev->up_rtis = up_rtis;
 	return up_rtis;
 }
+
+/**
+ * @brief Just calls _get_up_rtis with spin lock protection
+ */
 
 static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 {
@@ -643,7 +662,8 @@ static void _start_tx(int debug_level,
 }
 
 /**
- * Called only from IOCTL ie from user space
+ * @brief Called only from IOCTL ie from user space
+ * It just calls _start_tx with a spin_lock reservation
  */
 
 static void start_tx(int debug_level,
@@ -720,7 +740,7 @@ int find_end(unsigned int bc,
  * Start the hardware transfer by writing to the txreg.
  *
  * Once the first item in the BC queue is started, the RTI will interrupt when
- * ready and the ISR will itself will pull the next item off the queue and start it.
+ * ready and the ISR will itself pull the next item off the queue and start it.
  */
 
 static int send_items(struct client_s *client,
