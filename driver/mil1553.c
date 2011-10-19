@@ -1570,9 +1570,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 				/** Clean up after a receive error */
 
-				init_device(mdev);
-				reset_tx_queue(mdev);
-
+				for (bc=1; bc<=wa.bcs; bc++) {
+					mdev = get_dev(bc);
+					init_device(mdev);
+					reset_tx_queue(mdev);
+				}
 				goto error_exit;
 			}
 		break;
