@@ -136,23 +136,6 @@ static short get_quick_data (struct quick_data_buffer *p)
     return 0;
 }
 
-/* Refresh the drivers known list of RTIs for each BC */
-/* This takes 0.1ms for each BC */
-
-void refresh_rti_list() {
-
-    int bc;
-    int up_rtis;
-    int bcs_count = 0;
-
-    milib_get_bcs_count(milf, &bcs_count);
-    for (bc=1; bc<=bcs_count; bc++) {
-	milib_lock_bc(milf, bc);
-	milib_get_up_rtis(milf, bc, &up_rtis);
-	milib_unlock_bc(milf, bc);
-    }
-}
-
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS:                                                               */
 /*--------------------------------------------------------------------------*/
@@ -1851,7 +1834,6 @@ int main (int argc, char **argv)
 	    for (act = act0; act; act = act->next)
 		DoControl (act);
 
-	    refresh_rti_list();
 	    usleep (1200000);	/* sleep for 1.2 sec */
 	}
     }
@@ -1876,8 +1858,6 @@ int main (int argc, char **argv)
 		fflush (stderr);
 	    }
 	}
-
-	refresh_rti_list();
 
 	/* After all done open the lock for other processes */
 	/* they take it and do what they want. This should avoid */

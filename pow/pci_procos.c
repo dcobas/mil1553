@@ -88,7 +88,6 @@ static /* __inline__ */ void __htonx(float *a, float b) {
 
 
 #include "pow_messages.h"
-#ifdef __linux__
 #include "libquick.h"
 
 static int mil1533_init_done = 0;
@@ -135,8 +134,6 @@ static short get_quick_data (struct quick_data_buffer *p)
     }
     return 0;
 }
-
-#endif
 
 /*====================================================*/
 /*  Convert MIL-1553 error to EM error codes          */
