@@ -1,3 +1,99 @@
-The power supply is connected to RTI 27
-the other RTIs have no end equipment attached.
-Julian
+=============================================
+Meaning of the CSR control and status bits
+=============================================
+
+Bit 00: TB Transmit buffer memory busy
+	It is set to 1 by the RTI when data has been written to the tx_buffer memory
+	It is set to 0 by the BC after data has been read from the tx_buffer memory
+	Writing any value to this bit resets the tx_buffer memory pointer
+
+Bit 01: RB Receive buffer memory busy
+	It is set to 1 by the BC when data has been written to the rx_buffer memory
+	It is set to 0 by the RTI after data has been read from the rx_buffer memory
+	Writing any value to this bit resets the rx_buffer memory pointer
+
+Bit 02: INV Invalid Message
+	This bit is set to 1 by the end-user equipment when it is sent a junk message
+
+Bit 03: RL Reset line
+	This bit represents the end-user equipment reset line, the BC can clear it.
+	It also gets set on a master reset.
+
+Bit 04: INE Interrupt enabled
+	When set to 1 the end user equipment can be interrupted
+
+Bit 05: INT Interrupt end-user equipment
+	The BC sets this bit to 1 to interrupt the end-user equipment.
+	The RTI sets it back to 0 after the interrupt has been serviced.
+
+Bit 06: RTP Reset the tx_buffer memory pointer
+	The BC writes to this bit when it wants to set the tx_buffer memory pointer to 0
+
+Bit 07: RRP Reset the rx_buffer memory pointer
+	The BC writes to this bit when it wants to set the rx_buffer memory pointer to 0
+
+Bit 08: BC Bus Controler
+	Not implemented
+
+Bit 09: BCR Bus controler request
+	Not implemented
+
+Bit 10: LRR Local remote request
+	This bit is set to 1 by the end-user equipment when it wants to go into local
+
+Bit 11: NEM Non Expected Message
+	Set by the BC or the end-user equipment
+	Its not used
+
+Bit 12: BRD Broadcast disable
+	Not implemented
+
+Bit 13: LOC Local
+	This bit is set to 1 by the BC when it wants the end-user equipment to go into local
+
+Bit 14: TES Test
+	Set by the BC all G64 lines go tri-state high impedance
+
+Bit 15: OPE Operational
+	The 5v is present
+
+=============================================
+Meaning of the STR status bits
+=============================================
+
+Bit 00: TF Terminal Flag
+	Set after a power fail/restore, cleared on read
+
+Bit 01: DBC Dynamic Bus Control
+	Not implemented
+
+Bit 02: SF Sub-system (end-user) flag
+	Its the logical OR od CSR.INV and CSR.RL
+
+Bit 03: BUY Busy
+	Its the logical OR of CSR.LOC and CSR.TES
+
+Bit 04: BRO Broadcast
+	Not implemented
+
+Bit 05: TB tx_buffer busy
+	Its just CSR.TB
+
+Bit 06: RB rx_buffer busy
+	Its just CSR.RB
+
+Bit 07: TIM Timeout
+	Set by the RTI when the end-user equipment has not responded
+
+Bit 08: SR Service request
+	It the logical OR of CSR.LRR and CSR.NEM
+
+Bit 09: INS Instrumentation
+	Not implemented
+
+Bit 10: ME Message Error
+	Set when a transmission error occured
+
+Bit 11..15: RTI Address
+	    5-bit RTI number set on card switches 0..31
+	    Address 0 means broadcast (never use it)

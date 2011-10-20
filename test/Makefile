@@ -34,5 +34,6 @@ install: mil1553test.$(CPU) mil1553test.config MIL1553.regs
 	    dsc_install mil1553test.$(CPU) /acc/dsc/$$f/$(CPU)/mil1553; \
 	    dsc_install mil1553test.config /acc/dsc/$$f/$(CPU)/mil1553; \
 	    dsc_install MIL1553.regs /acc/dsc/$$f/$(CPU)/mil1553; \
+	    dsc_install mil1553_news /acc/dsc/$$f/$(CPU)/mil1553; \
 	done;
 
