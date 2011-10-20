@@ -760,7 +760,9 @@ struct mil1553_riob_s riob;
    riob.reg_num = start;
    riob.buffer = mem;
    riob.regs = regs;
+   milib_lock_bc(milf,bc);
    cc = milib_raw_read(milf,&riob);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("milib_raw_read:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -807,7 +809,9 @@ int cc;
    riob.reg_num = start;
    riob.buffer = mem;
    riob.regs = regs;
+   milib_lock_bc(milf,bc);
    cc = milib_raw_write(milf,&riob);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("milib_raw_write:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -840,7 +844,9 @@ int cc;
 int stat;
 
    arg++;
+   milib_lock_bc(milf,bc);
    cc = milib_get_status(milf, bc, &stat);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("milib_get_status:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -962,7 +968,9 @@ struct mil1553_dev_info_s dev_info;
    if (at == Numeric) {
       speed = v->Number;
       if ((speed >= 0) && (speed < SPEEDS)) {
+	 milib_lock_bc(milf,bc);
 	 cc = milib_set_bus_speed(milf, bc, speed);
+	 milib_unlock_bc(milf,bc);
 	 if (cc) {
 	    printf("milib_set_bus_speed:Error:%d\n",cc);
 	    mil1553_print_error(cc);
@@ -1091,7 +1099,9 @@ int cc, num;
    }
    send_head.item_count = num;
    send_head.tx_item_array = tx_items;
+   milib_lock_bc(milf,bc);
    cc = milib_send(milf, &send_head);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("milib_send:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1271,7 +1281,9 @@ int cc;
 
    arg++;
 
+   milib_lock_bc(milf,bc);
    cc = milib_reset(milf,bc);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("millib_get_up_rtis:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1361,7 +1373,9 @@ int i, cc;
       }
    }
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_read_csr(milf, bc, rti, &csr, &str);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_read_csr:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1389,14 +1403,18 @@ int i, msk, cc;
    }
    printf("\n\n");
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_read_str(milf, bc, rti, &str);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_read_str:Error:%d\n",cc);
       mil1553_print_error(cc);
    }
    printf("Current STR:0x%04hX %s\n", str, rtilib_str_to_str(str));
 
+   milib_lock_bc(milf,bc);
    cc = rtilib_read_last_str(milf, bc, rti, &str);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_read_last_str:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1415,7 +1433,9 @@ int cc;
                                                                                                                                                                     
    arg++;                                                                                                                                                           
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_read_signature(milf, bc, rti, &sig);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_read_signature:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1433,7 +1453,9 @@ int cc;
                                                                                                                                                                     
    arg++;                                                                                                                                                           
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_master_reset(milf, bc, rti);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_master_reset:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1465,7 +1487,9 @@ unsigned short rxbuf[RX_BUF_SIZE];
 
    bzero((void *) rxbuf, RX_BUF_SIZE * sizeof(unsigned short));
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_read_rxbuf(milf, bc, rti, 32, rxbuf);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_read_rxbuf:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1501,7 +1525,9 @@ unsigned short txbuf[TX_BUF_SIZE +1];
 
    bzero((void *) txbuf, TX_BUF_SIZE * sizeof(unsigned short));
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_read_txbuf(milf, bc, rti, 32, txbuf);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_read_txbuf:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1542,7 +1568,9 @@ unsigned short *rxbuf;
    }
    printf("\n");
 
+   milib_lock_bc(milf,bc);
    cc = rtilib_write_rxbuf(milf, bc, rti, wc, (unsigned short *) &rxbuf[0]);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_write_rxbuf:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1579,7 +1607,9 @@ unsigned short *txbuf;
    }
    printf("\n");
                                                                                                                                                                     
+   milib_lock_bc(milf,bc);
    cc = rtilib_write_txbuf(milf, bc, rti, wc, (unsigned short *) &txbuf[0]);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("rtilib_write_txbuf:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1598,7 +1628,9 @@ int cc;
    arg++;
 
    bzero((void *) &conf, sizeof(conf_msg));
+   milib_lock_bc(milf,bc);
    cc = mil1553_read_cfg_msg(milf,bc,rti,&conf);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("mil1553_read_cfg_msg:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1619,7 +1651,9 @@ int cc;
    arg++;
 
    bzero((void *) &acq, sizeof(acq_msg));
+   milib_lock_bc(milf,bc);
    cc = mil1553_read_acq_msg(milf,bc,rti,&acq);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("mil1553_read_acq_msg:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1655,7 +1689,9 @@ int cc;
    }
 
    bzero((void *) &ctrl, sizeof(ctrl_msg));
+   milib_lock_bc(milf,bc);
    cc = mil1553_read_ctrl_msg(milf,bc,rti,&ctrl);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("mil1553_read_ctrl_msg:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1751,7 +1787,9 @@ int cc;
    arg++;
 
    bzero((void *) &ctrl, sizeof(ctrl_msg));
+   milib_lock_bc(milf,bc);
    cc = mil1553_read_ctrl_msg(milf,bc,rti,&ctrl);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("mil1553_read_ctrl_msg:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1760,7 +1798,9 @@ int cc;
 
    if (!EditCCV(&ctrl)) printf("No changes - Sending anyway\n");
 
+   milib_lock_bc(milf,bc);
    cc = mil1553_write_ctrl_msg(milf,bc,rti,&ctrl);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("mil1553_write_ctrl_msg:Error:%d\n",cc);
       mil1553_print_error(cc);
@@ -1779,7 +1819,9 @@ int cc;
 
    arg++;
 
+   milib_lock_bc(milf,bc);
    cc = mil1553_write_ctrl_msg(milf,bc,rti,&ctrl);
+   milib_unlock_bc(milf,bc);
    if (cc) {
       printf("mil1553_write_ctrl_msg:Error:%d\n",cc);
       mil1553_print_error(cc);
