@@ -1054,7 +1054,9 @@ AtomType  at;
 
    for (i=1; i<31; i++) {
       if ((1<<i) & up_rtis) {
+	 milib_lock_bc(milf,bc);
 	 cc = rtilib_read_signature(milf, bc, i, &sig);
+	 milib_unlock_bc(milf,bc);
 	 if (cc) {
 	    printf("rtiib_read_signature:Error:%d\n",cc);
 	    mil1553_print_error(cc);
