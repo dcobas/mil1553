@@ -162,7 +162,7 @@ static int check_args(void)
 {
        int i;
 
-       if (bc_num <= 0 || bc_num > MAX_DEVS) {
+       if ((bc_num < 0) || (bc_num > MAX_DEVS)) {
 	       printk("mill1553:bad BC count:%d, not installing\n",bc_num);
 	       return 0;
        }
@@ -1228,7 +1228,7 @@ int mil1553_kthread(void *arg)
 
 static int used_bcs = 1;
 
-int get_unused_bc()
+int get_unused_bc(void)
 {
 
 	int i, bc, bit;
