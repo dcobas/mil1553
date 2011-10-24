@@ -1222,6 +1222,35 @@ int mil1553_kthread(void *arg)
 
 /**
  * =========================================================
+ * @brief           Get an unused BC number
+ * @return          A lun number or zero if none available
+ */
+
+static int used_bcs = 1;
+
+int get_unused_bc()
+{
+
+	int i, bc, bit;
+
+	for (i=0; i<bc_num; i++) {
+		bc = bcs[i];
+		bit = 1 << bc;
+		used_bcs |= bit;
+	}
+
+	for (i=1; i<MAX_DEVS; i++) {
+		bit = 1 << i;
+		if (used_bcs & bit)
+			continue;
+		used_bcs |= bit;
+		return i;
+	}
+	return 0;
+}
+
+/**
+ * =========================================================
  * Installer, hunt down modules and install them
  */
 
@@ -1253,13 +1282,15 @@ int mil1553_install(void)
 				break;
 
 			bc = hunt_bc(mdev->pci_bus_num,mdev->pci_slt_num);
-			printk("mil1553:Hunt:Bus:%d Slot:%d => BC:%d\n",
+			printk("mil1553:Hunt:Bus:%d Slot:%d => ",
 			       mdev->pci_bus_num,
-			       mdev->pci_slt_num,
-			       bc);
-			if (!bc) {
-				printk("mil1553:Device not declared in insmod arg list\n");
-				break;
+			       mdev->pci_slt_num);
+
+			if (bc) {
+				printk("Found declared BC:%d\n",bc);
+			} else {
+				bc = get_unused_bc();
+				printk("Assigned unused BC:%d\n",bc);
 			}
 
 			mdev->bc = bc;
