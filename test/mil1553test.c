@@ -54,6 +54,7 @@ int main(int argc,char *argv[]) {
 char *cp, *ep;
 char host[49];
 char tmpb[CMD_BUF_SIZE];
+int bc_mask;
 
    printf("%s: See <news> command\n",DEV_NAME);
    printf("%s: Type h for help\n",DEV_NAME);
@@ -71,6 +72,9 @@ char tmpb[CMD_BUF_SIZE];
    }
 
    read_regs();
+
+   bc_mask = get_bc_mask();
+   set_bc(bc_mask);
 
    while (True) {
 

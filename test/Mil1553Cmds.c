@@ -857,12 +857,53 @@ int stat;
 
 /* ============================= */
 
+#define MAX_BC 16
+#define MIN_BC 1
+
+int get_bc_mask(void) {
+
+   int tbc;
+   int cc;
+   struct mil1553_dev_info_s dev_info;
+
+   int bc_mask = 0;
+
+   for (tbc=MIN_BC; tbc<=MAX_BC; tbc++) {
+      dev_info.bc = tbc;
+      cc = milib_get_bc_info(milf,&dev_info);
+      if (cc) continue;
+      else {
+	 bc_mask |= 1 << tbc;
+	 printf("BC:%d present\n",tbc);
+      }
+   }
+   return bc_mask;
+}
+
+void set_bc(int bc_mask) {
+
+   int tbc;
+
+   if (((1 << bc) & bc_mask) == 0) {
+      for (tbc=MIN_BC; tbc<=MAX_BC; tbc++) {
+	 if ((1 << tbc) & bc_mask) {
+	    bc = tbc;
+	    break;
+	 }
+      }
+   }
+}
+
+/* ============================= */
+
+
 int GetSetBC(int arg) {      /* Select bus controler module */
 
 ArgVal   *v;
 AtomType  at;
 int tbc = 0;
 int bcs_count = 0;
+int bc_mask;
 int cc;
 
    arg++;
@@ -873,12 +914,14 @@ int cc;
       mil1553_print_error(cc);
    }
 
+   bc_mask = get_bc_mask();
+   set_bc(bc_mask);
+
    v = &(vals[arg]);
    at = v->Type;
    if (at == Numeric) {
       tbc = v->Number;
-      if ((tbc > 0) && (tbc <= bcs_count)) bc = tbc;
-      else printf("Bad BC number:%d Not in range:1..%d\n",tbc,bcs_count);
+      if ((1 << tbc) & bc_mask) bc = tbc;
       arg++;
    }
 
