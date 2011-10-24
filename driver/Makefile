@@ -17,18 +17,22 @@ CFLAGS=-g -Wall
 
 modules: 
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
+	rm -f ./$(CPU)/mil1553.ko
+	mv mil1553.ko ./$(CPU)/mil1553.ko
+	chmod 664 ./$(CPU)/mil1553.ko
+	rm -f *.o
 
 clean:
-	rm -f *.o *.a *.pyc *.so
-	rm -rf L865 L864 ppc 
-	make -C $(KERNELSRC) M=`pwd` clean
+	rm -f mil1553.ko
+	rm -f ./$(CPU)/mil1553.ko
+	rm -f *.o
 
-install: mil1553.ko
+install: ./$(CPU)/mil1553.ko
 	@echo "please specify one of {install-lab|install-oper|install-lhc|install-all}"
 install-all: install-lab install-oper install-oplhc
-install-lab: mil1553.ko
-	dsc_install mil1553.ko /acc/dsc/lab/$(CPU)/$(KVER)/mil1553;
-install-oper: mil1553.ko
-	dsc_install mil1553.ko /acc/dsc/oper/$(CPU)/$(KVER)/mil1553;
-install-oplhc: mil1553.ko
-	dsc_install mil1553.ko /acc/dsc/oplhc/$(CPU)/$(KVER)/mil1553;
+install-lab: ./$(CPU)/mil1553.ko
+	dsc_install ./$(CPU)/mil1553.ko /acc/dsc/lab/$(CPU)/$(KVER)/mil1553;
+install-oper: ./$(CPU)/mil1553.ko
+	dsc_install ./$(CPU)/mil1553.ko /acc/dsc/oper/$(CPU)/$(KVER)/mil1553;
+install-oplhc: ./$(CPU)/mil1553.ko
+	dsc_install ./$(CPU)/mil1553.ko /acc/dsc/oplhc/$(CPU)/$(KVER)/mil1553;
