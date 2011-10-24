@@ -22,7 +22,7 @@
  * Programming interface for the PCI 1553 CBMIA card
  */
 
-#define MAX_DEVS 8
+#define MAX_DEVS 16
 
 struct memory_map_s {
 	uint32_t isrc;       /** R/W INTERRUPTREG  Interrupt source    */

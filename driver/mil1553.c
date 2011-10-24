@@ -154,7 +154,7 @@ struct mil1553_device_s *get_dev(int bc)
 
 /**
  * =========================================================
- * @brief Validate insmod args
+ * @brief Validate insmod args, can be empty
  * @return 1=OK 0=ERROR
  */
 
@@ -828,6 +828,9 @@ static int send_items(struct client_s *client,
 		/* Get the target tx_queue for the bus controller */
 
 		mdev = get_dev(bc);
+		if (!mdev)
+			return -EFAULT;
+
 		tx_queue = mdev->tx_queue;
 
 		/* Put item on the tx_queue of the bus controller */
@@ -851,12 +854,14 @@ static int send_items(struct client_s *client,
 
 	/* Start all bus controllers with their transactions to be done */
 
-	for (bc=1; bc<=wa.bcs; bc++) {
+	for (bc=1; bc<=MAX_DEVS; bc++) {
 		if (strs[bc] >= 0) {
 			mdev = get_dev(bc);
-			start_tx(client->debug_level,mdev);
-			if (client->debug_level > 3)
-				printk("mil1553:send_items:Bc:%d start_tx\n",bc);
+			if (mdev) {
+				start_tx(client->debug_level,mdev);
+				if (client->debug_level > 3)
+					printk("mil1553:send_items:Bc:%d start_tx\n",bc);
+			}
 		}
 	}
 
@@ -1153,12 +1158,14 @@ struct pci_dev *add_next_dev(struct pci_dev *pcur,
 void release_device(struct mil1553_device_s *mdev)
 {
 
-	pci_iounmap(mdev->pdev, (void *) mdev->memory_map);
-	pci_release_region(mdev->pdev, BAR2);
-	pci_disable_device(mdev->pdev);
-	pci_dev_put(mdev->pdev);
-	free_irq(mdev->pdev->irq,mdev);
-	printk("mil1553:BC:%d RELEASED DEVICE:OK\n",mdev->bc);
+	if (mdev->pdev) {
+		pci_iounmap(mdev->pdev, (void *) mdev->memory_map);
+		pci_release_region(mdev->pdev, BAR2);
+		pci_disable_device(mdev->pdev);
+		pci_dev_put(mdev->pdev);
+		free_irq(mdev->pdev->irq,mdev);
+		printk("mil1553:BC:%d RELEASED DEVICE:OK\n",mdev->bc);
+	}
 }
 
 /**
@@ -1621,10 +1628,12 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 				/** Clean up after a receive error */
 
-				for (bc=1; bc<=wa.bcs; bc++) {
+				for (bc=1; bc<=MAX_DEVS; bc++) {
 					mdev = get_dev(bc);
-					init_device(mdev);
-					reset_tx_queue(mdev);
+					if (mdev) {
+						init_device(mdev);
+						reset_tx_queue(mdev);
+					}
 				}
 				goto error_exit;
 			}
@@ -1718,11 +1727,11 @@ int mil1553_ioctl_lck(struct inode *inode, struct file *filp,
 
 void mil1553_uninstall(void)
 {
-	int bc;
+	int i;
 	struct mil1553_device_s *mdev;
 
-	for (bc=0; bc<wa.bcs; bc++) {
-		mdev = &wa.mil1553_dev[bc];
+	for (i=0; i<wa.bcs; i++) {
+		mdev = &wa.mil1553_dev[i];
 		if (mdev->kthread)
 			kthread_stop(mdev->kthread);
 		release_device(mdev);
