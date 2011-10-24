@@ -96,12 +96,14 @@ char *rtilib_str_to_str(unsigned short str) {
  * clean slate.
  */
 
+#define RTI_WAIT_us 100
+
 int rtilib_empty_queue(int fn) {
 
 	int cc, qsz;
 	struct mil1553_recv_s recv;
 
-	usleep(100); // Slow things down for RTI
+	usleep(RTI_WAIT_us); // Slow things down for RTI
 
 	while (milib_get_queue_size(fn,&qsz)) {
 
@@ -345,19 +347,24 @@ int rtilib_read_txbuf(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
  * after data has been read.
  */
 
+#define WAIT_POLLS 100
+#define WAIT_TB_us 1000
+
 int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 
 	unsigned short str, tb;
 	int i, cc;
 
+	/* Poll the TB bit WAIT_POLL times waiting WAIT_TB_us between tests */
+
 	tb = 0;
-	for (i=0; i<10; i++) {
+	for (i=0; i<WAIT_POLLS; i++) {
 		cc = rtilib_read_str(fn,bc,rti,&str);
 		if (cc)
 			return cc;
 		tb = str & STR_TB;
 		if (tb) break;
-		usleep(10000); /* According to the man page this is thread safe */
+		usleep(WAIT_TB_us); /* According to the man page this is thread safe */
 	}
 
 	if (!tb)
