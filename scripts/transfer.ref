@@ -1,0 +1,117 @@
+#****************************************************************************
+# $Id: transfer.ref,v 1.22 2011/11/28 09:52:39 nmn Exp $
+#****************************************************************************
+# WARNING: File generated from database. Can be overwritten at any time !
+#
+
+# ***** IOCONFIG Information *****
+
+#   ln mln bus mtno module-type      lu W AM DPsz basaddr1   range1 W AM DPsz basaddr2   range2 testoff  sz sl ss L Vect
+#+#  1   0 PCI  501 CTRI              0 N -- DP16        0        0 N -- ----        0        0        0  0  6 -1 0 0x00
+#+#  2   0 PCI 2280 TPCI200           0 N -- DP16        0        0 N -- ----        0        0        0  0  4 -1 0 0x00
+#+#  3   0 PCI 2260 CBMIA             0 N -- DP16        0        0 N -- ----        0        0        0  0 13 -1 0 0x00
+#+#  4   0 PCI 2260 CBMIA             1 N -- DP16        0        0 N -- ----        0        0        0  0 14 -1 0 0x00
+#+#  5   0 PCI    0 IPOCTAL           0 N -- DP16        0        0 N -- ----        0        0        0  0  4  0 5 0xd9
+#+#  6   0 PCI 2236 PCI-760           0 N -- DP16        0        0 N -- ----        0        0        0  0  0 -1 0 0x00
+
+#   ln sln bus mtno module-type      lu evno  subaddr    A1 F1     D1    A2 F2     D2
+#+#  7   1 EVT  501 CTRI              0    1    10001
+
+#   ln mln bus mtno module-type  lp RTI
+#+#  8   0 G64  601 RTI           1  1
+#+#  9   0 G64  601 RTI           1  2
+#+# 10   0 G64  601 RTI           1  3
+#+# 11   0 G64  601 RTI           1  4
+#+# 12   0 G64  601 RTI           1  5
+#+# 13   0 G64  601 RTI           1  6
+#+# 14   0 G64  601 RTI           1  7
+#+# 15   0 G64  601 RTI           1  8
+#+# 16   0 G64  601 RTI           1  9
+#+# 17   0 G64  601 RTI           1 11
+#+# 18   0 G64  601 RTI           1 12
+#+# 19   0 G64  601 RTI           1 14
+#+# 20   0 G64  601 RTI           1 15
+#+# 21   0 G64  601 RTI           1 16
+#+# 22   0 G64  601 RTI           1 17
+#+# 23   0 G64  601 RTI           1 18
+#+# 24   0 G64  601 RTI           1 19
+#+# 25   0 G64  601 RTI           1 20
+#+# 26   0 G64  601 RTI           2  2
+#+# 27   0 G64  601 RTI           2  3
+#+# 28   0 G64  601 RTI           2  4
+#+# 29   0 G64  601 RTI           2  5
+#+# 30   0 G64  601 RTI           2  6
+#+# 31   0 G64  601 RTI           2  7
+#+# 32   0 G64  601 RTI           2  8
+#+# 33   0 G64  601 RTI           2  9
+#+# 34   0 G64  601 RTI           2 10
+#+# 35   0 G64  601 RTI           2 11
+#+# 36   0 G64  601 RTI           2 12
+#+# 37   0 G64  601 RTI           2 13
+#+# 38   0 G64  601 RTI           2 14
+#+# 39   0 G64  601 RTI           2 15
+#+# 40   0 G64  601 RTI           2 16
+#
+# ***** Program Startup before drivers *****
+#
+#
+#% cd /usr/local/drivers/ctr; ctrinstall 
+#% cd /usr/local/drivers/tpci200; tpci200install.sh 
+#% cd /usr/local/drivers/mil1553; ./mil1553Inst  -G1 -V0x10dc -D0x301   
+#% cd /usr/local/drivers/ipoctal; ipoctalinstall.sh 
+#
+#% upfiles -all
+#% wreboot -all
+#% end
+#
+# ***** Program Startup after drivers *****
+#
+#
+# Load the CTIMs into the CTRx
+/usr/local/tim timload /usr/local/tim timload root root  555 command 20 % /usr/local/tim/timload   >/dev/con 2>&1 %
+#
+# Install data used by ioconfig library
+/usr/local/bin ioconfigInstall /usr/local/bin ioconfigInstall root root  555 command 30 % ioconfigInstall  >/dev/con 2>&1 %
+#
+/usr/bin chrt /usr/bin chrt root root  555 command - % echo Adjust threaded IRQs prio to 87 >/dev/console;/bin/sh -c "/bin/ps -eLo cmd,tid,class,rtprio | /bin/awk '/^\[.*FF      50/{print $2}' | /usr/bin/xargs -n1 chrt -f -p 87|| echo done";[ -z "86" ] || /bin/sh -c "/bin/ps -eLo cmd,tid,class,rtprio | /bin/awk '/^\[.*FF      49/{print $2}' | /usr/bin/xargs -n1 chrt -f -p 86|| echo done" %
+#
+# Tgm RT using TIM or DTM
+# Use -edtm option to allow DTM telegram reception if no hardware available
+/usr/local/tgm get_tgm_tim /usr/local/tgm get_tgm_tim root root  755 server -90 % /usr/local/tgm/get_tgm_tim %
+#
+/usr/local/tgm wait_tgm /usr/local/tgm wait_tgm root root  555 command 5 % echo -n Waiting for ADE telegram...>/dev/con; wait_tgm ADE >/dev/con 2>&1; echo Ok >/dev/con %
+#
+# Restore DataTable for TG8buildinfo
+/usr/local/bin dtrest /usr/local/bin dtrest root root  755 command 5 % dtrest >/dev/con 2>&1 %
+#
+# Start real-time and CMW server for FESA class LTIM
+/dsc/local/bin LTIM_M /dsc/local/bin LTIM_M root root  555 server -25 % ./LTIM_M %
+#
+# wait for 3 seconds (repeat with negative value for priority)
+/bin sleep /bin sleep root root  555 command 3 % sleep 3 %
+#
+# Start real-time and CMW server for FESA class Po_PLC
+/dsc/local/bin Po_PLC_M /dsc/local/bin Po_PLC_M root root  555 server -25 % ./Po_PLC_M %
+#
+# wait for 2 seconds (repeat with negative value for priority)
+/bin sleep /bin sleep root root  555 command 2 % sleep 2 %
+#
+## Start real-time and CMW server for FESA class Po_Rs422
+#/dsc/local/bin Po_Rs422_M /dsc/local/bin Po_Rs422_M root root  555 server -25 % ./Po_Rs422_M %
+#
+## wait for 2 seconds (repeat with negative value for priority)
+#/bin sleep /bin sleep root root  555 command 2 % sleep 2 %
+#
+## Start real-time and CMW server for FESA class Po_M1553
+#/dsc/local/bin Po_M1553_M /dsc/local/bin Po_M1553_M root root  555 server -25 % ./Po_M1553_M %
+#
+# start POW MIL1553 control and acquisition RT task
+/usr/local/rt pci-powvrt /usr/local/rt pci-powvrt root root  555 server -70 % doforever ./pci-powvrt 2>/dev/con %
+#
+# start GM equipment RPC server
+/dsc/local/bin server /dsc/local/bin server root root  555 server -30 % server %
+#
+# start doforever CMW Server
+/dsc/local/bin cmwserver /dsc/local/bin cmwserver root root  555 server -30 % while :; do cmwserver -rpc_listener -prd_bp 1 -ppm_check;sleep 10;done %
+
+# End of file transfer.ref : all OK.
