@@ -568,8 +568,6 @@ static int check_rti_up(struct mil1553_device_s *mdev, unsigned int rtin)
 	uint32_t up_rtis, mask;
 
 	up_rtis = mdev->up_rtis;
-	if (!up_rtis)
-		up_rtis = get_up_rtis(mdev,0,TRIES);
 	mask = 1 << rtin;
 	if (mask & up_rtis)
 		return 1;
