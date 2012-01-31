@@ -979,13 +979,13 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	uint32_t lreg, *lregp;
 	int i;
 
-	wa.isrdebug = 0;
-	wa.icnt++;
-
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
 	if ((isrc & ISRC_IRQ) == 0)
 		return IRQ_NONE;
+
+	wa.isrdebug = 0;
+	wa.icnt++;
 
 	mdev->icnt++;
 	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
