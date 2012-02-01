@@ -1,6 +1,6 @@
-/**
- * Implement the minimum needed quick data library
- * Julian Lewis Thu 17/March/2011 BE/CO/HT
+/** @file libquick.c
+ *  @brief Implement the minimum needed quick data library
+ *  Julian Lewis Thu 17/March/2011 BE/CO/HT
  */
 
 /**
