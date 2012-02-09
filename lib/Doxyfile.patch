@@ -1,0 +1,32 @@
+--- Doxyfile	2012-01-24 17:04:57.006092731 +0100
++++ Doxyfile.good	2012-01-24 17:04:39.073928300 +0100
+@@ -62,9 +62,9 @@
+ #---------------------------------------------------------------------------
+ # configuration options related to warning and progress messages
+ #---------------------------------------------------------------------------
+-QUIET                  = NO
++QUIET                  = YES
+ WARNINGS               = YES
+-WARN_IF_UNDOCUMENTED   = YES
++WARN_IF_UNDOCUMENTED   = NO
+ WARN_IF_DOC_ERROR      = YES
+ WARN_NO_PARAMDOC       = NO
+ WARN_FORMAT            = "$file:$line: $text"
+@@ -72,7 +72,7 @@
+ #---------------------------------------------------------------------------
+ # configuration options related to the input files
+ #---------------------------------------------------------------------------
+-INPUT                  = 
++INPUT                  = libmil1553.c libquick.c librti.c pow_messages.h
+ FILE_PATTERNS          = 
+ RECURSIVE              = NO
+ EXCLUDE                = 
+@@ -125,7 +125,7 @@
+ #---------------------------------------------------------------------------
+ # configuration options related to the LaTeX output
+ #---------------------------------------------------------------------------
+-GENERATE_LATEX         = YES
++GENERATE_LATEX         = NO
+ LATEX_OUTPUT           = latex
+ LATEX_CMD_NAME         = latex
+ MAKEINDEX_CMD_NAME     = makeindex
