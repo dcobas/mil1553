@@ -29,6 +29,7 @@ clean:
 	rm -f mil1553.ko
 	rm -f ./$(CPU)/$(KVER)/mil1553.ko
 	rm -f *.o
+	rm -f Module.symvers
 
 install: ./$(CPU)/$(KVER)/mil1553.ko
 	@echo "please specify one of {install-lab|install-oper|install-lhc|install-all}"
