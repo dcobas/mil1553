@@ -20,7 +20,7 @@ CFLAGS=-g -Wall
 modules: 
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
 	rm -rf ./$(CPU)/$(KVER)
-	mkdir ./$(CPU)/$(KVER)
+	mkdir -p ./$(CPU)/$(KVER)
 	mv mil1553.ko ./$(CPU)/$(KVER)/mil1553.ko
 	chmod 664 ./$(CPU)/$(KVER)/mil1553.ko
 	rm -f *.o
