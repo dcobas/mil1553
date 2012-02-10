@@ -549,6 +549,8 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 {
 	uint32_t res;
+	if (wa.nopoll)
+		return 0xFFFFFFFF;
 	spin_lock(&mdev->lock);
 	res = _get_up_rtis(mdev,cflg,tries);
 	spin_unlock(&mdev->lock);
@@ -1422,6 +1424,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	ularg = mem;
 
 	switch (ionr) {
+
+		case mil1553POLLING:
+
+		       wa.nopoll = *ularg;
+		break;
 
 		case mil1553GET_DEBUG_LEVEL:   /** Get the debug level 0..7 */
 
