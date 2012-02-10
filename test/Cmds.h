@@ -58,6 +58,8 @@ int edit_ctl_msg();  /* Edit pow control settings */
 
 int test_rti();      /* RTI test */
 
+int SetPolling();    /* Set RTI polling On/Off */
+
 /* Jtag backend to public code */
 
 FILE *inp;
@@ -105,6 +107,7 @@ typedef enum {
    CmdWRX,     /* RTI write rxbuf */
    CmdWTX,     /* RTI write txbuf */
    CmdSPEED,   /* Get set the bus speed */
+   CmdPOLL,    /* Set RTI polling */
 
    CmdQSZE,    /* Get clients queue size */
 
@@ -168,6 +171,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
+   { CmdPOLL,    "poll",  "Set RTI polling"          ,"0..1"               ,SetPolling        },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 

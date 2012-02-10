@@ -639,6 +639,31 @@ int tdebug, cc;
 
 /* ============================= */
 
+int SetPolling(int arg) {
+ArgVal   *v;
+AtomType  at;
+
+int polling, cc;
+
+   arg++;
+
+   v = &(vals[arg]);
+   at = v->Type;
+   if (at == Numeric) {
+      arg++;
+      polling = v->Number;
+      cc = ioctl(milf,MIL1553_POLLING,&polling);
+      if (cc < 0)
+	 perror("MIL1553_POLLING");
+      printf("Polling set:%d\n",polling);
+      return arg;
+   }
+   printf("No polling value supplied\n");
+   return arg;
+}
+
+/* ============================= */
+
 int EditTimeout(int arg) {
 ArgVal   *v;
 AtomType  at;
