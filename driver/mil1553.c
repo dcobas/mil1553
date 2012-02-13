@@ -914,19 +914,6 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 			for (i=0; i<wc +1; i++) /* Prepended status */
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
 
-			if (client->debug_level > 4) {
-				printk("mil1553:read_queue:rp:%02d wp:%02d wc:%02d icnt:%02d bc:%02d rti:%02d\n",
-				       *rp,*wp,
-				       wc,
-				       client->icnt,
-				       rti_interrupt->bc,
-				       rti_interrupt->rti_number);
-
-				printk("mil1553:read_queue:rxbuf: 4 words ...\n");
-				for (i=0; i<4; i++)
-					printk("0x%04X ",rti_interrupt->rxbuf[i]);
-				printk("\n");
-			}
 			get_next_rp(rp,*wp,QSZ);
 		}
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
