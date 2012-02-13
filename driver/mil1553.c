@@ -127,7 +127,9 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 	"UNLOCK_BC",
 
 	"QUEUE_SIZE",
-	"RESET"
+	"RESET",
+
+	"POLLING"
 };
 
 /**
