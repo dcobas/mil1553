@@ -1539,6 +1539,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
+				kfree(buf);
 				goto error_exit;
 			}
 			cnt = raw_read(mdev, riob, buf);
@@ -1569,6 +1570,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
+				kfree(buf);
 				goto error_exit;
 			}
 			cnt = raw_write(mdev, riob, buf);
