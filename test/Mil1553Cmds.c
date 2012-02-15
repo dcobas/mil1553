@@ -649,6 +649,8 @@ int polling, cc;
 
    v = &(vals[arg]);
    at = v->Type;
+   printf("1=no_polling, 0=polling\n");
+
    if (at == Numeric) {
       arg++;
       polling = v->Number;

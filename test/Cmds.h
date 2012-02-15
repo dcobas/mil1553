@@ -171,7 +171,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
-   { CmdPOLL,    "poll",  "Set RTI polling"          ,"0..1"               ,SetPolling        },
+   { CmdPOLL,    "nopol", "Set RTI no-polling flag"  ,"0..1"               ,SetPolling        },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 
