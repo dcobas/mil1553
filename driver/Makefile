@@ -8,9 +8,10 @@ ifeq ($(CPU),L865)
 KVER=2.6.24.7-rt27
 endif
 
+# KVER=2.6.33.9-rt31.75.el6rt.x86_64
+
 ifeq ($(CPU),L866)
-# KVER=2.6.32-131.17.1.el6.x86_64
-KVER=2.6.33.9-rt31.75.el6rt.x86_64
+KVER=2.6.33.9-rt31.79.el6rt.x86_64
 endif
 
 KERNELSRC=/acc/sys/$(CPU)/usr/src/kernels/$(KVER)
