@@ -888,7 +888,6 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 	struct rx_queue_s *rx_queue;
 	struct rti_interrupt_s *rti_interrupt;
 	uint32_t *wp, *rp, icnt;
-	struct mil1553_device_s *mdev;
 
 	client->pk_type = mrecv->pk_type;
 	client->timeout = mrecv->timeout;
@@ -927,12 +926,6 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		if (cc == 0) {
 			if (client->debug_level > 4)
 				printk("mil1553:read_queue:wait_event_interruptible_timeout:timedout\n");
-
-			/* If there was a timeout, reset the queue of the last device */
-
-			mdev = get_dev(rti_interrupt->bc);
-			if (mdev)
-				reset_tx_queue(mdev);
 
 			return -ETIME;
 		}
@@ -1618,15 +1611,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				if (client->debug_level > 4)
 					printk("mil1553:RECV:read_queue:returned:%d\n",cc);
 
-				/** Clean up after a receive error */
-
-				for (bc=1; bc<=MAX_DEVS; bc++) {
-					mdev = get_dev(bc);
-					if (mdev) {
-						init_device(mdev);
-						reset_tx_queue(mdev);
-					}
-				}
 				goto error_exit;
 			}
 		break;
