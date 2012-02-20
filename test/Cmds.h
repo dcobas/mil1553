@@ -165,7 +165,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdCSR,     "csr",   "Edit CSR register"        ,"set,clear bits"     ,EditCsr           },
    { CmdSTR,     "str",   "Read current last status" ,""                   ,ReadStr           },
    { CmdSIG,     "sig",   "Read RTI signature"       ,""                   ,ReadSig           },
-   { CmdMRS,     "mrs",   "RTI Master reset"         ,""                   ,MasterReset       },
+   { CmdMRS,     "mrs",   "RTI Master reset"         ,"1=All"              ,MasterReset       },
    { CmdRRX,     "rrx",   "RTI read rxbuf"           ,"wc"                 ,ReadRxBuf         },
    { CmdRTX,     "rtx",   "RTI read txbuf (receive)" ,"wc"                 ,ReadTxBuf         },
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },

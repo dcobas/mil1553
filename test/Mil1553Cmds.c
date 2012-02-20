@@ -1521,19 +1521,46 @@ int cc;
 
 int MasterReset(int arg) {
                                                                                                                                                                     
-int cc;
-                                                                                                                                                                    
-   arg++;                                                                                                                                                           
-                                                                                                                                                                    
-   milib_lock_bc(milf,bc);
-   cc = rtilib_master_reset(milf, bc, rti);
-   milib_unlock_bc(milf,bc);
-   if (cc) {
-      printf("rtilib_master_reset:Error:%d\n",cc);
-      mil1553_print_error(cc);
-   }
-   printf("ResetDone\n");
+ArgVal   *v;                                                                                                                                                        
+AtomType  at;                                                                                                                                                       
+int cc, all, rt, up_rtis, msk;
+char bcn[8];
 
+   arg++;                                                                                                                                                           
+   v = &(vals[arg]);                                                                                                                                                
+   at = v->Type;                                                                                                                                                    
+   if (at == Numeric) {
+      all = v->Number;
+      arg++;
+   }
+
+   milib_lock_bc(milf,bc);
+
+   if (all) {
+      sprintf(bcn,"%d",bc);
+      if (YesNo("Reset all RTIs on loop:",bcn)) {
+	 milib_get_up_rtis(milf, bc, &up_rtis);
+	 for (rt=1; rt<=30; rt++) {
+	    msk = 1 << rt;
+	    if (msk & up_rtis) {
+	       cc = rtilib_master_reset(milf, bc, rt);
+	       if (cc) {
+		  printf("bc:%02d rt:%02d - Reset:",bc,rt);
+		  printf("Err\n");
+	       }
+	    }
+	 }
+      }
+   } else {
+      cc = rtilib_master_reset(milf, bc, rti);
+      if (cc) {
+	 printf("rtilib_master_reset:Error:%d\n",cc);
+	 mil1553_print_error(cc);
+      }
+   }
+
+   milib_unlock_bc(milf,bc);
+   printf("OK\n");
    return arg;
 }
 
