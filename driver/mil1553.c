@@ -546,13 +546,18 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 
 /**
  * @brief Just calls _get_up_rtis with spin lock protection
+ *
+ * If the hardware polling is set off (wa->nopoll != 0) then
+ * return the last known rti_mask. To refresh this mask just
+ * call the ioctl to turn polling on again, then turn it back
+ * off after the new configuration has been detected.
  */
 
 static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 {
 	uint32_t res;
 	if (wa.nopoll)
-		return 0xFFFFFFFF;
+		return mdev->up_rtis;
 	spin_lock(&mdev->lock);
 	res = _get_up_rtis(mdev,cflg,tries);
 	spin_unlock(&mdev->lock);
