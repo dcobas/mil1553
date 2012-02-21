@@ -160,6 +160,7 @@ struct working_area_s {
 	uint32_t icnt;                                 /** Total interrupt count */
 	uint32_t isrdebug;                             /** Trace ISR */
 	uint32_t nopoll;                               /** Set true if no polling */
+	uint32_t acq_delay;                            /** kludge to get rid of acquisition errors (usecs) */
 };
 
 #endif

@@ -58,7 +58,8 @@ int edit_ctl_msg();  /* Edit pow control settings */
 
 int test_rti();      /* RTI test */
 
-int GetSetPolling(); /* Get/Set RTI polling On/Off */
+int GetSetPolling();  /* Get/Set RTI polling On/Off */
+int GetSetAcqDelay(); /* Get set AQN delay usec */
 
 /* Jtag backend to public code */
 
@@ -108,6 +109,7 @@ typedef enum {
    CmdWTX,     /* RTI write txbuf */
    CmdSPEED,   /* Get set the bus speed */
    CmdPOLL,    /* Set RTI polling */
+   CmdAQNU,    /* Get set AQN delay usec */
 
    CmdQSZE,    /* Get clients queue size */
 
@@ -172,6 +174,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
    { CmdPOLL,    "hpol",  "Get/Set hardware polling" ,"0..1"               ,GetSetPolling     },
+   { CmdAQNU,    "aqnu",  "Get set AQN delay usec"   ,"microseconds"       ,GetSetAcqDelay    },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 

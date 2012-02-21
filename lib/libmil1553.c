@@ -39,6 +39,24 @@ int milib_get_polling(int fn, int *flag) {
 	return 0;
 }
 
+int milib_set_acq_delay(int fn, int usec) {
+
+	int cc;
+	cc = ioctl(fn,MIL1553_SET_ACQ_DELAY,&usec);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+int milib_get_acq_delay(int fn, int *usec) {
+
+	int cc;
+	cc = ioctl(fn,MIL1553_GET_ACQ_DELAY,usec);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
 int milib_set_timeout(int fn, int timeout_msec) {
 
 	int cc;

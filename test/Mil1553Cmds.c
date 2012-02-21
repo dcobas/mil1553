@@ -672,6 +672,34 @@ int polling, cc;
 
 /* ============================= */
 
+int GetSetAcqDelay(int arg) {
+ArgVal   *v;
+AtomType  at;
+
+int usec, cc;
+
+   arg++;
+
+   v = &(vals[arg]);
+   at = v->Type;
+   if (at == Numeric) {
+      arg++;
+      usec = v->Number;
+      cc = milib_set_acq_delay(milf,usec);
+      if (cc < 0)
+	 mil1553_print_error(cc);
+   }
+
+   cc = milib_get_acq_delay(milf,&usec);
+   if (cc < 0)
+      mil1553_print_error(cc);
+
+   printf("Acquisition delay:%d usec\n",usec);
+   return arg;
+}
+
+/* ============================= */
+
 int EditTimeout(int arg) {
 ArgVal   *v;
 AtomType  at;

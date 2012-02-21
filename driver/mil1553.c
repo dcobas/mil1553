@@ -1425,6 +1425,16 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		       *ularg = wa.nopoll;
 		break;
 
+		case mil1553SET_ACQ_DELAY:
+
+		       wa.acq_delay = *ularg;
+		break;
+
+		case mil1553GET_ACQ_DELAY:
+
+		       *ularg = wa.acq_delay;
+		break;
+
 		case mil1553GET_DEBUG_LEVEL:   /** Get the debug level 0..7 */
 
 			*ularg = client->debug_level;
@@ -1623,6 +1633,9 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553RECV:
 			mrecv = mem;
+			if (wa.acq_delay)
+				udelay(wa.acq_delay); /* Kludge to slow down acquisitions */
+
 			cc = read_queue(client,mrecv);
 			if (cc) {
 				if (client->debug_level > 4)

@@ -35,3 +35,5 @@ int milib_get_queue_size(int fn, int *size);
 int milib_reset(int fn, int bc);
 int milib_get_polling(int fn, int *flag);
 int milib_set_polling(int fn, int flag);
+int milib_set_acq_delay(int fn, int usec);
+int milib_get_acq_delay(int fn, int *usec);
