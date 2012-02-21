@@ -1,3 +1,19 @@
-This is the new mil1553 driver, a total rewrite
-It seems to work.
-I am starting GIT off from here
+
+This is the release candidate for the next version of the mil1553 driver.
+
+
+This branch RC
+
+1) Hardware polling ON/OFF improvements
+   Rather than return 0xFFFFFFFF return the value mdev->up_rtis
+   Hardware polling can then be turned off
+
+2) The driver installation should perform a hard reset on all RTI cards
+   Many of the acquisition errors dissapeared after resetting the RTI cards
+
+3) Slowing down the acquisitions reduces the error rate
+   I will add a controllable wait time into the libraries
+
+4) The tx_queue is over complicated and not used, get rid of it.
+
+Julian
