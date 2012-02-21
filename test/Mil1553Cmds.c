@@ -639,7 +639,7 @@ int tdebug, cc;
 
 /* ============================= */
 
-int SetPolling(int arg) {
+int GetSetPolling(int arg) {
 ArgVal   *v;
 AtomType  at;
 
@@ -649,18 +649,24 @@ int polling, cc;
 
    v = &(vals[arg]);
    at = v->Type;
-   printf("1=no_polling, 0=polling\n");
-
    if (at == Numeric) {
       arg++;
       polling = v->Number;
-      cc = ioctl(milf,MIL1553_POLLING,&polling);
+      cc = milib_set_polling(milf,polling);
       if (cc < 0)
-	 perror("MIL1553_POLLING");
-      printf("Polling set:%d\n",polling);
-      return arg;
+	 mil1553_print_error(cc);
    }
-   printf("No polling value supplied\n");
+
+   cc = milib_get_polling(milf,&polling);
+   if (cc < 0)
+      mil1553_print_error(cc);
+
+   printf("Hardware RTI polling:%d = ",polling);
+   if (polling)
+      printf("ON\n");
+   else
+      printf("OFF\n");
+
    return arg;
 }
 

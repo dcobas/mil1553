@@ -8,6 +8,37 @@ int milib_handle_open() {
 	return cc;
 }
 
+int milib_set_polling(int fn, int flag) {
+
+	int cc, nopoll;
+
+	if (flag)
+		nopoll = 1;
+	else
+		nopoll = 0;
+
+	cc = ioctl(fn,MIL1553_SET_POLLING,&nopoll);
+	if (cc < 0)
+		return errno;
+
+	return 0;
+}
+
+int milib_get_polling(int fn, int *flag) {
+
+	int cc, nopoll;
+
+	cc = ioctl(fn,MIL1553_GET_POLLING,&nopoll);
+	if (cc < 0)
+		return errno;
+	if (nopoll)
+		*flag = 0;
+	else
+		*flag = 1;
+
+	return 0;
+}
+
 int milib_set_timeout(int fn, int timeout_msec) {
 
 	int cc;

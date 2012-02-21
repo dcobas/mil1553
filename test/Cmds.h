@@ -58,7 +58,7 @@ int edit_ctl_msg();  /* Edit pow control settings */
 
 int test_rti();      /* RTI test */
 
-int SetPolling();    /* Set RTI polling On/Off */
+int GetSetPolling(); /* Get/Set RTI polling On/Off */
 
 /* Jtag backend to public code */
 
@@ -171,7 +171,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
-   { CmdPOLL,    "nopol", "Set RTI no-polling flag"  ,"0..1"               ,SetPolling        },
+   { CmdPOLL,    "hpol",  "Get/Set hardware polling" ,"0..1"               ,GetSetPolling     },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 

@@ -183,7 +183,8 @@ typedef enum {
 
 	mil1553QUEUE_SIZE,        /** Returns the number of items on clients queue */
 	mil1553RESET,             /** Resets a bus controller */
-	mil1553POLLING,           /** Controls polling */
+	mil1553SET_POLLING,       /** Set hardware polling */
+	mil1553GET_POLLING,       /** Get hardware polling */
 
 	mil1553LAST               /** For range checking (LAST - FIRST) */
 
@@ -220,6 +221,7 @@ typedef enum {
 #define MIL1553_UNLOCK_BC        PIOW(mil1553UNLOCK_BC,        unsigned long)
 #define MIL1553_QUEUE_SIZE       PIOR(mil1553QUEUE_SIZE,       unsigned long)
 #define MIL1553_RESET            PIOW(mil1553RESET,            unsigned long)
-#define MIL1553_POLLING          PIOWR(mil1553POLLING,         unsigned long)
+#define MIL1553_SET_POLLING      PIOW(mil1553SET_POLLING,      unsigned long)
+#define MIL1553_GET_POLLING      PIOR(mil1553GET_POLLING,      unsigned long)
 
 #endif

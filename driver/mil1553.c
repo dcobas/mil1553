@@ -1415,9 +1415,14 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 	switch (ionr) {
 
-		case mil1553POLLING:
+		case mil1553SET_POLLING:
 
 		       wa.nopoll = *ularg;
+		break;
+
+		case mil1553GET_POLLING:
+
+		       *ularg = wa.nopoll;
 		break;
 
 		case mil1553GET_DEBUG_LEVEL:   /** Get the debug level 0..7 */
