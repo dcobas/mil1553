@@ -93,6 +93,7 @@ struct client_s {
 	wait_queue_head_t wait_queue;   /** Client waits on this for available data */
 	struct rx_queue_s rx_queue;     /** Results of commands */
 	uint32_t bc_locked;             /** BC locked */
+	uint32_t bc;                    /** Last used bc */
 };
 
 /**

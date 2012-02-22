@@ -810,6 +810,7 @@ static int send_items(struct client_s *client,
 		tx_item.client = client;
 		bc = item_array[i].bc;
 		tx_item.bc = bc;
+		client->bc = bc;
 		rtin = item_array[i].rti_number;
 		tx_item.rti_number = rtin;
 		tx_item.txreg = item_array[i].txreg;
@@ -935,7 +936,7 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 
 			/* If there was a timeout, reset the queue of the last device */
 
-			mdev = get_dev(rti_interrupt->bc);
+			mdev = get_dev(client->bc);
 			if (mdev)
 				reset_tx_queue(mdev);
 
@@ -1643,12 +1644,10 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 				/** Clean up after a receive error */
 
-				for (bc=1; bc<=MAX_DEVS; bc++) {
-					mdev = get_dev(bc);
-					if (mdev) {
-						init_device(mdev);
-						reset_tx_queue(mdev);
-					}
+				mdev = get_dev(client->bc);
+				if (mdev) {
+					init_device(mdev);
+					reset_tx_queue(mdev);
 				}
 				goto error_exit;
 			}
