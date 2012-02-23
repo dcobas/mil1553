@@ -2,7 +2,7 @@
 echo Installing mil1553 driver...
 
 # echo 8 > /proc/sys/kernel/printk
-cd ./L866/2.6.33.9-rt31.75.el6rt.x86_64; /sbin/insmod mil1553.ko bcs=1,2 pci_buses=1,1 pci_slots=13,14
+cd ./L866/`uname -r`; /sbin/insmod mil1553.ko bcs=1,2 pci_buses=1,1 pci_slots=13,14
 
 MAJOR=`cat /proc/devices | awk '{if ($2 == "mil1553") printf $1}'`
 echo Making nodes for ${MODULE} major device mil1553 ${MAJOR}
