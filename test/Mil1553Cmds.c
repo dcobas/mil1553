@@ -651,7 +651,8 @@ int polling, cc;
    at = v->Type;
    if (at == Numeric) {
       arg++;
-      polling = v->Number;
+      if (v->Number) polling = 0;
+      else           polling = 1;
       cc = milib_set_polling(milf,polling);
       if (cc < 0)
 	 mil1553_print_error(cc);
@@ -1561,6 +1562,9 @@ int cc, all, rt, up_rtis, msk;
 char bcn[8];
 
    arg++;                                                                                                                                                           
+
+   all = 0;
+
    v = &(vals[arg]);                                                                                                                                                
    at = v->Type;                                                                                                                                                    
    if (at == Numeric) {
@@ -1578,10 +1582,9 @@ char bcn[8];
 	    msk = 1 << rt;
 	    if (msk & up_rtis) {
 	       cc = rtilib_master_reset(milf, bc, rt);
-	       if (cc) {
-		  printf("bc:%02d rt:%02d - Reset:",bc,rt);
-		  printf("Err\n");
-	       }
+	       printf("bc:%02d rt:%02d - Reset:",bc,rt);
+	       if (cc) printf("Err\n");
+	       else    printf("Ok\n");
 	    }
 	 }
       }

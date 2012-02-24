@@ -174,7 +174,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
    { CmdPOLL,    "hpol",  "Get/Set hardware polling" ,"0..1"               ,GetSetPolling     },
-   { CmdAQNU,    "aqnu",  "Get set AQN delay usec"   ,"microseconds"       ,GetSetAcqDelay    },
+   { CmdAQNU,    "acqd",  "Get set AQN delay usec"   ,"microseconds"       ,GetSetAcqDelay    },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 
