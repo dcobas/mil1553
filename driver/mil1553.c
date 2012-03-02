@@ -129,7 +129,11 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 	"QUEUE_SIZE",
 	"RESET",
 
-	"POLLING"
+	"SET_POLLING",
+	"GET_POLLING",
+
+	"SET_ACQ_DELAY",
+	"GET_ACQ_DELAY"
 };
 
 /**
@@ -1367,7 +1371,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 	struct memory_map_s *memory_map;
 
-	int bc, cc = 0;
+	int bc, dly, cc = 0;
 	uint32_t *wp, *rp;
 	unsigned int cnt, blen;
 
@@ -1625,8 +1629,10 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553RECV:
 			mrecv = mem;
-			if (wa.acq_delay)
-				udelay(wa.acq_delay); /* Kludge to slow down acquisitions */
+
+			dly = (client->bc - 1) * wa.acq_delay;
+			if (dly)
+				udelay(dly);
 
 			cc = read_queue(client,mrecv);
 			if (cc) {
