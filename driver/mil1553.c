@@ -1203,7 +1203,7 @@ int mil1553_kthread(void *arg)
 						     msecs_to_jiffies(RTI_TIMEOUT));
 		if (cc == 0) {
 			rti_mask |= get_up_rtis(mdev,1,1);
-			if (++tries > TRIES) {
+			if ((rti_mask) && (++tries > TRIES)) {
 				mdev->up_rtis = rti_mask;
 				tries = 0;
 				rti_mask = 0;
