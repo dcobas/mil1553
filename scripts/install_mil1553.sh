@@ -41,3 +41,7 @@ fi
 
 sh -c "$RUN rm -f /dev/mil1553"
 sh -c "$RUN /bin/mknod -m 0666 /dev/mil1553 c ${MAJOR} 0"
+
+sleep 30
+
+echo "hpol 0 q" | /usr/local/bin/mil1553test
