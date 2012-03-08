@@ -56,9 +56,14 @@
 #define HSTAT_BUSY            1
 #define HSTAT_DONE            2
 
+#define CMD_RESET_SHIFT    0
+#define CMD_RESET_MASK     (1 << CMD_RESET_SHIFT)
+#define CMD_RESET          1
+
 #define CMD_POLL_OFF_SHIFT 1
 #define CMD_POLL_OFF_MASK  (1 << CMD_POLL_OFF_SHIFT)
 #define CMD_POLL_OFF       1
+
 #define CMD_SPEED_SHIFT    30
 #define CMD_SPEED_MASK     (3 << CMD_SPEED_SHIFT)
 #define CMD_SPEED_1M       0

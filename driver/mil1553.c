@@ -1171,6 +1171,9 @@ static void init_device(struct mil1553_device_s *mdev)
 	struct memory_map_s *memory_map = mdev->memory_map;
 	uint32_t cmd;
 
+	cmd = CMD_RESET;
+	iowrite32be(cmd,&memory_map->cmd);
+
 	ioread32be(&memory_map->isrc);
 	iowrite32be(INTEN_INF,&memory_map->inten);
 
