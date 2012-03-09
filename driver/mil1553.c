@@ -541,7 +541,7 @@ static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
 
 	/* Re enable interrupts */
 
-	iowrite32be(INTEN_INF,&memory_map->inten);
+	iowrite32be(INTEN,&memory_map->inten);
 
 	if (tries > 1)
 		mdev->up_rtis = up_rtis;
@@ -669,6 +669,7 @@ static void _start_tx(int debug_level,
 
 	/* Issue the start command, we get an interrupt when done */
 
+	mdev->tx_busy = BC_BUSY;
 	iowrite32be(tx_item->txreg,&memory_map->txreg);           /* Start */
 }
 
@@ -680,6 +681,14 @@ static void _start_tx(int debug_level,
 static void start_tx(int debug_level,
 		     struct mil1553_device_s *mdev)
 {
+	/**
+	 * It takes 600 us to transmit 32 words.
+	 * If the transmit isn't finished wait 800 us to be sure.
+	 */
+
+	if (mdev->tx_busy != BC_DONE)
+		udelay(800);
+
 	spin_lock(&mdev->lock);
 	if (mdev->busy_done == BC_DONE)       /** If busy do nothing */
 		_start_tx(debug_level,mdev);
@@ -969,7 +978,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
-	if ((isrc & ISRC_IRQ) == 0)
+	if ((isrc & ISRC) == 0)
 		return IRQ_NONE;
 
 	wa.isrdebug = 0;
@@ -977,6 +986,14 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
+
+	if (isrc & ISRC_TXD) {
+		wa.isrdebug |= 0x40;
+		mdev->tx_busy = BC_DONE;    /* Transmit hardware done */
+		if ((isrc & ISRC_IRQ) == 0)
+			return IRQ_HANDLED;
+		wa.isrdebug |= 0x80;
+	}
 
 	wa.isrdebug |= 0x1;
 
@@ -1171,17 +1188,16 @@ static void init_device(struct mil1553_device_s *mdev)
 	struct memory_map_s *memory_map = mdev->memory_map;
 	uint32_t cmd;
 
-	cmd = CMD_RESET;
-	iowrite32be(cmd,&memory_map->cmd);
-
 	ioread32be(&memory_map->isrc);
-	iowrite32be(INTEN_INF,&memory_map->inten);
+	iowrite32be(INTEN,&memory_map->inten);
 
 	cmd = POLLING_OFF | INITIAL_SPEED;
 	iowrite32be(cmd,&memory_map->cmd);
 
 	mdev->snum_h = ioread32be(&memory_map->snum_h);
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
+
+	mdev->tx_busy = BC_DONE;
 
 	get_up_rtis(mdev,1,TRIES);
 }
@@ -1480,6 +1496,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = -EFAULT;
 				goto error_exit;
 			}
+			memory_map = mdev->memory_map;
+			iowrite32be(CMD_RESET,&memory_map->cmd);
 			init_device(mdev);
 			reset_tx_queue(mdev);
 		break;

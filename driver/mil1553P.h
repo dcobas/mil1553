@@ -147,6 +147,7 @@ struct mil1553_device_s {
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	wait_queue_head_t    wait_queue;  /** Kernel thread/Isr sync */
 	uint32_t             icnt;        /** Device interrupt count */
+	uint32_t             tx_busy;     /** TX hardware is busy */
 	struct task_struct  *kthread;     /** Device kernel thread */
 };
 

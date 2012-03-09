@@ -7,7 +7,7 @@
 #define MIL1553
 
 #define INTERRUPT 0
-#define INTEN 1
+#define INTEREN 1
 #define RTIPRESENT 2
 #define STATUS 3
 #define COMMAND 4
@@ -36,9 +36,14 @@
 #define ISRC_RTI_MASK  (0x1F << ISRC_RTI_SHIFT)
 #define ISRC_WC_SHIFT  22
 #define ISRC_WC_MASK   (0x1F << ISRC_WC_SHIFT)
+
 #define ISRC_IRQ       1
+#define ISRC_TXD       2
+#define ISRC           (ISRC_IRQ | ISRC_TXD)
 
 #define INTEN_INF      1
+#define INTEN_TXD      2
+#define INTEN          (INTEN_INF | INTEN_TXD)
 
 #define HSTAT_VER_SHIFT       0
 #define HSTAT_VER_MASK        (0xFFFF << HSTAT_VER_SHIFT)
