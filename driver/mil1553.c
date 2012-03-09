@@ -981,7 +981,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((isrc & ISRC) == 0)
 		return IRQ_NONE;
 
-	wa.isrdebug = 0;
 	wa.icnt++;
 
 	mdev->icnt++;
@@ -1500,6 +1499,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			iowrite32be(CMD_RESET,&memory_map->cmd);
 			init_device(mdev);
 			reset_tx_queue(mdev);
+			wa.isrdebug = 0;
 		break;
 
 		case mil1553SET_BUS_SPEED:     /** Set the bus speed */
