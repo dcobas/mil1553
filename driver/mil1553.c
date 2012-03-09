@@ -460,16 +460,18 @@ static int raw_write(struct mil1553_device_s *mdev,
  * =========================================================
  */
 
+static void start_tx(int debug_level, struct mil1553_device_s *mdev);
+
 #define BETWEEN_TRIES_US 1000
 #define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
 	int rti;
-	uint32_t txreg;
 	struct tx_item_s tx_item;
 	struct tx_queue_s *tx_queue;
 	uint32_t *wp, *rp;
+	unsigned long flags;
 
 	for (rti=1; rti<=30; rti++) {
 
@@ -478,7 +480,6 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 		tx_item.no_reply = 1;
 		tx_item.pk_type = 0;
 		tx_item.client = NULL;
-		tx_item.bc = mdev->bc;
 		tx_item.rti_number = rti;
 		tx_item.txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
