@@ -458,114 +458,46 @@ static int raw_write(struct mil1553_device_s *mdev,
 
 /**
  * =========================================================
- * @brief       Get the up_rtis for a given BC
- * @param mdev  Mill1553 device
- * @param cflg  Clear up RTI mask before detecting
- * @param tries The number of tries to read the RTI mask (See below)
- * @return      Mask of up RTIs
- *
- * This routine should never be run while packets are being processed
- * I.E The queue tx_size should be empty, otherwise it disrupts the bus
- *
- * The CBMIA does not reliably detect the RTI present bit mask.
- * In general if we loop many times or-ing in bits the mask has a high
- * probability of being correct. In order to avoid the christmass tree
- * effect, in general (unless the clear flag is set) the detected RTI
- * mask is or-ed with the previous value. The down side of this is that
- * RTIs that die or get switched off are not removed from the mask.
- * A kernel thread for each CBMIA calls get_up_rtis with the special tries
- * value of 1. In this case there is no wait in the try loop and the value
- * is not or-ed with its previous value. After the kernel thread has a new
- * mask value built up over TRIES samples it puts in the new mask in the
- * CBMIA device context. Hence in this way RTIs can get removed, and the
- * christmass tree lights don't flash on and off randomly.
  */
 
-#define TRIES 50
 #define BETWEEN_TRIES_US 1000
 #define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
-static uint32_t _get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
+static void ping_rtis(struct mil1553_device_s *mdev)
 {
-	struct memory_map_s *memory_map;
-	uint32_t cmd;
-	uint32_t up_rtis;
-	int i;
+	int rti;
+	uint32_t txreg;
+	struct tx_item_s tx_item;
+	struct tx_queue_s *tx_queue;
+	uint32_t *wp, *rp;
 
-	/**
-	 * In this way new RTIs get added as more bits get set
-	 * but they are never removed  unless cflg is set
-	 */
+	for (rti=1; rti<=30; rti++) {
 
-	if (cflg)                        /* Clear flag set ? */
-		up_rtis = 0;             /* Yes - No up RTIs to start */
-	else
-		up_rtis = mdev->up_rtis; /* No - RTI's that are or were on line */
-
-	/* Do nothing if queue is not empty */
-
-	if (get_queue_size(mdev->tx_queue->rp,mdev->tx_queue->wp,QSZ) > 0) {
-		if (tries > 1)
-			return mdev->up_rtis;
-		else
-			return 0;
-	}
-
-	/* Interrupts off */
-
-	memory_map = mdev->memory_map;
-	iowrite32be(0,&memory_map->inten);
-
-	/* Remember cmd register and switch on hardware RTI polling */
-
-	cmd = ioread32be(&memory_map->cmd);
-	iowrite32be(0,&memory_map->cmd);    /* Polling now on */
-
-/**
- * Note about this next loop:
- * The hardware polling is too fast for the RTI cards, so the returned bit
- * pattern of live RTIs may be incomplete. By reading many times the idea is
- * that sooner or later every live RTI will have had is bit read at least once.
- * This frig masks an underlying hardware error.
- */
-
-	for (i=0; i<tries; i++) {
 		udelay(BETWEEN_TRIES_US);
-		up_rtis |= ioread32be(&memory_map->up_rtis);
+
+		tx_item.no_reply = 1;
+		tx_item.pk_type = 0;
+		tx_item.client = NULL;
+		tx_item.bc = mdev->bc;
+		tx_item.rti_number = rti;
+		tx_item.txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
+			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
+			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
+			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
+
+		tx_queue = mdev->tx_queue;
+		spin_lock_irqsave(&tx_queue->lock,flags);
+		rp = &tx_queue->rp;
+		wp = &tx_queue->wp;
+		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
+			memcpy(&tx_queue->tx_item[*wp],
+			       &tx_item,sizeof(struct tx_item_s));
+			get_next_wp(*rp,wp,QSZ);
+		}
+		spin_unlock_irqrestore(&tx_queue->lock,flags);
+
+		start_tx(0,mdev);
 	}
-
-	/* Switch off hardware RTI polling and restore cmd register */
-
-	cmd |= POLLING_OFF;
-	iowrite32be(cmd,&memory_map->cmd);
-
-	/* Re enable interrupts */
-
-	iowrite32be(INTEN,&memory_map->inten);
-
-	if (tries > 1)
-		mdev->up_rtis = up_rtis;
-	return up_rtis;
-}
-
-/**
- * @brief Just calls _get_up_rtis with spin lock protection
- *
- * If the hardware polling is set off (wa->nopoll != 0) then
- * return the last known rti_mask. To refresh this mask just
- * call the ioctl to turn polling on again, then turn it back
- * off after the new configuration has been detected.
- */
-
-static uint32_t get_up_rtis(struct mil1553_device_s *mdev, int cflg, int tries)
-{
-	uint32_t res;
-	if (wa.nopoll)
-		return mdev->up_rtis;
-	spin_lock(&mdev->lock);
-	res = _get_up_rtis(mdev,cflg,tries);
-	spin_unlock(&mdev->lock);
-	return res;
 }
 
 /**
@@ -974,7 +906,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	struct client_s *client;
 	unsigned long flags;
 	uint32_t lreg, *lregp;
-	int i;
+	int i, rtin;
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
@@ -993,6 +925,8 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			return IRQ_HANDLED;
 		wa.isrdebug |= 0x80;
 	}
+	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+	mdev->new_up_rtis |= 1 << rtin;                      /* This RTI is up */
 
 	wa.isrdebug |= 0x1;
 
@@ -1033,8 +967,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
 			rti_interrupt = &(client->rx_queue.rti_interrupt[*wp]);
 
-			rti_interrupt->rti_number =
-				(isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+			rti_interrupt->rti_number = rtin;
 
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
 			if (rti_interrupt->wc == 0)
@@ -1198,35 +1131,39 @@ static void init_device(struct mil1553_device_s *mdev)
 
 	mdev->tx_busy = BC_DONE;
 
-	get_up_rtis(mdev,1,TRIES);
+	mdev->up_rtis = 0x7FFFFFFE;
 }
 
 /**
+ * =========================================================
  * This kernel thread is needed to maintain the mask of up RTIs
  * per device. It gets instantiated once per device.
  */
 
+#define TRIES 4
+
 int mil1553_kthread(void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
-	int icnt, cc, tries = 0, rti_mask = 0;
+	int icnt, cc, tries = 0;
 
 	printk("mil1553 kernel thread:running:%d\n",mdev->bc);
 
+	mdev->new_up_rtis = 0;
 	do {
 
 		icnt = mdev->icnt;
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
 						     icnt != mdev->icnt,
 						     msecs_to_jiffies(RTI_TIMEOUT));
-		if (cc == 0) {
-			rti_mask |= get_up_rtis(mdev,1,1);
-			if ((rti_mask) && (++tries > TRIES)) {
-				mdev->up_rtis = rti_mask;
-				tries = 0;
-				rti_mask = 0;
-			}
+		ping_rtis(mdev);
+
+		if ((mdev->new_up_rtis) && (++tries > TRIES)) {
+			mdev->up_rtis = mdev->new_up_rtis;
+			tries = 0;
+			mdev->new_up_rtis = 0;
 		}
+
 	} while (!kthread_should_stop());
 	return 0;
 }

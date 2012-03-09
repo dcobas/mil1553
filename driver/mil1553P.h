@@ -104,7 +104,6 @@ struct tx_item_s {
 	uint32_t no_reply;              /** Set when no reply wanted */
 	uint32_t pk_type;               /** Packet type START, MIDDLE or END */
 	struct client_s *client;        /** The client who issued the command */
-	uint32_t bc;                    /** Bus controller number */
 	uint32_t rti_number;            /** RTI number */
 	uint32_t txreg;                 /** Transmit register wc, sa, t/r bit, rti */
 	uint32_t txbuf[TX_BUF_SIZE];    /** Buffer */
@@ -143,6 +142,7 @@ struct mil1553_device_s {
 	struct memory_map_s *memory_map;  /** Mapped BAR2 device memory */
 	uint32_t             busy_done;   /** Bus controller busy/done status */
 	uint32_t             up_rtis;     /** Last known up rtis mask */
+	uint32_t             new_up_rtis; /** New mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	wait_queue_head_t    wait_queue;  /** Kernel thread/Isr sync */
