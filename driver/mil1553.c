@@ -467,7 +467,7 @@ static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
-	int rti;
+	int rti, ok;
 	struct tx_item_s tx_item;
 	struct tx_queue_s *tx_queue;
 	uint32_t *wp, *rp;
@@ -486,6 +486,8 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
+		ok = 0;
+
 		tx_queue = mdev->tx_queue;
 		spin_lock_irqsave(&tx_queue->lock,flags);
 		rp = &tx_queue->rp;
@@ -494,10 +496,12 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			memcpy(&tx_queue->tx_item[*wp],
 			       &tx_item,sizeof(struct tx_item_s));
 			get_next_wp(*rp,wp,QSZ);
+			ok = 1;
 		}
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 
-		start_tx(0,mdev);
+		if (ok)
+			start_tx(0,mdev);
 	}
 }
 
@@ -916,6 +920,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	wa.icnt++;
 
+	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+	mdev->new_up_rtis |= 1 << rtin;                      /* This RTI is up */
+
 	mdev->icnt++;
 	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
 
@@ -926,8 +933,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			return IRQ_HANDLED;
 		wa.isrdebug |= 0x80;
 	}
-	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
-	mdev->new_up_rtis |= 1 << rtin;                      /* This RTI is up */
 
 	wa.isrdebug |= 0x1;
 

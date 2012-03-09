@@ -104,6 +104,7 @@ struct tx_item_s {
 	uint32_t no_reply;              /** Set when no reply wanted */
 	uint32_t pk_type;               /** Packet type START, MIDDLE or END */
 	struct client_s *client;        /** The client who issued the command */
+	uint32_t bc;                    /** Bus controller number */
 	uint32_t rti_number;            /** RTI number */
 	uint32_t txreg;                 /** Transmit register wc, sa, t/r bit, rti */
 	uint32_t txbuf[TX_BUF_SIZE];    /** Buffer */
