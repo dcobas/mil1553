@@ -467,42 +467,30 @@ static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
-	int rti, ok;
-	struct tx_item_s tx_item;
-	struct tx_queue_s *tx_queue;
-	uint32_t *wp, *rp;
-	unsigned long flags;
+	int rti;
+	uint32_t txreg;
+	struct memory_map_s *memory_map;
 
-	for (rti=1; rti<=30; rti++) {
+	memory_map = mdev->memory_map;
 
-		udelay(BETWEEN_TRIES_US);
+	spin_lock(&mdev->lock);
+	if (mdev->busy_done == BC_DONE) {
+		for (rti=1; rti<=30; rti++) {
 
-		tx_item.no_reply = 1;
-		tx_item.pk_type = 0;
-		tx_item.client = NULL;
-		tx_item.rti_number = rti;
-		tx_item.txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
+			udelay(BETWEEN_TRIES_US);
+			txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
-		ok = 0;
+			if (mdev->tx_busy == BC_BUSY)
+				continue;
 
-		tx_queue = mdev->tx_queue;
-		spin_lock_irqsave(&tx_queue->lock,flags);
-		rp = &tx_queue->rp;
-		wp = &tx_queue->wp;
-		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
-			memcpy(&tx_queue->tx_item[*wp],
-			       &tx_item,sizeof(struct tx_item_s));
-			get_next_wp(*rp,wp,QSZ);
-			ok = 1;
+			mdev->tx_busy = BC_BUSY;
+			iowrite32be(txreg,&memory_map->txreg);
 		}
-		spin_unlock_irqrestore(&tx_queue->lock,flags);
-
-		if (ok)
-			start_tx(0,mdev);
 	}
+	spin_unlock(&mdev->lock);
 }
 
 /**
@@ -918,6 +906,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((isrc & ISRC) == 0)
 		return IRQ_NONE;
 
+	mdev->icnt++;
+	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
+
 	if (isrc & ISRC_TXD) {
 		wa.isrdebug |= 0x40;
 		mdev->tx_busy = BC_DONE;    /* Transmit hardware done */
@@ -930,11 +921,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	wa.icnt++;
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
-	mdev->new_up_rtis |= 1 << rtin;                      /* This RTI is up */
-
-	mdev->icnt++;
-	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
-
+	mdev->new_up_rtis |= 1 << rtin;
 	bc = mdev->bc;
 
 	/* Read the current item from the tx_queue to find the client. */
@@ -1135,8 +1122,7 @@ static void init_device(struct mil1553_device_s *mdev)
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
 	mdev->tx_busy = BC_DONE;
-
-	mdev->up_rtis = 0x7FFFFFFE;
+	mdev->up_rtis = 0;
 }
 
 /**
@@ -1145,7 +1131,7 @@ static void init_device(struct mil1553_device_s *mdev)
  * per device. It gets instantiated once per device.
  */
 
-#define TRIES 4
+#define TRIES 1
 
 int mil1553_kthread(void *arg)
 {
@@ -1161,14 +1147,15 @@ int mil1553_kthread(void *arg)
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
 						     icnt != mdev->icnt,
 						     msecs_to_jiffies(RTI_TIMEOUT));
-		ping_rtis(mdev);
+		if (cc == 0) {
+			ping_rtis(mdev);
 
-		if ((mdev->new_up_rtis) && (++tries > TRIES)) {
-			mdev->up_rtis = mdev->new_up_rtis;
-			tries = 0;
-			mdev->new_up_rtis = 0;
+			if ((mdev->new_up_rtis) && (++tries >= TRIES)) {
+				mdev->up_rtis = mdev->new_up_rtis;
+				tries = 0;
+				mdev->new_up_rtis = 0;
+			}
 		}
-
 	} while (!kthread_should_stop());
 	return 0;
 }
