@@ -463,7 +463,6 @@ static int raw_write(struct mil1553_device_s *mdev,
 static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 #define BETWEEN_TRIES_US 1000
-#define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
@@ -474,20 +473,18 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 	memory_map = mdev->memory_map;
 
 	spin_lock(&mdev->lock);
-	if (mdev->busy_done == BC_DONE) {
+	if ((mdev->busy_done == BC_DONE)
+	&&  (mdev->tx_busy   == BC_DONE)) {
 		for (rti=1; rti<=30; rti++) {
 
-			udelay(BETWEEN_TRIES_US);
 			txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
-			if (mdev->tx_busy == BC_BUSY)
-				continue;
-
 			mdev->tx_busy = BC_BUSY;
 			iowrite32be(txreg,&memory_map->txreg);
+			udelay(BETWEEN_TRIES_US);
 		}
 	}
 	spin_unlock(&mdev->lock);
@@ -979,6 +976,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 			wa.isrdebug |= 0x8;
 		}
+
 		get_next_wp(*rp,wp,QSZ);
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
 
@@ -987,22 +985,22 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 			wa.isrdebug |= 0x10;
 		}
+
+		/** Remember that some items can have both START and END set */
+
+		if (tx_item->pk_type & TX_START) {       /** Start packet stream */
+			mdev->busy_done = BC_BUSY;       /** Device is busy */
+
+			wa.isrdebug |= 0x20;
+		}
+
+		if (tx_item->pk_type & TX_END) {         /** End packet stream */
+			mdev->busy_done = BC_DONE;       /** Device is done */
+
+			wa.isrdebug |= 0x40;
+		}
+
 	}
-
-	/** Remember that some items can have both START and END set */
-
-	if (tx_item->pk_type & TX_START) {       /** Start packet stream */
-		mdev->busy_done = BC_BUSY;       /** Device is busy */
-
-		wa.isrdebug |= 0x20;
-	}
-
-	if (tx_item->pk_type & TX_END) {         /** End packet stream */
-		mdev->busy_done = BC_DONE;       /** Device is done */
-
-		wa.isrdebug |= 0x40;
-	}
-
 	_start_tx(0,mdev);                       /** Start next item */
 	return IRQ_HANDLED;
 }
@@ -1105,6 +1103,7 @@ void release_device(struct mil1553_device_s *mdev)
  */
 
 #define INITIAL_SPEED (CMD_SPEED_1M << CMD_SPEED_SHIFT)
+#define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
 static void init_device(struct mil1553_device_s *mdev)
 {
@@ -1131,12 +1130,12 @@ static void init_device(struct mil1553_device_s *mdev)
  * per device. It gets instantiated once per device.
  */
 
-#define TRIES 1
+#define RTI_POLL_TIME 25
 
 int mil1553_kthread(void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
-	int icnt, cc, tries = 0;
+	int icnt, cc;
 
 	printk("mil1553 kernel thread:running:%d\n",mdev->bc);
 
@@ -1146,13 +1145,12 @@ int mil1553_kthread(void *arg)
 		icnt = mdev->icnt;
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
 						     icnt != mdev->icnt,
-						     msecs_to_jiffies(RTI_TIMEOUT));
+						     msecs_to_jiffies(RTI_POLL_TIME));
 		if (cc == 0) {
 			ping_rtis(mdev);
 
-			if ((mdev->new_up_rtis) && (++tries >= TRIES)) {
+			if (mdev->new_up_rtis) {
 				mdev->up_rtis = mdev->new_up_rtis;
-				tries = 0;
 				mdev->new_up_rtis = 0;
 			}
 		}
@@ -1318,7 +1316,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 	struct memory_map_s *memory_map;
 
-	int bc, dly, cc = 0;
+	int bc, cc = 0;
 	uint32_t *wp, *rp;
 	unsigned int cnt, blen;
 
@@ -1357,26 +1355,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	ularg = mem;
 
 	switch (ionr) {
-
-		case mil1553SET_POLLING:
-
-		       wa.nopoll = *ularg;
-		break;
-
-		case mil1553GET_POLLING:
-
-		       *ularg = wa.nopoll;
-		break;
-
-		case mil1553SET_ACQ_DELAY:
-
-		       wa.acq_delay = *ularg;
-		break;
-
-		case mil1553GET_ACQ_DELAY:
-
-		       *ularg = wa.acq_delay;
-		break;
 
 		case mil1553GET_DEBUG_LEVEL:   /** Get the debug level 0..7 */
 
@@ -1579,11 +1557,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 		case mil1553RECV:
 			mrecv = mem;
-
-			dly = (client->bc - 1) * wa.acq_delay;
-			if (dly)
-				udelay(dly);
-
 			cc = read_queue(client,mrecv);
 			if (cc) {
 				if (client->debug_level > 4)
