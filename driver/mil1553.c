@@ -918,14 +918,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((isrc & ISRC) == 0)
 		return IRQ_NONE;
 
-	wa.icnt++;
-
-	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
-	mdev->new_up_rtis |= 1 << rtin;                      /* This RTI is up */
-
-	mdev->icnt++;
-	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
-
 	if (isrc & ISRC_TXD) {
 		wa.isrdebug |= 0x40;
 		mdev->tx_busy = BC_DONE;    /* Transmit hardware done */
@@ -935,6 +927,13 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	}
 
 	wa.isrdebug |= 0x1;
+	wa.icnt++;
+
+	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+	mdev->new_up_rtis |= 1 << rtin;                      /* This RTI is up */
+
+	mdev->icnt++;
+	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
 
 	bc = mdev->bc;
 
