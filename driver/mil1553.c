@@ -470,11 +470,12 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 	uint32_t txreg;
 	struct memory_map_s *memory_map;
 
+	if (wa.nopol) return;
+
 	memory_map = mdev->memory_map;
 
 	spin_lock(&mdev->lock);
-	if ((mdev->busy_done == BC_DONE)
-	&&  (mdev->tx_busy   == BC_DONE)) {
+	if (mdev->busy_done == BC_DONE) {
 		for (rti=1; rti<=30; rti++) {
 
 			txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
@@ -482,7 +483,6 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
-			mdev->tx_busy = BC_BUSY;
 			iowrite32be(txreg,&memory_map->txreg);
 			udelay(BETWEEN_TRIES_US);
 		}
@@ -591,7 +591,6 @@ static void _start_tx(int debug_level,
 
 	/* Issue the start command, we get an interrupt when done */
 
-	mdev->tx_busy = BC_BUSY;
 	iowrite32be(tx_item->txreg,&memory_map->txreg);           /* Start */
 }
 
@@ -603,14 +602,6 @@ static void _start_tx(int debug_level,
 static void start_tx(int debug_level,
 		     struct mil1553_device_s *mdev)
 {
-	/**
-	 * It takes 600 us to transmit 32 words.
-	 * If the transmit isn't finished wait 800 us to be sure.
-	 */
-
-	if (mdev->tx_busy != BC_DONE)
-		udelay(800);
-
 	spin_lock(&mdev->lock);
 	if (mdev->busy_done == BC_DONE)       /** If busy do nothing */
 		_start_tx(debug_level,mdev);
@@ -906,14 +897,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	mdev->icnt++;
 	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
 
-	if (isrc & ISRC_TXD) {
-		wa.isrdebug |= 0x40;
-		mdev->tx_busy = BC_DONE;    /* Transmit hardware done */
-		if ((isrc & ISRC_IRQ) == 0)
-			return IRQ_HANDLED;
-		wa.isrdebug |= 0x80;
-	}
-
 	wa.isrdebug |= 0x1;
 	wa.icnt++;
 
@@ -1120,7 +1103,6 @@ static void init_device(struct mil1553_device_s *mdev)
 	mdev->snum_h = ioread32be(&memory_map->snum_h);
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
-	mdev->tx_busy = BC_DONE;
 	mdev->up_rtis = 0;
 }
 
@@ -1131,6 +1113,7 @@ static void init_device(struct mil1553_device_s *mdev)
  */
 
 #define RTI_POLL_TIME 25
+#define KT_WAIT_MS 100
 
 int mil1553_kthread(void *arg)
 {
@@ -1148,11 +1131,11 @@ int mil1553_kthread(void *arg)
 						     msecs_to_jiffies(RTI_POLL_TIME));
 		if (cc == 0) {
 			ping_rtis(mdev);
-
 			if (mdev->new_up_rtis) {
 				mdev->up_rtis = mdev->new_up_rtis;
 				mdev->new_up_rtis = 0;
 			}
+			mdelay(KT_WAIT_MS);
 		}
 	} while (!kthread_should_stop());
 	return 0;
@@ -1355,6 +1338,14 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	ularg = mem;
 
 	switch (ionr) {
+
+		case MIL1553_SET_POLLING:
+			wa.nopol = *ularg;
+		break;
+
+		case MIL1553_GET_POLLING:
+			*ularg = wa.nopol;
+		break;
 
 		case mil1553GET_DEBUG_LEVEL:   /** Get the debug level 0..7 */
 

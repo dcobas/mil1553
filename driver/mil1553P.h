@@ -148,7 +148,6 @@ struct mil1553_device_s {
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	wait_queue_head_t    wait_queue;  /** Kernel thread/Isr sync */
 	uint32_t             icnt;        /** Device interrupt count */
-	uint32_t             tx_busy;     /** TX hardware is busy */
 	struct task_struct  *kthread;     /** Device kernel thread */
 };
 
@@ -162,6 +161,7 @@ struct working_area_s {
 	struct tx_queue_s tx_queue[MAX_DEVS];          /** Data and commands waiting to be transmitted */
 	uint32_t icnt;                                 /** Total interrupt count */
 	uint32_t isrdebug;                             /** Trace ISR */
+	uint32_t nopol;                                /** No polling flag */
 };
 
 #endif
