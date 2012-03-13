@@ -142,6 +142,7 @@ struct mil1553_device_s {
 	struct pci_dev      *pdev;        /** Pci device handle */
 	struct memory_map_s *memory_map;  /** Mapped BAR2 device memory */
 	uint32_t             busy_done;   /** Bus controller busy/done status */
+	uint32_t             txrx_done;   /** Tx/Rx busy/done status */
 	uint32_t             up_rtis;     /** Last known up rtis mask */
 	uint32_t             new_up_rtis; /** New mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */

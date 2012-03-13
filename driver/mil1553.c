@@ -352,7 +352,7 @@ static void reset_tx_queue(struct mil1553_device_s *mdev)
 	spin_lock_irqsave(&tx_queue->lock,flags);
 	tx_queue->rp = 0;
 	tx_queue->wp = 0;
-	mdev->busy_done = BC_DONE;
+	mdev->busy_done = BC_DONE;                      /** Transaction done */
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
 }
 
@@ -466,23 +466,30 @@ static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
-	int rti;
+	int i, rti;
 	uint32_t txreg;
 	struct memory_map_s *memory_map;
 
 	memory_map = mdev->memory_map;
 
 	spin_lock(&mdev->lock);
-	if (mdev->busy_done == BC_DONE) {
-		for (rti=1; rti<=30; rti++) {
+	if (mdev->busy_done == BC_DONE) {       /** Make sure no transaction in progress */
+		for (rti=1; rti<=30; rti++) {   /** Next RTI to poll */
 
 			txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
-			iowrite32be(txreg,&memory_map->txreg);
-			udelay(BETWEEN_TRIES_US);
+			for (i=0; i<8; i++) {
+				if (mdev->txrx_done == BC_DONE) /** Wait upto 800us for Tx buffer */
+					break;
+				udelay(100);
+			}
+			mdev->txrx_done = BC_BUSY;              /** Tx buffer now busy */
+			iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
+
+			udelay(BETWEEN_TRIES_US);               /** Wait between pollings */
 		}
 	}
 	spin_unlock(&mdev->lock);
@@ -565,7 +572,7 @@ static void _start_tx(int debug_level,
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
 	if (get_queue_size(*rp,*wp,QSZ) == 0) {
-		mdev->busy_done = BC_DONE;                     /** All done */
+		mdev->busy_done = BC_DONE;                     /** Transaction done */
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 		if (debug_level > 5)
 			printk("mil1553:start_tx:Queue empty\n");
@@ -589,7 +596,13 @@ static void _start_tx(int debug_level,
 
 	/* Issue the start command, we get an interrupt when done */
 
-	iowrite32be(tx_item->txreg,&memory_map->txreg);           /* Start */
+	for (i=0; i<8; i++) {
+		if (mdev->txrx_done == BC_DONE)         /** Wait upto 800us for end Tx */
+			break;
+		udelay(100);
+	}
+	mdev->txrx_done = BC_BUSY;                      /** Say Tx busy */
+	iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
 }
 
 /**
@@ -601,8 +614,8 @@ static void start_tx(int debug_level,
 		     struct mil1553_device_s *mdev)
 {
 	spin_lock(&mdev->lock);
-	if (mdev->busy_done == BC_DONE)       /** If busy do nothing */
-		_start_tx(debug_level,mdev);
+	if (mdev->busy_done == BC_DONE)      /** If transaction in progress no need */
+		_start_tx(debug_level,mdev); /** to start, leave that to the ISR    */
 	spin_unlock(&mdev->lock);
 }
 
@@ -620,7 +633,6 @@ static void start_tx(int debug_level,
  * (1) For the Start item in the transaction.
  * (2) For All items in the transaction.
  * (3) For the Last item in the transaction.
- *
  */
 
 int find_start(unsigned int bc,
@@ -910,7 +922,10 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
 	if (get_queue_size(*rp,*wp,QSZ) == 0) {
-		mdev->busy_done = BC_DONE;
+
+		mdev->busy_done = BC_DONE; /** Queue empty, so transaction done */
+		mdev->txrx_done = BC_DONE; /** Allow next write to the Tx buffer */
+
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 
 		wa.isrdebug |= 0x2;
@@ -966,22 +981,23 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 			wa.isrdebug |= 0x10;
 		}
-
-		/** Remember that some items can have both START and END set */
-
-		if (tx_item->pk_type & TX_START) {       /** Start packet stream */
-			mdev->busy_done = BC_BUSY;       /** Device is busy */
-
-			wa.isrdebug |= 0x20;
-		}
-
-		if (tx_item->pk_type & TX_END) {         /** End packet stream */
-			mdev->busy_done = BC_DONE;       /** Device is done */
-
-			wa.isrdebug |= 0x40;
-		}
-
 	}
+
+	/** Remember that some items can have both START and END set */
+
+	if (tx_item->pk_type & TX_START) {       /** Start packet stream */
+		mdev->busy_done = BC_BUSY;       /** Set Transaction start */
+
+		wa.isrdebug |= 0x20;
+	}
+
+	if (tx_item->pk_type & TX_END) {         /** End packet stream */
+		mdev->busy_done = BC_DONE;       /** Transaction done */
+
+		wa.isrdebug |= 0x40;
+	}
+	mdev->txrx_done = BC_DONE;               /** Next Tx write can take place */
+
 	_start_tx(0,mdev);                       /** Start next item */
 	return IRQ_HANDLED;
 }
@@ -1102,6 +1118,9 @@ static void init_device(struct mil1553_device_s *mdev)
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
 	mdev->up_rtis = 0;
+
+	mdev->busy_done = BC_DONE; /** End transaction */
+	mdev->txrx_done = BC_DONE; /** Free the Tx buffer */
 }
 
 /**
@@ -1111,7 +1130,7 @@ static void init_device(struct mil1553_device_s *mdev)
  */
 
 #define RTI_POLL_TIME 25
-#define KT_WAIT_MS 100
+#define KT_WAIT_MS 1000
 
 int mil1553_kthread(void *arg)
 {
