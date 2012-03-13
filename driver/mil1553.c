@@ -1117,8 +1117,6 @@ static void init_device(struct mil1553_device_s *mdev)
 	mdev->snum_h = ioread32be(&memory_map->snum_h);
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
-	mdev->up_rtis = 0;
-
 	mdev->busy_done = BC_DONE; /** End transaction */
 	mdev->txrx_done = BC_DONE; /** Free the Tx buffer */
 }
@@ -1417,6 +1415,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			iowrite32be(CMD_RESET,&memory_map->cmd);
 			init_device(mdev);
 			reset_tx_queue(mdev);
+			mdev->up_rtis = 0;
 			wa.isrdebug = 0;
 		break;
 
