@@ -470,8 +470,6 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 	uint32_t txreg;
 	struct memory_map_s *memory_map;
 
-	if (wa.nopol) return;
-
 	memory_map = mdev->memory_map;
 
 	spin_lock(&mdev->lock);
@@ -1129,14 +1127,15 @@ int mil1553_kthread(void *arg)
 		cc = wait_event_interruptible_timeout(mdev->wait_queue,
 						     icnt != mdev->icnt,
 						     msecs_to_jiffies(RTI_POLL_TIME));
-		if (cc == 0) {
+		if ((cc == 0) && (wa.nopol == 0)) {
 			ping_rtis(mdev);
 			if (mdev->new_up_rtis) {
 				mdev->up_rtis = mdev->new_up_rtis;
 				mdev->new_up_rtis = 0;
 			}
-			mdelay(KT_WAIT_MS);
 		}
+		mdelay(KT_WAIT_MS);
+
 	} while (!kthread_should_stop());
 	return 0;
 }
@@ -1339,11 +1338,13 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 	switch (ionr) {
 
-		case MIL1553_SET_POLLING:
+		case mil1553SET_POLLING:
+
 			wa.nopol = *ularg;
 		break;
 
-		case MIL1553_GET_POLLING:
+		case mil1553GET_POLLING:
+
 			*ularg = wa.nopol;
 		break;
 

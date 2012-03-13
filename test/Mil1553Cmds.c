@@ -662,7 +662,7 @@ int polling, cc;
    if (cc < 0)
       mil1553_print_error(cc);
 
-   printf("Hardware RTI polling:%d = ",polling);
+   printf("RTI polling:%d = ",polling);
    if (polling)
       printf("ON\n");
    else
