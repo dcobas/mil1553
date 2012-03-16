@@ -730,10 +730,8 @@ static int send_items(struct client_s *client,
 	for (i=0; i<wa.bcs; i++) {
 		bc = wa.mil1553_dev[i].bc;
 		if (bc > 0) {
-			j = find_start(bc,item_count,item_array);
-			if (j >= 0) strs[bc] = j;
-			j = find_end(bc,item_count,item_array);
-			if (j >= 0) ends[bc] = j;
+			strs[bc] = find_start(bc,item_count,item_array);
+			ends[bc] = find_end(bc,item_count,item_array);
 		}
 	}
 
@@ -910,7 +908,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	wa.isrdebug |= 0x1;
 	wa.icnt++;
 
-	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	mdev->new_up_rtis |= 1 << rtin;
 	bc = mdev->bc;
 
@@ -921,7 +919,8 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	spin_lock_irqsave(&tx_queue->lock,flags);
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
-	if (get_queue_size(*rp,*wp,QSZ) == 0) {
+	if ((get_queue_size(*rp,*wp,QSZ) == 0) /** Queue empty ? */
+	||  (rtin == 0)) {                     /** or RTI time out ? */
 
 		mdev->busy_done = BC_DONE; /** Queue empty, so transaction done */
 		mdev->txrx_done = BC_DONE; /** Allow next write to the Tx buffer */
@@ -952,7 +951,8 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
 			rti_interrupt = &(client->rx_queue.rti_interrupt[*wp]);
 
-			rti_interrupt->rti_number = rtin;
+			rti_interrupt->rti_number = rtin;  /** Will be zero if timed out */
+							   /** CBMIA FW version 170 and later */
 
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
 			if (rti_interrupt->wc == 0)
