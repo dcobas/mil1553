@@ -462,7 +462,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 
 static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
-#define BETWEEN_TRIES_US 1000
+#define BETWEEN_TRIES_MS 1
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
@@ -489,7 +489,10 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			mdev->txrx_done = BC_BUSY;              /** Tx buffer now busy */
 			iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
 
-			udelay(BETWEEN_TRIES_US);               /** Wait between pollings */
+			if (i == 8)
+				wa.isrdebug |= 0x40;            /** Tx buffer timed out (polling) */
+
+			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
 	spin_unlock(&mdev->lock);
@@ -603,6 +606,9 @@ static void _start_tx(int debug_level,
 	}
 	mdev->txrx_done = BC_BUSY;                      /** Say Tx busy */
 	iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
+
+	if (i == 8)
+		wa.isrdebug |= 0x80;                    /** Tx buffer timed out (transaction) */
 }
 
 /**
@@ -904,8 +910,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
-
-	wa.isrdebug |= 0x1;
 	wa.icnt++;
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
@@ -927,7 +931,10 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 
-		wa.isrdebug |= 0x2;
+		if (rtin)
+			wa.isrdebug |= 0x1; /** Queue empty and interrupt */
+		else
+			wa.isrdebug |= 0x2; /** Hardware timeout */
 
 		return IRQ_HANDLED;
 	}
@@ -946,13 +953,10 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wp = &rx_queue->wp;
 		client->icnt++;
 
-		wa.isrdebug |= 0x4;
-
 		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
 			rti_interrupt = &(client->rx_queue.rti_interrupt[*wp]);
 
-			rti_interrupt->rti_number = rtin;  /** Will be zero if timed out */
-							   /** CBMIA FW version 170 and later */
+			rti_interrupt->rti_number = rtin;
 
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
 			if (rti_interrupt->wc == 0)
@@ -969,33 +973,23 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			       rti_interrupt->rxbuf[i*2 + 1] = lreg >> 16;
 			       rti_interrupt->rxbuf[i*2 + 0] = lreg & 0xFFFF;
 			}
-
-			wa.isrdebug |= 0x8;
 		}
 
 		get_next_wp(*rp,wp,QSZ);
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
 
-		if (tx_item->pk_type & client->pk_type) { /* Wake only demanded types */
+		if (tx_item->pk_type & client->pk_type) /* Wake only demanded types */
 			wake_up(&client->wait_queue);
-
-			wa.isrdebug |= 0x10;
-		}
 	}
 
 	/** Remember that some items can have both START and END set */
 
-	if (tx_item->pk_type & TX_START) {       /** Start packet stream */
+	if (tx_item->pk_type & TX_START)         /** Start packet stream */
 		mdev->busy_done = BC_BUSY;       /** Set Transaction start */
 
-		wa.isrdebug |= 0x20;
-	}
-
-	if (tx_item->pk_type & TX_END) {         /** End packet stream */
+	if (tx_item->pk_type & TX_END)           /** End packet stream */
 		mdev->busy_done = BC_DONE;       /** Transaction done */
 
-		wa.isrdebug |= 0x40;
-	}
 	mdev->txrx_done = BC_DONE;               /** Next Tx write can take place */
 
 	_start_tx(0,mdev);                       /** Start next item */
@@ -1151,7 +1145,7 @@ int mil1553_kthread(void *arg)
 				mdev->new_up_rtis = 0;
 			}
 		}
-		mdelay(KT_WAIT_MS);
+		msleep(KT_WAIT_MS);
 
 	} while (!kthread_should_stop());
 	return 0;
