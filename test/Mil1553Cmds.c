@@ -1039,15 +1039,17 @@ int cc;
 
    /* Meaning of isrdebug bits, for me to know whats going on */
 
-   /* 0x01 CBMIA interrupt */
-   /* 0x02 Queue empty */
-   /* 0x04 Client icnt incremented */
-   /* 0x08 Data copied to client queue */
-   /* 0x10 Client wake up called */
-   /* 0x20 Busy BC set */
-   /* 0x40 Done BC set */
+   /* 0x01 Queue was empty in ISR */
+   /* 0x02 RTI number zero in ISR, hardware timeout */
+   /* 0x10 TxBuffer timeout in polling */
+   /* 0x20 TxBuffer timeout in transaction */
 
    printf("IsrTrace         :0x%08x\n",dev_info.isrdebug);
+
+   if (dev_info.isrdebug & 0x01) printf("IsrTrace         :TxQueue was empty in ISR\n");
+   if (dev_info.isrdebug & 0x02) printf("IsrTrace         :Rti number=0 in ISR, hardware timedout\n");
+   if (dev_info.isrdebug & 0x10) printf("IsrTrace         :TxBuffer time out in polling thread\n");
+   if (dev_info.isrdebug & 0x20) printf("IsrTrace         :TxBuffer timeout in transaction\n");
 
    return arg;
 }

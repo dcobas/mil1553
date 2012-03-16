@@ -490,7 +490,7 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
 
 			if (i == 8)
-				wa.isrdebug |= 0x40;            /** Tx buffer timed out (polling) */
+				wa.isrdebug |= 0x10;            /** Tx buffer timed out (polling) */
 
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
@@ -608,7 +608,7 @@ static void _start_tx(int debug_level,
 	iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
 
 	if (i == 8)
-		wa.isrdebug |= 0x80;                    /** Tx buffer timed out (transaction) */
+		wa.isrdebug |= 0x20;                    /** Tx buffer timed out (transaction) */
 }
 
 /**
