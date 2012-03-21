@@ -66,7 +66,7 @@ struct rti_interrupt_s {
 	uint32_t rti_number;              /** Rti that interrupted */
 	uint32_t wc;                      /** Buffer word count */
 	uint32_t rxbuf_rti_stat;          /** RTI status in RX buffer */
-	uint32_t rxbuf[RX_BUF_SIZE];      /** Receive  buffer */
+	uint32_t rxbuf[RX_BUF_SIZE+1];      /** Receive  buffer */
 };
 
 /**
