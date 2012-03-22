@@ -117,7 +117,7 @@ struct mil1553_rti_interrupt_s {
 	unsigned int bc;                      /** Bus controller */
 	unsigned int rti_number;              /** Rti that interrupted */
 	unsigned int wc;                      /** Buffer word count */
-	unsigned short rxbuf[RX_BUF_SIZE];    /** Receive  buffer */
+	unsigned short rxbuf[RX_BUF_SIZE+1];  /** Receive buffer (32-bit access) */
 };
 
 struct mil1553_recv_s {
