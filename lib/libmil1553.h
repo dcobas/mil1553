@@ -30,10 +30,10 @@ void milib_decode_txreg(unsigned int txreg, unsigned int *wc, unsigned int *sa, 
 void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, unsigned int tr, unsigned int rti);
 int milib_lock_bc(int fn, int bc);
 int milib_unlock_bc(int fn, int bc);
-int milib_set_bus_speed(int fn, int bc, int speed);
 int milib_get_queue_size(int fn, int *size);
 int milib_reset(int fn, int bc);
 int milib_get_polling(int fn, int *flag);
 int milib_set_polling(int fn, int flag);
-int milib_set_acq_delay(int fn, int usec);
-int milib_get_acq_delay(int fn, int *usec);
+int milib_set_test_point(int fn, int bc, int tp);
+int milib_get_test_point(int fn, int bc, int *tp);
+int milib_get_temperature(int fn, int bc, int *temp);

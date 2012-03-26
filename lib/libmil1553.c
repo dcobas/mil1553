@@ -11,23 +11,19 @@ int milib_handle_open() {
 int milib_set_polling(int fn, int flag) {
 
 	int cc, nopoll;
-
 	if (flag)
 		nopoll = 1;
 	else
 		nopoll = 0;
-
 	cc = ioctl(fn,MIL1553_SET_POLLING,&nopoll);
 	if (cc < 0)
 		return errno;
-
 	return 0;
 }
 
 int milib_get_polling(int fn, int *flag) {
 
 	int cc, nopoll;
-
 	cc = ioctl(fn,MIL1553_GET_POLLING,&nopoll);
 	if (cc < 0)
 		return errno;
@@ -35,25 +31,27 @@ int milib_get_polling(int fn, int *flag) {
 		*flag = 0;
 	else
 		*flag = 1;
-
 	return 0;
 }
 
-int milib_set_acq_delay(int fn, int usec) {
+int milib_set_test_point(int fn, int bc, int tp) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_SET_ACQ_DELAY,&usec);
+	int reg = (tp << 16) | bc;
+	cc = ioctl(fn,MIL1553_SET_TP,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
 }
 
-int milib_get_acq_delay(int fn, int *usec) {
+int milib_get_test_point(int fn, int bc, int *tp) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_GET_ACQ_DELAY,usec);
+	int reg = bc;
+	cc = ioctl(fn,MIL1553_GET_TP,&reg);
 	if (cc < 0)
 		return errno;
+	*tp = reg >> 16;
 	return 0;
 }
 
@@ -215,22 +213,16 @@ int milib_read_reg(int fn, int bc, int reg_num, int *reg_val) {
 	return milib_raw_read(fn,&riob);
 }
 
-char *stat_names[16] = { "CodeViol:",
-			 "PartyErr:",
-			 "Bit2:", "Bit3:", "Bit4:", "Bit5:", "Bit6:",
-			 "Bit7:", "Bit8:", "Bit9:", "BitA:", "BitB:",
-			 "RtiPollingOff:",
-			 "BitD:",
-			 "Busy:",
-			 "Done:"};
+char *stat_names[16] = { "Bit0:", "Bit1:", "Bit2:", "Bit3:",
+			 "Bit4:", "Bit5:", "Bit6:", "Bit7:",
+			 "Bit8:", "Bit9:", "BitA:", "BitB:",
+			 "BitC:", "BitD:", "BitE:", "Busy:" };
 
 char *milib_status_to_str(int stat) {
 
 	int i;
 	static char res[128];
-
 	bzero((void *) res, 128);
-
 	for (i=0; i<16; i++) {
 		if ((1<<i) & stat)
 		   strcat(res,stat_names[i]);
@@ -245,7 +237,6 @@ void milib_decode_txreg(unsigned int txreg, unsigned int *wc, unsigned int *sa, 
 		if (*wc == 0)
 			*wc = 32;
 	}
-
 	if (sa)
 		*sa  = (txreg & TXREG_SUBA_MASK) >> TXREG_SUBA_SHIFT;
 	if (tr)
@@ -258,7 +249,6 @@ void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, u
 
 	if (wc >= 32)
 		wc = 0;
-
 	if (txreg)
 		*txreg = ((wc  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
 		       | ((sa  << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
@@ -284,17 +274,12 @@ int milib_unlock_bc(int fn, int bc) {
 	return 0;
 }
 
-int milib_set_bus_speed(int fn, int bc, int speed) {
+int milib_get_temperature(int fn, int bc, int *temp) {
 
 	int cc = 0;
-	struct mil1553_bus_speed_s bs;
-	bs.speed = speed;
-	bs.bc = bc;
-
-	cc = ioctl(fn,MIL1553_SET_BUS_SPEED,&bs);
-
+	*temp = bc;
+	cc = ioctl(fn,MIL1553_GET_TEMPERATURE,temp);
 	if (cc < 0)
 		return errno;
 	return 0;
 }
-
