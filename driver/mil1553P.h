@@ -27,7 +27,7 @@
 struct memory_map_s {
 	uint32_t isrc;       /** R/W INTERRUPTREG  Interrupt source    */
 	uint32_t inten;      /** R/W INTENBREG     Interrupt enable    */
-	uint32_t up_rtis;    /** R   RTIPRESENTREG Mask of online RTIs */
+	uint32_t temp;       /** R   TEMP          Temperature         */
 	uint32_t hstat;      /** R   SOURCEREG     Hardware status     */
 	uint32_t cmd;        /** R/W COMMANDREG    Command register    */
 	uint32_t not_used_1;
@@ -39,6 +39,15 @@ struct memory_map_s {
 	uint16_t rxbuf[RX_BUF_SIZE]; /** R   RXBUFREG Receive  buffer */
 	uint16_t not_used_2;
 	uint16_t txbuf[TX_BUF_SIZE]; /** R/W TXBUFREG Transmit buffer */
+
+	uint32_t tx_frames;          /** TX frame counter */
+	uint32_t rx_frames;          /** RX frame counter */
+	uint32_t parity_errors;      /** Number of parity errors */
+	uint32_t manchester_errors;  /** Number of manchester code errors */
+	uint32_t wc_errors;          /** Number of word count errors */
+	uint32_t tx_clash_errors;    /** Number of tx clash errors */
+	uint32_t nb_wds;             /** Rx and Tx word counts and status bits */
+	uint32_t rti_timeouts;       /** Target RTI didn't respond errors */
 };
 
 #define MAX_RTI_BUFFERS 30
@@ -142,7 +151,6 @@ struct mil1553_device_s {
 	struct pci_dev      *pdev;        /** Pci device handle */
 	struct memory_map_s *memory_map;  /** Mapped BAR2 device memory */
 	uint32_t             busy_done;   /** Bus controller busy/done status */
-	uint32_t             txrx_done;   /** Tx/Rx busy/done status */
 	uint32_t             up_rtis;     /** Last known up rtis mask */
 	uint32_t             new_up_rtis; /** New mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */

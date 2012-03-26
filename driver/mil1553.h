@@ -37,42 +37,61 @@
 #define ISRC_WC_SHIFT  22
 #define ISRC_WC_MASK   (0x1F << ISRC_WC_SHIFT)
 
+#define ISRC_END_TRANSACTION  0x000001
+#define ISRC_TIME_OUT         0x010000
+#define ISRC_BAD_WC           0x020000
+#define ISRC_MANCHESTER_ERROR 0x040000
+#define ISRC_PARITY_ERROR     0x080000
+#define ISRC_TR_BIT           0x100000
+
+#define ISRC_BAD_BITS  (ISRC_TIME_OUT | ISRC_BAD_WC | ISRC_MANCHESTER_ERROR | ISRC_PARITY_ERROR)
+#define ISRC_GOOD_BITS (ISRC_END_TRANSACTION)
+
 #define ISRC_IRQ       1
 #define ISRC           (ISRC_IRQ)
 
 #define INTEN_INF      1
 #define INTEN          (INTEN_INF)
 
-#define HSTAT_VER_SHIFT       0
-#define HSTAT_VER_MASK        (0xFFFF << HSTAT_VER_SHIFT)
-#define HSTAT_STAT_SHIFT      16
-#define HSTAT_STAT_MASK       (0xFFFF << HSTAT_STAT_SHIFT)
+#define HSTAT_VER_SHIFT    0
+#define HSTAT_VER_MASK     (0xFFFF << HSTAT_VER_SHIFT)
+#define HSTAT_STAT_SHIFT   16
+#define HSTAT_STAT_MASK    (0xFFFF << HSTAT_STAT_SHIFT)
 
-#define HSTAT_CODE_VIOL_SHIFT 16
-#define HSTAT_CODE_VIOL_MASK  (1 << HSTAT_CODE_VIOL_SHIFT)
-#define HSTAT_PAR_ERR_SHIFT   17
-#define HSTAT_PAR_ERR_MASK    (1 << HSTAT_PAR_ERR_SHIFT)
-#define HSTAT_POLL_OFF_SHIFT  28
-#define HSTAT_POLL_OFF_MASK   (1 << HSTAT_POLL_OFF_SHIFT)
-#define HSTAT_BUSY_DONE_SHIFT 30
-#define HSTAT_BUSY_DONE_MASK  (3 << HSTAT_BUSY_DONE_SHIFT)
-#define HSTAT_BUSY            1
-#define HSTAT_DONE            2
+#define HSTAT_BUSY_SHIFT   31
+#define HSTAT_BUSY_MASK    (1 << HSTAT_BUSY_SHIFT)
+#define HSTAT_BUSY         1
+#define HSTAT_BUSY_BIT     0x80000000
 
 #define CMD_RESET_SHIFT    0
 #define CMD_RESET_MASK     (1 << CMD_RESET_SHIFT)
 #define CMD_RESET          1
 
-#define CMD_POLL_OFF_SHIFT 1
-#define CMD_POLL_OFF_MASK  (1 << CMD_POLL_OFF_SHIFT)
-#define CMD_POLL_OFF       1
+#define CMD_TP0_SHIFT      16
+#define CMD_TP0_MASK       (0xF << CMD_TP0_SHIFT)
+#define CMD_TP1_SHIFT      20
+#define CMD_TP1_MASK       (0xF << CMD_TP1_SHIFT)
+#define CMD_TP2_SHIFT      24
+#define CMD_TP2_MASK       (0xF << CMD_TP2_SHIFT)
+#define CMD_TP3_SHIFT      28
+#define CMD_TP3_MASK       (0xF << CMD_TP3_SHIFT)
 
-#define CMD_SPEED_SHIFT    30
-#define CMD_SPEED_MASK     (3 << CMD_SPEED_SHIFT)
-#define CMD_SPEED_1M       0
-#define CMD_SPEED_500K     1
-#define CMD_SPEED_250K     2
-#define CMD_SPEED_125K     3
+#define CMD_TP_TRANSACTION_IN_PROGRESS 0
+#define CMD_TP_TX_ENABLE               1
+#define CMD_TP_RX_IN_PROGRESS          2
+#define CMD_TP_RXD                     3
+#define CMD_TP_TX_DONE                 4
+#define CMD_TP_RX_DONE                 5
+#define CMD_TP_MANCHESTER_ERROR        6
+#define CMD_TP_PARITY_ERROR            7
+#define CMD_TP_WC_ERROR                8
+#define CMD_TP_TIMEOUT                 9
+#define CMD_TP_TX_CLASH                10
+#define CMD_TP_SEND_FRAME              11
+#define CMD_TP_SEND_FRAME_REQUEST      12
+#define CMD_TP_TXD                     13
+#define CMD_TP_TRANSACTION_END         14
+#define CMD_TP_RESET                   15
 
 #define TXREG_WC_SHIFT   0
 #define TXREG_WC_MASK    (0x1F << TXREG_WC_SHIFT)
@@ -82,6 +101,17 @@
 #define TXREG_TR_MASK    (1 << TXREG_TR_SHIFT)
 #define TXREG_RTI_SHIFT  11
 #define TXREG_RTI_MASK   (0x1F << TXREG_RTI_SHIFT)
+
+#define NB_WD_TX_SHIFT 0
+#define NB_WD_TX_MASK  (0x1F << NB_WD_TX_SHIFT)
+#define NB_WD_RX_SHIFT 16
+#define NB_WD_RX_MASK  (0x1F << NB_WD_RX_SHIFT)
+
+#define NB_WD_TIME_OUT         0x08000000
+#define NB_WD_WC_DIFFER        0x10000000
+#define NB_WD_MANCHESTER_ERROR 0x20000000
+#define NB_WD_PARITY_ERROR     0x40000000
+#define NB_WD_TR_FLAG          0x80000000
 
 /**
  * Beware, on a 64-bit machine the size of these structures will change.
@@ -134,26 +164,18 @@ struct mil1553_dev_info_s {
 	unsigned int snum_h;                  /** High 32 bits of serial number */
 	unsigned int snum_l;                  /** Low  32 bits of serial number */
 	unsigned int hardware_ver_num;        /** Hardware version number */
-	unsigned int speed;                   /** Current bus speed */
+	unsigned int temperature;             /** Temperature */
 	unsigned int icnt;                    /** Total interrupt count */
 	unsigned int isrdebug;                /** Debug information from isr */
+	unsigned int tx_frames;               /** Number of tx frames */
+	unsigned int rx_frames;               /** Number of rx frames */
+	unsigned int parity_errors;           /** Number of parity errors */
+	unsigned int manchester_errors;       /** Number of manchester code errors */
+	unsigned int wc_errors;               /** Number of word count errors */
+	unsigned int tx_clash_errors;         /** Number of tx clash errors */
+	unsigned int nb_wds;                  /** Word count expected/received + tr bit */
+	unsigned int rti_timeouts;            /** Target RTI didn't respond counter */
 };
-
-struct mil1553_bus_speed_s {
-	unsigned int bc;                      /** The BC you want to set */
-	unsigned int speed;                   /** The bus speed 0..3 */
-};
-
-#define STATUS_NOT_BUSY   0x8000
-#define STATUS_BUSY       0x4000
-#define STATUS_POLL_OFF   0x1000
-#define STATUS_PARITY_ERR 0x0002
-#define STATUS_CODE_VIOL  0x0001
-
-#define BUS_SPEED_1MEGBIT 0
-#define BUS_SPEED_500KBIT 1
-#define BUS_SPEED_250KBIT 2
-#define BUS_SPEED_125KBIT 3
 
 /*
  * Enumerate IOCTL functions
@@ -174,7 +196,7 @@ typedef enum {
 	mil1553GET_DRV_VERSION,   /** Get the UTC driver compilation data */
 
 	mil1553GET_STATUS,        /** Reads the status register */
-	mil1553SET_BUS_SPEED,     /** Set the bus speed */
+	mil1553GET_TEMPERATURE,   /** Get the temperature */
 
 	mil1553GET_BCS_COUNT,     /** Get the Bus Controllers count */
 	mil1553GET_BC_INFO,       /** Get information aboult a Bus Controller */
@@ -192,11 +214,11 @@ typedef enum {
 	mil1553QUEUE_SIZE,        /** Returns the number of items on clients queue */
 	mil1553RESET,             /** Resets a bus controller */
 
-	mil1553SET_POLLING,       /** Set hardware polling */
-	mil1553GET_POLLING,       /** Get hardware polling */
+	mil1553SET_POLLING,       /** Set software polling */
+	mil1553GET_POLLING,       /** Get software polling */
 
-	mil1553SET_ACQ_DELAY,     /** Set acquisition delay usec */
-	mil1553GET_ACQ_DELAY,     /** Get acquisition delay usec */
+	mil1553SET_TP,            /** Set up test points */
+	mil1553GET_TP,            /** Get test points */
 
 	mil1553LAST               /** For range checking (LAST - FIRST) */
 
@@ -221,7 +243,7 @@ typedef enum {
 #define MIL1553_SET_TIMEOUT_MSEC PIOW(mil1553SET_TIMEOUT_MSEC, unsigned long)
 #define MIL1553_GET_DRV_VERSION  PIOR(mil1553GET_DRV_VERSION,  unsigned long)
 #define MIL1553_GET_STATUS       PIOWR(mil1553GET_STATUS,      unsigned long)
-#define MIL1553_SET_BUS_SPEED    PIOWR(mil1553SET_BUS_SPEED,   struct mil1553_bus_speed_s)
+#define MIL1553_GET_TEMPERATURE  PIOWR(mil1553GET_TEMPERATURE, unsigned long)
 #define MIL1553_GET_BCS_COUNT    PIOR(mil1553GET_BCS_COUNT,    unsigned long)
 #define MIL1553_GET_BC_INFO      PIOWR(mil1553GET_BC_INFO,     struct mil1553_dev_info_s)
 #define MIL1553_RAW_READ         PIOWR(mil1553RAW_READ,        struct mil1553_riob_s)
@@ -235,7 +257,7 @@ typedef enum {
 #define MIL1553_RESET            PIOW(mil1553RESET,            unsigned long)
 #define MIL1553_SET_POLLING      PIOW(mil1553SET_POLLING,      unsigned long)
 #define MIL1553_GET_POLLING      PIOR(mil1553GET_POLLING,      unsigned long)
-#define MIL1553_SET_ACQ_DELAY    PIOW(mil1553SET_ACQ_DELAY,    unsigned long)
-#define MIL1553_GET_ACQ_DELAY    PIOR(mil1553GET_ACQ_DELAY,    unsigned long)
+#define MIL1553_SET_TP           PIOW(mil1553SET_TP,           unsigned long)
+#define MIL1553_GET_TP           PIOR(mil1553GET_TP,           unsigned long)
 
 #endif

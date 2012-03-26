@@ -111,7 +111,7 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 	"GET_DRV_VERSION",
 
 	"GET_STATUS",
-	"SET_BUS_SPEED",
+	"GET_TEMPERATURE",
 
 	"GET_BCS_COUNT",
 	"GET_BC_INFO",
@@ -132,8 +132,8 @@ char *ioctl_names[mil1553IOCTL_FUNCTIONS] = {
 	"SET_POLLING",
 	"GET_POLLING",
 
-	"SET_ACQ_DELAY",
-	"GET_ACQ_DELAY"
+	"SET_TP",
+	"GET_TP"
 };
 
 /**
@@ -482,11 +482,10 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
 			for (i=0; i<8; i++) {
-				if (mdev->txrx_done == BC_DONE) /** Wait upto 800us for Tx buffer */
+				if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0)
 					break;
 				udelay(100);
 			}
-			mdev->txrx_done = BC_BUSY;              /** Tx buffer now busy */
 			iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
 
 			if (i == 8)
@@ -600,11 +599,11 @@ static void _start_tx(int debug_level,
 	/* Issue the start command, we get an interrupt when done */
 
 	for (i=0; i<8; i++) {
-		if (mdev->txrx_done == BC_DONE)         /** Wait upto 800us for end Tx */
+
+		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0)
 			break;
 		udelay(100);
 	}
-	mdev->txrx_done = BC_BUSY;                      /** Say Tx busy */
 	iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
 
 	if (i == 8)
@@ -901,7 +900,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	struct client_s *client;
 	unsigned long flags;
 	uint32_t lreg, *lregp;
-	int i, rtin;
+	int i, rtin, pk_ok, wc_ok;
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
@@ -916,6 +915,14 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	mdev->new_up_rtis |= 1 << rtin;
 	bc = mdev->bc;
 
+	pk_ok = 0;
+	if ((ISRC_GOOD_BITS & isrc) && ((ISRC_BAD_BITS & isrc) == 0))
+		pk_ok = 1;
+
+	wc_ok = 1;
+	if ((ISRC_TR_BIT & isrc) && (rtin == 0))
+			wc_ok = 0;
+
 	/* Read the current item from the tx_queue to find the client. */
 	/* This was initiated by the client that will receive the result */
 
@@ -924,18 +931,10 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
 	if ((get_queue_size(*rp,*wp,QSZ) == 0) /** Queue empty ? */
-	||  (rtin == 0)) {                     /** or RTI time out ? */
+	||  (!pk_ok || !wc_ok)) {
 
-		mdev->busy_done = BC_DONE; /** Queue empty, so transaction done */
-		mdev->txrx_done = BC_DONE; /** Allow next write to the Tx buffer */
-
+		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
-
-		if (rtin)
-			wa.isrdebug |= 0x1; /** Queue empty and interrupt */
-		else
-			wa.isrdebug |= 0x2; /** Hardware timeout */
-
 		return IRQ_HANDLED;
 	}
 	tx_item = &(tx_queue->tx_item[*rp]); /* Get item at read pointer */
@@ -989,8 +988,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	if (tx_item->pk_type & TX_END)           /** End packet stream */
 		mdev->busy_done = BC_DONE;       /** Transaction done */
-
-	mdev->txrx_done = BC_DONE;               /** Next Tx write can take place */
 
 	_start_tx(0,mdev);                       /** Start next item */
 	return IRQ_HANDLED;
@@ -1100,19 +1097,14 @@ static void init_device(struct mil1553_device_s *mdev)
 {
 
 	struct memory_map_s *memory_map = mdev->memory_map;
-	uint32_t cmd;
 
 	ioread32be(&memory_map->isrc);
 	iowrite32be(INTEN,&memory_map->inten);
-
-	cmd = POLLING_OFF | INITIAL_SPEED;
-	iowrite32be(cmd,&memory_map->cmd);
 
 	mdev->snum_h = ioread32be(&memory_map->snum_h);
 	mdev->snum_l = ioread32be(&memory_map->snum_l);
 
 	mdev->busy_done = BC_DONE; /** End transaction */
-	mdev->txrx_done = BC_DONE; /** Free the Tx buffer */
 }
 
 /**
@@ -1313,7 +1305,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	uint32_t *wp, *rp;
 	unsigned int cnt, blen;
 
-	uint32_t reg;
+	uint32_t reg, tp;
 
 	unsigned long *ularg, flags;
 
@@ -1321,7 +1313,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	struct mil1553_device_s     *mdev;
 	struct mil1553_send_s       *msend;
 	struct mil1553_recv_s       *mrecv;
-	struct mil1553_bus_speed_s  *bus_speed;
 	struct mil1553_dev_info_s   *dev_info;
 
 	struct rx_queue_s *rx_queue;
@@ -1413,18 +1404,39 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			wa.isrdebug = 0;
 		break;
 
-		case mil1553SET_BUS_SPEED:     /** Set the bus speed */
+		case mil1553GET_TEMPERATURE:
 
-			bus_speed = mem;
-			bc = bus_speed->bc;
+			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
 			memory_map = mdev->memory_map;
-			reg = ((bus_speed->speed << CMD_SPEED_SHIFT) & CMD_SPEED_MASK) | POLLING_OFF;
-			iowrite32be(reg,&memory_map->cmd);
+			*ularg = ioread32be(&memory_map->temp);
+		break;
+
+		case mil1553SET_TP:
+			bc = *ularg & 0x0000FFFF;
+			tp = *ularg & 0xFFFF0000;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
+			memory_map = mdev->memory_map;
+			iowrite32be(tp,&memory_map->cmd);
+		break;
+
+		case mil1553GET_TP:
+			bc = *ularg & 0x0000FFFF;
+			mdev = get_dev(bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
+			memory_map = mdev->memory_map;
+			*ularg = ioread32be(&memory_map->cmd) & (0xFFFF0000 | bc);
 		break;
 
 		case mil1553GET_BCS_COUNT:     /** Get the Bus Controllers count */
@@ -1450,8 +1462,15 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			reg = ioread32be(&memory_map->hstat);
 			dev_info->hardware_ver_num = (reg & HSTAT_VER_MASK) >> HSTAT_VER_SHIFT;
 
-			reg = ioread32be(&memory_map->cmd);
-			dev_info->speed = (reg & CMD_SPEED_MASK) >> CMD_SPEED_SHIFT;
+			dev_info->tx_frames         = ioread32be(&memory_map->tx_frames);
+			dev_info->rx_frames         = ioread32be(&memory_map->rx_frames);
+			dev_info->parity_errors     = ioread32be(&memory_map->parity_errors);
+			dev_info->manchester_errors = ioread32be(&memory_map->manchester_errors);
+			dev_info->wc_errors         = ioread32be(&memory_map->wc_errors);
+			dev_info->tx_clash_errors   = ioread32be(&memory_map->tx_clash_errors);
+			dev_info->nb_wds            = ioread32be(&memory_map->nb_wds);
+			dev_info->rti_timeouts      = ioread32be(&memory_map->rti_timeouts);
+
 			dev_info->icnt = wa.icnt;
 			dev_info->isrdebug = wa.isrdebug;
 		break;
