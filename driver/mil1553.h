@@ -26,7 +26,7 @@
 #define TX_END      0x02
 #define TX_ALL      0x04
 
-#define MAX_REGS 43
+#define MAX_REGS 51
 
 /**
  * Usefull masks and shifits for working on registers
@@ -75,6 +75,7 @@
 #define CMD_TP2_MASK       (0xF << CMD_TP2_SHIFT)
 #define CMD_TP3_SHIFT      28
 #define CMD_TP3_MASK       (0xF << CMD_TP3_SHIFT)
+#define CMD_TPS_MASK       (0xFFFF0000)
 
 #define CMD_TP_TRANSACTION_IN_PROGRESS 0
 #define CMD_TP_TX_ENABLE               1
@@ -257,7 +258,7 @@ typedef enum {
 #define MIL1553_RESET            PIOW(mil1553RESET,            unsigned long)
 #define MIL1553_SET_POLLING      PIOW(mil1553SET_POLLING,      unsigned long)
 #define MIL1553_GET_POLLING      PIOR(mil1553GET_POLLING,      unsigned long)
-#define MIL1553_SET_TP           PIOW(mil1553SET_TP,           unsigned long)
-#define MIL1553_GET_TP           PIOR(mil1553GET_TP,           unsigned long)
+#define MIL1553_SET_TP           PIOWR(mil1553SET_TP,          unsigned long)
+#define MIL1553_GET_TP           PIOWR(mil1553GET_TP,          unsigned long)
 
 #endif

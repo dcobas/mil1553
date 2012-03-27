@@ -23,6 +23,7 @@
  */
 
 #define MAX_DEVS 16
+#define MAX_DEVS_MASK 0x1F
 
 struct memory_map_s {
 	uint32_t isrc;       /** R/W INTERRUPTREG  Interrupt source    */

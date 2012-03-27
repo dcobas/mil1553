@@ -463,6 +463,8 @@ static int raw_write(struct mil1553_device_s *mdev,
 static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 #define BETWEEN_TRIES_MS 1
+#define TX_TRIES 100
+#define TX_WAIT_US  10
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
@@ -481,16 +483,12 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
-			for (i=0; i<8; i++) {
+			for (i=0; i<TX_TRIES; i++) {
 				if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0)
 					break;
-				udelay(100);
+				udelay(TX_WAIT_US);
 			}
 			iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
-
-			if (i == 8)
-				wa.isrdebug |= 0x10;            /** Tx buffer timed out (polling) */
-
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
@@ -598,16 +596,13 @@ static void _start_tx(int debug_level,
 
 	/* Issue the start command, we get an interrupt when done */
 
-	for (i=0; i<8; i++) {
+	for (i=0; i<TX_TRIES; i++) {
 
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0)
 			break;
-		udelay(100);
+		udelay(TX_WAIT_US);
 	}
 	iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
-
-	if (i == 8)
-		wa.isrdebug |= 0x20;                    /** Tx buffer timed out (transaction) */
 }
 
 /**
@@ -923,6 +918,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((ISRC_TR_BIT & isrc) && (rtin == 0))
 			wc_ok = 0;
 
+	if (!wc_ok || !pk_ok)
+			wa.isrdebug = isrc;
+
 	/* Read the current item from the tx_queue to find the client. */
 	/* This was initiated by the client that will receive the result */
 
@@ -931,7 +929,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
 	if ((get_queue_size(*rp,*wp,QSZ) == 0) /** Queue empty ? */
-	||  (!pk_ok || !wc_ok)) {
+	/* || (!pk_ok || !wc_ok) */ ) {        /* Hardware always gives errors so test suppressed */
 
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
@@ -1417,8 +1415,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553SET_TP:
-			bc = *ularg & 0x0000FFFF;
-			tp = *ularg & 0xFFFF0000;
+			bc = *ularg & MAX_DEVS_MASK;
+			tp = *ularg & CMD_TPS_MASK;
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
@@ -1429,14 +1427,14 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553GET_TP:
-			bc = *ularg & 0x0000FFFF;
+			bc = *ularg & MAX_DEVS_MASK;
 			mdev = get_dev(bc);
 			if (!mdev) {
 				cc = -EFAULT;
 				goto error_exit;
 			}
 			memory_map = mdev->memory_map;
-			*ularg = ioread32be(&memory_map->cmd) & (0xFFFF0000 | bc);
+			*ularg = ioread32be(&memory_map->cmd) & (CMD_TPS_MASK | bc);
 		break;
 
 		case mil1553GET_BCS_COUNT:     /** Get the Bus Controllers count */
