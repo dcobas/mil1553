@@ -1026,7 +1026,7 @@ int cc;
 int GetBcInfo(int arg) {     /* Get BC info */
 
 struct mil1553_dev_info_s dev_info;
-int wc, cc;
+int wc, cc, tr;
 float temp;
 
    arg++;
@@ -1038,17 +1038,18 @@ float temp;
       mil1553_print_error(cc);
    }
 
-   printf("\n");
-   printf("Bus Controler    :%d => %02x:%02x CERN/ECP/EDU Device 0301 CBMIA\n",
-	  dev_info.bc,
-	  dev_info.pci_bus_num,
-	  dev_info.pci_slt_num);
-
    cc = milib_get_temperature(milf,bc,&temp);
    if (cc) {
       printf("milib_get_temperature:Error:%d\n",cc);
       mil1553_print_error(cc);
    }
+
+
+   printf("\n");
+   printf("Bus Controler    :%d => %02x:%02x CERN/ECP/EDU Device 0301 CBMIA\n",
+	  dev_info.bc,
+	  dev_info.pci_bus_num,
+	  dev_info.pci_slt_num);
 
    printf("PCI Bus Number   :%d\n",dev_info.pci_bus_num);
    printf("PCI Slot Number  :%d\n",dev_info.pci_slt_num);
@@ -1075,7 +1076,7 @@ float temp;
    printf("         BadWdCnt:0x%X\n",(dev_info.isrdebug & ISRC_BAD_WC));
    printf("         ManchErr:0x%X\n",(dev_info.isrdebug & ISRC_MANCHESTER_ERROR));
    printf("         PartyErr:0x%X\n",(dev_info.isrdebug & ISRC_PARITY_ERROR));
-   printf("         TrFlah  :0x%X\n",(dev_info.isrdebug & ISRC_TR_BIT));
+   printf("         TrFlag  :0x%X\n",(dev_info.isrdebug & ISRC_TR_BIT));
    printf("\n");
 
    printf("Number Words val :0x%04X\n",dev_info.nb_wds);
@@ -1087,7 +1088,11 @@ float temp;
    printf("         WcDiffer:0x%X\n",(dev_info.nb_wds & NB_WD_WC_DIFFER));
    printf("         ManchErr:0x%X\n",(dev_info.nb_wds & NB_WD_MANCHESTER_ERROR));
    printf("         PartyErr:0x%X\n",(dev_info.nb_wds & NB_WD_PARITY_ERROR));
-   printf("         TRflag  :0x%X\n",(dev_info.nb_wds & NB_WD_TR_FLAG));
+
+   tr = dev_info.nb_wds & NB_WD_TR_FLAG;
+   printf("         TrFlag  :0x%X ",tr);
+   if (tr) printf("RTI->BC\n");
+   else    printf("BC->RTI\n");
    printf("\n");
 
    return arg;

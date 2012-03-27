@@ -464,7 +464,7 @@ static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
-#define TX_WAIT_US  10
+#define TX_WAIT_US 10
 
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
@@ -1083,13 +1083,9 @@ void release_device(struct mil1553_device_s *mdev)
  * Initialize device hardware:
  * Clear interrupt.
  * Enable interrupt.
- * Select initial speed and polling off.
  * Read 64-bit serial number.
- * Get the up RTIs.
+ * Set transaction done
  */
-
-#define INITIAL_SPEED (CMD_SPEED_1M << CMD_SPEED_SHIFT)
-#define POLLING_OFF (CMD_POLL_OFF << CMD_POLL_OFF_SHIFT)
 
 static void init_device(struct mil1553_device_s *mdev)
 {
