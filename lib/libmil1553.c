@@ -10,12 +10,13 @@ int milib_handle_open() {
 
 int milib_set_polling(int fn, int flag) {
 
-	int cc, nopoll;
+	int cc;
+	unsigned long reg;
 	if (flag)
-		nopoll = 1;
+		reg = 1;
 	else
-		nopoll = 0;
-	cc = ioctl(fn,MIL1553_SET_POLLING,&nopoll);
+		reg = 0;
+	cc = ioctl(fn,MIL1553_SET_POLLING,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
@@ -23,11 +24,12 @@ int milib_set_polling(int fn, int flag) {
 
 int milib_get_polling(int fn, int *flag) {
 
-	int cc, nopoll;
-	cc = ioctl(fn,MIL1553_GET_POLLING,&nopoll);
+	int cc;
+	unsigned long reg;
+	cc = ioctl(fn,MIL1553_GET_POLLING,&reg);
 	if (cc < 0)
 		return errno;
-	if (nopoll)
+	if (reg)
 		*flag = 0;
 	else
 		*flag = 1;
@@ -37,7 +39,7 @@ int milib_get_polling(int fn, int *flag) {
 int milib_set_test_point(int fn, int bc, int tp) {
 
 	int cc;
-	int reg = (tp << 16) | bc;
+	unsigned long reg = (tp << 16) | bc;
 	cc = ioctl(fn,MIL1553_SET_TP,&reg);
 	if (cc < 0)
 		return errno;
@@ -47,7 +49,7 @@ int milib_set_test_point(int fn, int bc, int tp) {
 int milib_get_test_point(int fn, int bc, int *tp) {
 
 	int cc;
-	int reg = bc;
+	unsigned long reg = bc;
 	cc = ioctl(fn,MIL1553_GET_TP,&reg);
 	if (cc < 0)
 		return errno;
@@ -58,7 +60,8 @@ int milib_get_test_point(int fn, int bc, int *tp) {
 int milib_set_timeout(int fn, int timeout_msec) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_SET_TIMEOUT_MSEC,&timeout_msec);
+	unsigned long reg = timeout_msec;
+	cc = ioctl(fn,MIL1553_SET_TIMEOUT_MSEC,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
@@ -67,16 +70,19 @@ int milib_set_timeout(int fn, int timeout_msec) {
 int milib_get_timeout(int fn, int *timeout_msec) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_GET_TIMEOUT_MSEC,timeout_msec);
+	unsigned long reg = 0;
+	cc = ioctl(fn,MIL1553_GET_TIMEOUT_MSEC,&reg);
 	if (cc < 0)
 		return errno;
+	*timeout_msec = reg;
 	return 0;
 }
 
 int milib_set_debug_level(int fn, int debug_level) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_SET_DEBUG_LEVEL,&debug_level);
+	unsigned long reg = debug_level;
+	cc = ioctl(fn,MIL1553_SET_DEBUG_LEVEL,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
@@ -85,37 +91,44 @@ int milib_set_debug_level(int fn, int debug_level) {
 int milib_get_debug_level(int fn, int *debug_level) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_GET_DEBUG_LEVEL,debug_level);
+	unsigned long reg = 0;
+	cc = ioctl(fn,MIL1553_GET_DEBUG_LEVEL,&reg);
 	if (cc < 0)
 		return errno;
+	*debug_level = reg;
 	return 0;
 }
 
 int milib_get_drv_version(int fn, int *version) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_GET_DRV_VERSION,version);
+	unsigned long reg = 0;
+	cc = ioctl(fn,MIL1553_GET_DRV_VERSION,&reg);
 	if (cc < 0)
 		return errno;
+	*version = reg;
 	return 0;
 }
 
 int milib_get_status(int fn, int bc, int *status) {
 
 	int cc;
-	*status = bc;
-	cc = ioctl(fn,MIL1553_GET_STATUS,status);
+	unsigned long reg = bc;
+	cc = ioctl(fn,MIL1553_GET_STATUS,&reg);
 	if (cc < 0)
 		return errno;
+	*status = reg;
 	return 0;
 }
 
 int milib_get_bcs_count(int fn, int *bcs_count) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_GET_BCS_COUNT,bcs_count);
+	unsigned long reg = 0;
+	cc = ioctl(fn,MIL1553_GET_BCS_COUNT,&reg);
 	if (cc < 0)
 		return errno;
+	*bcs_count = reg;
 	return 0;
 }
 
@@ -149,10 +162,11 @@ int milib_raw_write(int fn, struct mil1553_riob_s *riob) {
 int milib_get_up_rtis(int fn, int bc, int *up_rtis) {
 
 	int cc;
-	*up_rtis = bc;
-	cc = ioctl(fn,MIL1553_GET_UP_RTIS,up_rtis);
+	unsigned long reg = bc;
+	cc = ioctl(fn,MIL1553_GET_UP_RTIS,&reg);
 	if (cc < 0)
 		return errno;
+	*up_rtis = reg;
 	return 0;
 }
 
@@ -177,17 +191,19 @@ int milib_recv(int fn, struct mil1553_recv_s *recv) {
 int milib_get_queue_size(int fn, int *size) {
 
 	int cc;
-	*size = 0;
-	cc = ioctl(fn,MIL1553_QUEUE_SIZE,size);
+	unsigned long reg = 0;
+	cc = ioctl(fn,MIL1553_QUEUE_SIZE,&reg);
 	if (cc < 0)
 		return errno;
+	*size = reg;
 	return 0;
 }
 
 int milib_reset(int fn, int bc) {
 
 	int cc;
-	cc = ioctl(fn,MIL1553_RESET,&bc);
+	unsigned long reg = bc;
+	cc = ioctl(fn,MIL1553_RESET,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
@@ -259,7 +275,8 @@ void milib_encode_txreg(unsigned int *txreg, unsigned int wc, unsigned int sa, u
 int milib_lock_bc(int fn, int bc) {
 
 	int cc = 0;
-	cc = ioctl(fn,MIL1553_LOCK_BC,&bc);
+	unsigned long reg = bc;
+	cc = ioctl(fn,MIL1553_LOCK_BC,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
@@ -268,7 +285,8 @@ int milib_lock_bc(int fn, int bc) {
 int milib_unlock_bc(int fn, int bc) {
 
 	int cc = 0;
-	cc = ioctl(fn,MIL1553_UNLOCK_BC,&bc);
+	unsigned long reg = bc;
+	cc = ioctl(fn,MIL1553_UNLOCK_BC,&reg);
 	if (cc < 0)
 		return errno;
 	return 0;
@@ -277,9 +295,10 @@ int milib_unlock_bc(int fn, int bc) {
 int milib_get_temperature(int fn, int bc, int *temp) {
 
 	int cc = 0;
-	*temp = bc;
-	cc = ioctl(fn,MIL1553_GET_TEMPERATURE,temp);
+	unsigned long reg = bc;
+	cc = ioctl(fn,MIL1553_GET_TEMPERATURE,&reg);
 	if (cc < 0)
 		return errno;
+	*temp = reg;
 	return 0;
 }
