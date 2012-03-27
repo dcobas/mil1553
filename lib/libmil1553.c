@@ -292,13 +292,20 @@ int milib_unlock_bc(int fn, int bc) {
 	return 0;
 }
 
-int milib_get_temperature(int fn, int bc, int *temp) {
+int milib_get_temperature(int fn, int bc, float *temp) {
 
-	int cc = 0;
+	int ip, fp, cc = 0;
 	unsigned long reg = bc;
 	cc = ioctl(fn,MIL1553_GET_TEMPERATURE,&reg);
 	if (cc < 0)
 		return errno;
-	*temp = reg;
+
+	ip = (reg & 0x7F0) >> 4;
+	if (reg & 0xF800) ip = -ip;
+	fp = reg & 0xF;
+
+	*temp = (float) ip;
+	if (fp)
+		*temp += 1.0 / (float) fp;
 	return 0;
 }

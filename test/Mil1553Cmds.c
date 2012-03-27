@@ -1027,6 +1027,7 @@ int GetBcInfo(int arg) {     /* Get BC info */
 
 struct mil1553_dev_info_s dev_info;
 int wc, cc;
+float temp;
 
    arg++;
 
@@ -1037,16 +1038,24 @@ int wc, cc;
       mil1553_print_error(cc);
    }
 
+   printf("\n");
    printf("Bus Controler    :%d => %02x:%02x CERN/ECP/EDU Device 0301 CBMIA\n",
 	  dev_info.bc,
 	  dev_info.pci_bus_num,
 	  dev_info.pci_slt_num);
+
+   cc = milib_get_temperature(milf,bc,&temp);
+   if (cc) {
+      printf("milib_get_temperature:Error:%d\n",cc);
+      mil1553_print_error(cc);
+   }
 
    printf("PCI Bus Number   :%d\n",dev_info.pci_bus_num);
    printf("PCI Slot Number  :%d\n",dev_info.pci_slt_num);
    printf("Serial Number    :0x%08x:%08x\n",dev_info.snum_h,dev_info.snum_l);
    printf("Hardware Version :0x%08x\n",dev_info.hardware_ver_num);
    printf("Interrupt count  :%d\n",dev_info.icnt);
+   printf("Temperature      :%2.2f Degrees-C\n",temp);
    printf("\n");
 
    printf("TxFrames         :%d\n",dev_info.tx_frames);
@@ -1088,7 +1097,8 @@ int wc, cc;
 
 int GetTemp(int arg) {      /* Select bus controler speed */
 
-int cc, temp;
+int cc;
+float temp;
 
    arg++;
 
@@ -1099,7 +1109,7 @@ int cc, temp;
       mil1553_print_error(cc);
       return arg;
    }
-   printf("BC:%d Temperature:%d\n",bc,temp);
+   printf("BC:%d %2.2f Degrees-C\n",bc,temp);
 
    return arg;
 }

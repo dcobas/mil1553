@@ -36,4 +36,4 @@ int milib_get_polling(int fn, int *flag);
 int milib_set_polling(int fn, int flag);
 int milib_set_test_point(int fn, int bc, int tp);
 int milib_get_test_point(int fn, int bc, int *tp);
-int milib_get_temperature(int fn, int bc, int *temp);
+int milib_get_temperature(int fn, int bc, float *temp);
