@@ -46,7 +46,7 @@ int ReadRxBuf();     /* Read RTI rxbuf */
 int ReadTxBuf();     /* Read RTI txbuf */
 int WriteRxBuf();    /* Write RTI rxbuf from memory */
 int WriteTxBuf();    /* Write RTI txbuf from memory */
-int GetSetSpeed();   /* Select bus controler speed */
+int GetTemp();       /* Get temperature */
 
 int GetQueueSize();  /* Get the client queue size */
 
@@ -58,8 +58,8 @@ int edit_ctl_msg();  /* Edit pow control settings */
 
 int test_rti();      /* RTI test */
 
-int GetSetPolling();  /* Get/Set RTI polling On/Off */
-int GetSetAcqDelay(); /* Get set AQN delay usec */
+int GetSetPolling();    /* Get/Set RTI polling On/Off */
+int GetSetTestPoints(); /* Get set AQN delay usec */
 
 /* Jtag backend to public code */
 
@@ -107,9 +107,9 @@ typedef enum {
    CmdRTX,     /* RTI read txbuf */
    CmdWRX,     /* RTI write rxbuf */
    CmdWTX,     /* RTI write txbuf */
-   CmdSPEED,   /* Get set the bus speed */
+   CmdTEMP,    /* Get temperature */
    CmdPOLL,    /* Set RTI polling */
-   CmdAQNU,    /* Get set AQN delay usec */
+   CmdTP,      /* Get set test points */
 
    CmdQSZE,    /* Get clients queue size */
 
@@ -172,9 +172,9 @@ static Cmd cmds[CmdCMDS] = {
    { CmdRTX,     "rtx",   "RTI read txbuf (receive)" ,"wc"                 ,ReadTxBuf         },
    { CmdWRX,     "wrx",   "RTI write rxbuf (send)"   ,"wc"                 ,WriteRxBuf        },
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
-   { CmdSPEED,   "bspd",  "Get set BC bus speed"     ,"0..3"               ,GetSetSpeed       },
+   { CmdTEMP,    "temp",  "Get temperature"          ,""                   ,GetTemp           },
    { CmdPOLL,    "pol",   "Get/Set polling"          ,"0..1"               ,GetSetPolling     },
-   { CmdAQNU,    "acqd",  "Get set AQN delay usec"   ,"microseconds"       ,GetSetAcqDelay    },
+   { CmdTP,      "tps",   "Get set test points"      ,"mask"               ,GetSetTestPoints  },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 

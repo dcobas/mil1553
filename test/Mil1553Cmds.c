@@ -654,12 +654,12 @@ int polling, cc;
       if (v->Number) polling = 0;
       else           polling = 1;
       cc = milib_set_polling(milf,polling);
-      if (cc < 0)
+      if (cc)
 	 mil1553_print_error(cc);
    }
 
    cc = milib_get_polling(milf,&polling);
-   if (cc < 0)
+   if (cc)
       mil1553_print_error(cc);
 
    printf("RTI polling:%d = ",polling);
@@ -673,29 +673,58 @@ int polling, cc;
 
 /* ============================= */
 
-int GetSetAcqDelay(int arg) {
+char *tpnames[16] = {
+   "Transaction in progress",           // CMD_TP_TRANSACTION_IN_PROGRESS
+   "TX Enable",                         // CMD_TP_TX_ENABLE
+   "RX in progress",                    // CMD_TP_RX_IN_PROGRESS
+   "RXD",                               // CMD_TP_RXD
+   "TX Done",                           // CMD_TP_TX_DONE
+   "RX Done",                           // CMD_TP_RX_DONE
+   "Manchester error",                  // CMD_TP_MANCHESTER_ERROR
+   "Parity error",                      // CMD_TP_PARITY_ERROR
+   "Number of word error",              // CMD_TP_WC_ERROR
+   "Response timeout",                  // CMD_TP_TIMEOUT
+   "Request during transmission error", // CMD_TP_TX_CLASH
+   "Send frame",                        // CMD_TP_SEND_FRAME
+   "Send frame request",                // CMD_TP_SEND_FRAME_REQUEST
+   "TXD",                               // CMD_TP_TXD
+   "Transaction end",                   // CMD_TP_TRANSACTION_END
+   "Software reset"                     // CMD_TP_RESET
+};
+
+int GetSetTestPoints(int arg) {
 ArgVal   *v;
 AtomType  at;
 
-int usec, cc;
+int msk, tps, cc, i;
 
    arg++;
+
+   printf("TP   Values meaning\n");
+   for (i=0; i<16; i++)
+      printf("0x%02X %s\n",i,tpnames[i]);
+   printf("\n");
 
    v = &(vals[arg]);
    at = v->Type;
    if (at == Numeric) {
       arg++;
-      usec = v->Number;
-      cc = milib_set_acq_delay(milf,usec);
-      if (cc < 0)
+      tps = v->Number;
+      cc = milib_set_test_point(milf,bc,tps);
+      if (cc)
 	 mil1553_print_error(cc);
    }
 
-   cc = milib_get_acq_delay(milf,&usec);
-   if (cc < 0)
+   cc = milib_get_test_point(milf,bc,&tps);
+   if (cc)
       mil1553_print_error(cc);
 
-   printf("Acquisition delay:%d usec\n",usec);
+   printf("TestP Mask:0x%04X\n",tps);
+   for (i=0; i<4; i++) {
+      msk = tps & 0xF;
+      tps = tps >> 4;
+      printf("Test point:%d 0x%X %s\n",i,msk,tpnames[msk]);
+   }
    return arg;
 }
 
@@ -994,27 +1023,10 @@ int cc;
 
 /* ============================= */
 
-#define SPEEDS 4
-
-char *speed_names[SPEEDS] = { "1Mbit",
-			      "500Kbit",
-			      "250Kbit",
-			      "125Kbit" };
-
-char *speed_to_str(int speed) {
-
-static char *res = "???";
-
-   if ((speed >=0) && (speed < SPEEDS))
-      res = speed_names[speed];
-
-   return res;
-}
-
 int GetBcInfo(int arg) {     /* Get BC info */
 
 struct mil1553_dev_info_s dev_info;
-int cc;
+int wc, cc;
 
    arg++;
 
@@ -1034,64 +1046,60 @@ int cc;
    printf("PCI Slot Number  :%d\n",dev_info.pci_slt_num);
    printf("Serial Number    :0x%08x:%08x\n",dev_info.snum_h,dev_info.snum_l);
    printf("Hardware Version :0x%08x\n",dev_info.hardware_ver_num);
-   printf("Bus Speed        :%d => %s\n",dev_info.speed,speed_to_str(dev_info.speed));
    printf("Interrupt count  :%d\n",dev_info.icnt);
+   printf("\n");
 
-   /* Meaning of isrdebug bits, for me to know whats going on */
+   printf("TxFrames         :%d\n",dev_info.tx_frames);
+   printf("RxFrames         :%d\n",dev_info.rx_frames);
+   printf("Parity errors    :%d\n",dev_info.parity_errors);
+   printf("Manchester errors:%d\n",dev_info.manchester_errors);
+   printf("Word count errors:%d\n",dev_info.wc_errors);
+   printf("Tx clash errors  :%d\n",dev_info.tx_clash_errors);
+   printf("RTI Timeouts     :%d\n",dev_info.rti_timeouts);
+   printf("\n");
 
-   /* 0x01 Queue was empty in ISR */
-   /* 0x02 RTI number zero in ISR, hardware timeout */
-   /* 0x10 TxBuffer timeout in polling */
-   /* 0x20 TxBuffer timeout in transaction */
+   printf("IsrTrace         :0x%08X\n",dev_info.isrdebug);
+   printf("         RtiMask :0x%X\n",(dev_info.isrdebug & ISRC_RTI_MASK));
+   printf("         WcMask  :0x%X\n",(dev_info.isrdebug & ISRC_WC_MASK));
+   printf("         EndTrans:0x%X\n",(dev_info.isrdebug & ISRC_END_TRANSACTION));
+   printf("         Timeout :0x%X\n",(dev_info.isrdebug & ISRC_TIME_OUT));
+   printf("         BadWdCnt:0x%X\n",(dev_info.isrdebug & ISRC_BAD_WC));
+   printf("         ManchErr:0x%X\n",(dev_info.isrdebug & ISRC_MANCHESTER_ERROR));
+   printf("         PartyErr:0x%X\n",(dev_info.isrdebug & ISRC_PARITY_ERROR));
+   printf("         TrFlah  :0x%X\n",(dev_info.isrdebug & ISRC_TR_BIT));
+   printf("\n");
 
-   printf("IsrTrace         :0x%08x\n",dev_info.isrdebug);
-
-   if (dev_info.isrdebug & 0x01) printf("IsrTrace         :TxQueue was empty in ISR\n");
-   if (dev_info.isrdebug & 0x02) printf("IsrTrace         :Rti number=0 in ISR, hardware timedout\n");
-   if (dev_info.isrdebug & 0x10) printf("IsrTrace         :TxBuffer time out in polling thread\n");
-   if (dev_info.isrdebug & 0x20) printf("IsrTrace         :TxBuffer timeout in transaction\n");
+   printf("Number Words val :0x%04X\n",dev_info.nb_wds);
+   wc = dev_info.nb_wds & 0x1F;
+   printf("Word IO BC->RTI  :%d\n",wc);
+   wc = (dev_info.nb_wds >> 16) & 0x1F;
+   printf("Word IO RTI->BC  :%d\n",wc);
+   printf("         Timeout :0x%X\n",(dev_info.nb_wds & NB_WD_TIME_OUT));
+   printf("         WcDiffer:0x%X\n",(dev_info.nb_wds & NB_WD_WC_DIFFER));
+   printf("         ManchErr:0x%X\n",(dev_info.nb_wds & NB_WD_MANCHESTER_ERROR));
+   printf("         PartyErr:0x%X\n",(dev_info.nb_wds & NB_WD_PARITY_ERROR));
+   printf("         TRflag  :0x%X\n",(dev_info.nb_wds & NB_WD_TR_FLAG));
+   printf("\n");
 
    return arg;
 }
 
 /* ============================= */
 
-int GetSetSpeed(int arg) {      /* Select bus controler speed */
+int GetTemp(int arg) {      /* Select bus controler speed */
 
-ArgVal   *v;
-AtomType  at;
-int speed = 0;
-int cc, i;
-struct mil1553_dev_info_s dev_info;
+int cc, temp;
 
    arg++;
 
-   for (i=0; i<SPEEDS; i++)
-      printf("%1d => %s ",i,speed_to_str(i));
-   printf("\n");
-
-   v = &(vals[arg]);
-   at = v->Type;
-   if (at == Numeric) {
-      speed = v->Number;
-      if ((speed >= 0) && (speed < SPEEDS)) {
-	 milib_lock_bc(milf,bc);
-	 cc = milib_set_bus_speed(milf, bc, speed);
-	 milib_unlock_bc(milf,bc);
-	 if (cc) {
-	    printf("milib_set_bus_speed:Error:%d\n",cc);
-	    mil1553_print_error(cc);
-	 }
-      }
-   }
-   dev_info.bc = bc;
-   cc = milib_get_bc_info(milf,&dev_info);
+   temp = bc;
+   cc = milib_get_temperature(milf,bc,&temp);
    if (cc) {
-      printf("milib_get_bc_info:Error:%d\n",cc);
+      printf("milib_get_temperature:Error:%d\n",cc);
       mil1553_print_error(cc);
       return arg;
    }
-   printf("BC:%d BusSpeed:%d => %s\n",bc,dev_info.speed,speed_to_str(dev_info.speed));
+   printf("BC:%d Temperature:%d\n",bc,temp);
 
    return arg;
 }
