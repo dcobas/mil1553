@@ -1,7 +1,19 @@
-/* ****************************************************************************** */
-/* MIL1553 test program, calls driver                                             */
-/* Julian Lewis AB/CO/HT Julian.Lewis@cern.ch FEB 2011                            */
-/* ****************************************************************************** */
+/**
+ * Julian Lewis March 28 2012 BE/CO/HT
+ * Julian.Lewis@cern.ch
+ *
+ * MIL 1553 bus controler CBMIA module
+ * Private driver definitions not for consumption by user code.
+ *
+ * This code relies on a new firmware version number 204 and later
+ * In this version proper access to the TXREG uses a busy done bit.
+ * Software polling has been implemented, hardware polling is removed.
+ * The bus speed is fixed at 1Mbit.
+ * Hardware test points and diagnostic/debug registers are added.
+ *
+ * MIL1553 test program, calls the libraries libmil1553, librti and libquick
+ * Julian Lewis AB/CO/HT Julian.Lewis@cern.ch FEB 2011
+ */
 
 #include <sys/types.h>
 #include <sys/stat.h>

@@ -1,6 +1,14 @@
 /**
- * =========================================================================================
- * Basic driver API for raw PCI IO
+ * Julian Lewis March 28 2012 BE/CO/HT
+ * Julian.Lewis@cern.ch
+ *
+ * MIL 1553 bus controler CBMIA module library include file.
+ *
+ * This code relies on a new firmware version number 204 and later
+ * In this version proper access to the TXREG uses a busy done bit.
+ * Software polling has been implemented, hardware polling is removed.
+ * The bus speed is fixed at 1Mbit.
+ * Hardware test points and diagnostic/debug registers are added.
  */
 
 #ifndef MIL1553

@@ -1,11 +1,15 @@
 /**
- * Julian Lewis Mon 14th Feb 2011 BE/CO/HT
+ * Julian Lewis March 28 2012 BE/CO/HT
  * Julian.Lewis@cern.ch
  *
- * This is a total rewrite of the CBMIA PCI driver to control MIL 1553
- *
  * MIL 1553 bus controler CBMIA module
- * Private driver definitions
+ * Private driver definitions not for consumption by user code.
+ *
+ * This code relies on a new firmware version number 204 and later
+ * In this version proper access to the TXREG uses a busy done bit.
+ * Software polling has been implemented, hardware polling is removed.
+ * The bus speed is fixed at 1Mbit.
+ * Hardware test points and diagnostic/debug registers are added.
  */
 
 #ifndef MIL1553_P
@@ -18,8 +22,7 @@
 
 /**
  * Memory layout as described in
- * LHC-V0.7 User Manual
- * Programming interface for the PCI 1553 CBMIA card
+ * Matthieu Cattins' doc - CBMIA Memory map - FW version 204 and later
  */
 
 #define MAX_DEVS 16

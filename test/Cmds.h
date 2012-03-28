@@ -174,7 +174,7 @@ static Cmd cmds[CmdCMDS] = {
    { CmdWTX,     "wtx",   "RTI write txbuf"          ,"wc"                 ,WriteTxBuf        },
    { CmdTEMP,    "temp",  "Get temperature"          ,""                   ,GetTemp           },
    { CmdPOLL,    "pol",   "Get/Set polling"          ,"0..1"               ,GetSetPolling     },
-   { CmdTP,      "tps",   "Get set test points"      ,"mask"               ,GetSetTestPoints  },
+   { CmdTP,      "tps",   "Get set test points 0..3" ,"0xXXXX"             ,GetSetTestPoints  },
 
    { CmdQSZE,    "qsz",   "Get Queue Size"           ,""                   ,GetQueueSize      },
 

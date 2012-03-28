@@ -1,8 +1,25 @@
-/*
- * =========================================================
+/**
+ * Julian Lewis March 28 2012 BE/CO/HT
+ * Julian.Lewis@cern.ch
+ *
+ * This is a total rewrite of the CBMIA PCI driver to control MIL 1553
+ * MIL 1553 bus controler CBMIA module
+ *
+ * This code relies on a new firmware version number 204 and later
+ * In this version proper access to the TXREG uses a busy done bit.
+ * Software polling has been implemented, hardware polling is removed.
+ * The bus speed is fixed at 1Mbit.
+ * Hardware test points and diagnostic/debug registers are added.
+ *
  * Mil1553 driver
  * This driver is a complete rewrite of a previous version from Yuri
- * BE/CO/HT Julian Lewis Tue 15th Feb 2011
+ * Version 1 was started by: BE/CO/HT Julian Lewis Tue 15th Feb 2011
+ *
+ * TODO: The tx-queues are not needed due to the rti and quick data protocols
+ *       being implemented in user space. The queue mechanism adds complexity
+ *       that it turns out is not needed. The queuing mechanisms therefore
+ *       need revising. For the time being they are harmless and work fine so
+ *       appart from more difficult code there are no other problems.
  */
 
 #include <linux/kernel.h>
@@ -458,6 +475,9 @@ static int raw_write(struct mil1553_device_s *mdev,
 
 /**
  * =========================================================
+ * Attempt to read the RTI signature from all RTIs 1..30, in
+ * the case the RTI responds the resulting interrupt sets
+ * the corresponding bit in an new RTI present mask.
  */
 
 static void start_tx(int debug_level, struct mil1553_device_s *mdev);
@@ -594,7 +614,11 @@ static void _start_tx(int debug_level,
 		iowrite32be(lreg,&lregp[i]);
 	}
 
-	/* Issue the start command, we get an interrupt when done */
+	/* Issue the start command, we get an interrupt when done. */
+	/* Before we can issue the start we need to check the bus is idle. */
+	/* If the bus remains busy for longer than TX_TRIES x TX_WAIT_US (1ms) */
+	/* then we just send anyway. In fact if the bit is set high for more */
+	/* than 600us (32wds@1Mbit) this means the hardware has failed. */
 
 	for (i=0; i<TX_TRIES; i++) {
 
@@ -608,6 +632,13 @@ static void _start_tx(int debug_level,
 /**
  * @brief Called only from IOCTL ie from user space
  * It just calls _start_tx with a spin_lock reservation
+ *
+ * As the TX queue never has more than one item on it, then
+ * _start_tx never gets called from the ISR. This is part of
+ * the code that may be suppressed in the TODO list. For the
+ * present you know that mdev->lock will always get taken and that
+ * mdev->busy_done is always DONE. This is because every send
+ * or receive transaction puts only on item on the TX queue.
  */
 
 static void start_tx(int debug_level,
@@ -627,7 +658,9 @@ static void start_tx(int debug_level,
  * @return index of first item in array for the given BC or -1 if not found
  *
  * Contiguous items for each BC are marked with start..all..end and
- * form a transaction.
+ * form a transaction. When a transaction is in progress mdev->busy_done is
+ * set BUSY. However as the user code always uses an item count of one, then
+ * the transaction terminates imediatley so mdev->busy_done will always be DONE.
  *
  * Users can be woken up in three ways..
  * (1) For the Start item in the transaction.
@@ -929,7 +962,14 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
 	if ((get_queue_size(*rp,*wp,QSZ) == 0) /** Queue empty ? */
-	/* || (!pk_ok || !wc_ok) */ ) {        /* Hardware always gives errors so test suppressed */
+
+	/* WATCH OUT FRIG HERE !!! */
+	/* this is a temporary frig, remove the comment marks around the pk_ok and wc_ok */
+	/* check when the hardware behaves correctly. */
+
+	/* || (!pk_ok || !wc_ok) */ /* Hardware always gives errors so test suppressed */
+
+				) {  /* Nothig to do, either q empty, or crap in packet */
 
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
