@@ -928,7 +928,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	struct client_s *client;
 	unsigned long flags;
 	uint32_t lreg, *lregp;
-	int i, rtin, pk_ok, wc_ok;
+	int i, rtin, pk_ok;
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
@@ -947,13 +947,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((ISRC_GOOD_BITS & isrc) && ((ISRC_BAD_BITS & isrc) == 0))
 		pk_ok = 1;
 
-	wc_ok = 1;
-	if ((ISRC_TR_BIT & isrc) && (rtin == 0))
-			wc_ok = 0;
-
-	if (!wc_ok || !pk_ok)
-			wa.isrdebug = isrc;
-
 	/* Read the current item from the tx_queue to find the client. */
 	/* This was initiated by the client that will receive the result */
 
@@ -961,16 +954,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	spin_lock_irqsave(&tx_queue->lock,flags);
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
-	if ((get_queue_size(*rp,*wp,QSZ) == 0) /** Queue empty ? */
-
-	/* WATCH OUT FRIG HERE !!! */
-	/* this is a temporary frig, remove the comment marks around the pk_ok and wc_ok */
-	/* check when the hardware behaves correctly. */
-
-	/* || (!pk_ok || !wc_ok) */ /* Hardware always gives errors so test suppressed */
-
-				) {  /* Nothig to do, either q empty, or crap in packet */
-
+	if ((get_queue_size(*rp,*wp,QSZ) == 0) /* Queue empty ? */
+	|| (!pk_ok || !rtin)) {                /* or crap in packet */
+		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 		return IRQ_HANDLED;
