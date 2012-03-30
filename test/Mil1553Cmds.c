@@ -1038,8 +1038,8 @@ int cc;
 int GetBcInfo(int arg) {     /* Get BC info */
 
 struct mil1553_dev_info_s dev_info;
-int wc, cc, tr;
-float temp;
+unsigned int wc, cc, tr, tmo;
+float temp, ftmo;
 
    arg++;
 
@@ -1077,7 +1077,14 @@ float temp;
    printf("Manchester errors:%d\n",dev_info.manchester_errors);
    printf("Word count errors:%d\n",dev_info.wc_errors);
    printf("Tx clash errors  :%d\n",dev_info.tx_clash_errors);
-   printf("RTI Timeouts     :%d\n",dev_info.rti_timeouts);
+
+   tmo = dev_info.rti_timeouts;
+   if (tmo >= 1023)
+      printf("RTI response time:None = No response (1023)\n");
+   else {
+      ftmo = (float) (1023 - tmo) / 40.00;
+      printf("RTI response time:%4.3f us\n",ftmo);
+   }
    printf("\n");
 
    printf("IsrTrace         :0x%08X\n",dev_info.isrdebug);
