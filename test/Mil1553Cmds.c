@@ -1066,8 +1066,14 @@ float temp, ftmo;
    printf("PCI Bus Number   :%d\n",dev_info.pci_bus_num);
    printf("PCI Slot Number  :%d\n",dev_info.pci_slt_num);
    printf("Serial Number    :0x%08x:%08x\n",dev_info.snum_h,dev_info.snum_l);
-   printf("Hardware Version :0x%08x\n",dev_info.hardware_ver_num);
+   printf("Firmware Version :0x%08x\n",dev_info.hardware_ver_num);
    printf("Interrupt count  :%d\n",dev_info.icnt);
+
+   if (dev_info.hardware_ver_num < 0x200) {
+      printf("OLD firmware ver :No more debug information available\n\n");
+      return arg;
+   }
+
    printf("Temperature      :%2.2f Degrees-C\n",temp);
    printf("\n");
 
