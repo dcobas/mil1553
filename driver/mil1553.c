@@ -37,7 +37,6 @@
 #include <linux/irqreturn.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
-#include <linux/kthread.h>
 
 #include "mil1553.h"
 #include "mil1553P.h"
@@ -750,8 +749,7 @@ static int send_items(struct client_s *client,
 		rtin = item_array[i].rti_number;
 		if (check_rti_up(mdev,rtin) == 0) {
 			if (client->debug_level > 2)
-				printk("mil1553:send_items:CheckRtis:Error:Bc:%02d Rti:%02d Down\n",bc,rtin);
-			return -ENODEV;
+				printk("mil1553:send_items:CheckRtis:Warning:Bc:%02d Rti:%02d Down, changing to Up\n",bc,rtin);
 		}
 	}
 
@@ -927,6 +925,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	unsigned long flags;
 	uint32_t lreg, *lregp;
 	int i, rtin, pk_ok;
+	int timeout;
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
@@ -934,11 +933,15 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		return IRQ_NONE;
 
 	mdev->icnt++;
-	wake_up(&mdev->wait_queue); /* Tell kernel thread we got an interrupt */
 	wa.icnt++;
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
-	mdev->new_up_rtis |= 1 << rtin;
+	if (isrc & ISRC_TIME_OUT) {
+		timeout = 1;
+	} else {
+		mdev->up_rtis |= 1 << rtin;
+		timeout = 0;
+	}
 	bc = mdev->bc;
 
 	pk_ok = 0;
@@ -952,15 +955,22 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	spin_lock_irqsave(&tx_queue->lock,flags);
 	rp = &tx_queue->rp;
 	wp = &tx_queue->wp;
-	if ((get_queue_size(*rp,*wp,QSZ) == 0) /* Queue empty ? */
-	|| (!pk_ok || !rtin)) {                /* or crap in packet */
-		wa.isrdebug = isrc;            /* Keep isrc for debug */
+	if (get_queue_size(*rp,*wp,QSZ) == 0) {
+		/* Queue empty or crap in packet, keep isrc for debug */
+		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 		return IRQ_HANDLED;
 	}
 	tx_item = &(tx_queue->tx_item[*rp]); /* Get item at read pointer */
 	get_next_rp(rp,*wp,QSZ);             /* and set rp to the next item */
+	if (!pk_ok || timeout) {
+		mdev->up_rtis &= ~(1 << tx_item->rti_number);
+		wa.isrdebug = isrc;
+		mdev->busy_done = BC_DONE;
+		spin_unlock_irqrestore(&tx_queue->lock,flags);
+		return IRQ_HANDLED;
+	}
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
 
 	if (!tx_item->no_reply) {            /* Client wants reply ? */
@@ -1127,42 +1137,6 @@ static void init_device(struct mil1553_device_s *mdev)
 
 /**
  * =========================================================
- * This kernel thread is needed to maintain the mask of up RTIs
- * per device. It gets instantiated once per device.
- */
-
-#define RTI_POLL_TIME 25
-#define KT_WAIT_MS 1000
-
-int mil1553_kthread(void *arg)
-{
-	struct mil1553_device_s *mdev = arg;
-	int icnt, cc;
-
-	printk("mil1553 kernel thread:running:%d\n",mdev->bc);
-
-	mdev->new_up_rtis = 0;
-	do {
-
-		icnt = mdev->icnt;
-		cc = wait_event_interruptible_timeout(mdev->wait_queue,
-						     icnt != mdev->icnt,
-						     msecs_to_jiffies(RTI_POLL_TIME));
-		if ((cc == 0) && (wa.nopol == 0)) {
-			ping_rtis(mdev);
-			if (mdev->new_up_rtis) {
-				mdev->up_rtis = mdev->new_up_rtis;
-				mdev->new_up_rtis = 0;
-			}
-		}
-		msleep(KT_WAIT_MS);
-
-	} while (!kthread_should_stop());
-	return 0;
-}
-
-/**
- * =========================================================
  * @brief           Get an unused BC number
  * @return          A lun number or zero if none available
  */
@@ -1235,12 +1209,8 @@ int mil1553_install(void)
 			}
 
 			mdev->bc = bc;
-
-			init_waitqueue_head(&mdev->wait_queue);
 			init_device(mdev);
-			mdev->kthread = kthread_run(mil1553_kthread,mdev,"mil1553:%d",mdev->bc);
-			if (IS_ERR(mdev->kthread))
-				mdev->kthread = NULL;
+			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
 			pdev = mdev->pdev;
@@ -1558,6 +1528,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = -EFAULT;
 				goto error_exit;
 			}
+			ping_rtis(mdev);
 			*ularg = mdev->up_rtis;
 		break;
 
@@ -1707,8 +1678,6 @@ void mil1553_uninstall(void)
 
 	for (i=0; i<wa.bcs; i++) {
 		mdev = &wa.mil1553_dev[i];
-		if (mdev->kthread)
-			kthread_stop(mdev->kthread);
 		release_device(mdev);
 	}
 	unregister_chrdev(mil1553_major,mil1553_major_name);
