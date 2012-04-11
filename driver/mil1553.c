@@ -5,7 +5,7 @@
  * This is a total rewrite of the CBMIA PCI driver to control MIL 1553
  * MIL 1553 bus controler CBMIA module
  *
- * This code relies on a new firmware version number 204 and later
+ * This code relies on a new firmware version number 0x206 and later
  * In this version proper access to the TXREG uses a busy done bit.
  * Software polling has been implemented, hardware polling is removed.
  * The bus speed is fixed at 1Mbit.
@@ -479,8 +479,6 @@ static int raw_write(struct mil1553_device_s *mdev,
  * the case the RTI responds the resulting interrupt sets
  * the corresponding bit in an new RTI present mask.
  */
-
-static void start_tx(int debug_level, struct mil1553_device_s *mdev);
 
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
@@ -956,7 +954,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	wp = &tx_queue->wp;
 	if ((get_queue_size(*rp,*wp,QSZ) == 0) /* Queue empty ? */
 	|| (!pk_ok || !rtin)) {                /* or crap in packet */
-		wa.isrdebug = isrc;
+		wa.isrdebug = isrc;            /* Keep isrc for debug */
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
 		return IRQ_HANDLED;
