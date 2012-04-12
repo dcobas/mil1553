@@ -501,11 +501,12 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 
 			for (i=0; i<TX_TRIES; i++) {
-				if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0)
+				if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
+					iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
 					break;
+				}
 				udelay(TX_WAIT_US);
 			}
-			iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
@@ -618,12 +619,12 @@ static void _start_tx(int debug_level,
 	/* than 600us (32wds@1Mbit) this means the hardware has failed. */
 
 	for (i=0; i<TX_TRIES; i++) {
-
-		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0)
+		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
+			iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
 			break;
+		}
 		udelay(TX_WAIT_US);
 	}
-	iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
 }
 
 /**
