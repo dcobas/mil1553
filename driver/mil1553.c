@@ -991,8 +991,10 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			rti_interrupt->rti_number = rtin;
 
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
-			if (rti_interrupt->wc == 0)
-				rti_interrupt->wc = 32;
+			/* not needed since v208
+				if (rti_interrupt->wc == 0)
+					rti_interrupt->wc = 32;
+			*/
 
 			rti_interrupt->bc = bc;
 
