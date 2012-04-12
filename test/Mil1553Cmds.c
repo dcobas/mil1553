@@ -1105,10 +1105,13 @@ float temp, ftmo;
    printf("\n");
 
    printf("Number Words val :0x%04X\n",dev_info.nb_wds);
-   wc = dev_info.nb_wds & 0x1F;
-   printf("Word IO BC->RTI  :%d\n",wc);
-   wc = (dev_info.nb_wds >> 16) & 0x1F;
-   printf("Word IO RTI->BC  :%d\n",wc);
+   wc = (dev_info.nb_wds & NB_WD_TX_MASK) >> NB_WD_TX_SHIFT;
+   printf("Word IO BC->RTI          :%d\n",wc);
+   wc = (dev_info.nb_wds & NB_WD_RX_MASK) >> NB_WD_RX_SHIFT;
+   printf("Word IO RTI->BC          :%d\n",wc);
+   wc = (dev_info.nb_wds & NB_WD_EXP_MASK) >> NB_WD_EXP_SHIFT;
+   printf("Expected number of words :%d\n",wc);
+   printf("         RxError :0x%X\n",(dev_info.nb_wds & NB_WD_RX_ERROR));
    printf("         Timeout :0x%X\n",(dev_info.nb_wds & NB_WD_TIME_OUT));
    printf("         WcDiffer:0x%X\n",(dev_info.nb_wds & NB_WD_WC_DIFFER));
    printf("         ManchErr:0x%X\n",(dev_info.nb_wds & NB_WD_MANCHESTER_ERROR));

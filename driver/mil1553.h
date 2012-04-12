@@ -113,11 +113,14 @@
 #define TXREG_RTI_SHIFT  11
 #define TXREG_RTI_MASK   (0x1F << TXREG_RTI_SHIFT)
 
-#define NB_WD_TX_SHIFT 0
-#define NB_WD_TX_MASK  (0x1F << NB_WD_TX_SHIFT)
-#define NB_WD_RX_SHIFT 16
-#define NB_WD_RX_MASK  (0x1F << NB_WD_RX_SHIFT)
+#define NB_WD_TX_SHIFT  0
+#define NB_WD_TX_MASK   (0x3F << NB_WD_TX_SHIFT)
+#define NB_WD_RX_SHIFT  6
+#define NB_WD_RX_MASK   (0x3F << NB_WD_RX_SHIFT)
+#define NB_WD_EXP_SHIFT 12
+#define NB_WD_EXP_MASK  (0x3F << NB_WD_EXP_SHIFT)
 
+#define NB_WD_RX_ERROR         0x04000000
 #define NB_WD_TIME_OUT         0x08000000
 #define NB_WD_WC_DIFFER        0x10000000
 #define NB_WD_MANCHESTER_ERROR 0x20000000
