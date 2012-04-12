@@ -41,6 +41,11 @@
 #include "mil1553.h"
 #include "mil1553P.h"
 
+#ifndef MIL1553_DRIVER_VERSION
+#define MIL1553_DRIVER_VERSION	"noversion"
+#endif
+char *mil1553_driver_version = MIL1553_DRIVER_VERSION;
+
 static int   mil1553_major      = 0;
 static char *mil1553_major_name = "mil1553";
 

@@ -1,3 +1,4 @@
-EXTRA_CFLAGS += -DCOMPILE_TIME=$(shell date +%s) -g -Wall -I/acc/src/dsc/drivers/cohtdrep/lewis/mil1553/new_mil1553/driver
+EXTRA_CFLAGS += -DCOMPILE_TIME=$(shell date +%s) -g -Wall
+EXTRA_CFLAGS += -DMIL1553_DRIVER_VERSION=\"$(shell cd $(src) ; git describe --dirty)\"
 
 obj-m:=mil1553.o
