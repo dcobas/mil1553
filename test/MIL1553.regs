@@ -22,3 +22,4 @@ $   NBWDERRS    RO       0xBC        4         1       1
 $   TXERRS      RO       0xC0        4         1       1
 $   WDSR        RO       0xC4        4         1       1
 $   RTIMO       RO       0xC8        4         1       1
+$   RX_ERROR_CNT RO      0xCC        4         1       1

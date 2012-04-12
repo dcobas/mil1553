@@ -34,7 +34,7 @@
 #define TX_END      0x02
 #define TX_ALL      0x04
 
-#define MAX_REGS 51
+#define MAX_REGS 52
 
 /**
  * Usefull masks and shifits for working on registers
