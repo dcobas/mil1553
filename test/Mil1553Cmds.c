@@ -701,7 +701,7 @@ char *tpnames[16] = {
    "Send frame request",                // CMD_TP_SEND_FRAME_REQUEST
    "TXD",                               // CMD_TP_TXD
    "Transaction end",                   // CMD_TP_TRANSACTION_END
-   "Software reset"                     // CMD_TP_RESET
+   "Reception error"                    // CMD_TP_RX_ERROR
 };
 
 int GetSetTestPoints(int arg) {

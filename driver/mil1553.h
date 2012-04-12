@@ -102,7 +102,7 @@
 #define CMD_TP_SEND_FRAME_REQUEST      12
 #define CMD_TP_TXD                     13
 #define CMD_TP_TRANSACTION_END         14
-#define CMD_TP_RESET                   15
+#define CMD_TP_RX_ERROR                15
 
 #define TXREG_WC_SHIFT   0
 #define TXREG_WC_MASK    (0x1F << TXREG_WC_SHIFT)
