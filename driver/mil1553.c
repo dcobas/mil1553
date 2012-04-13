@@ -1217,6 +1217,7 @@ int mil1553_install(void)
 			}
 
 			mdev->bc = bc;
+			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
