@@ -1470,7 +1470,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info->nb_wds            = ioread32be(&memory_map->nb_wds);
 			dev_info->rti_timeouts      = ioread32be(&memory_map->rti_timeouts);
 
-			dev_info->icnt = wa.icnt;
+			dev_info->icnt = mdev->icnt;
 			dev_info->isrdebug = wa.isrdebug;
 		break;
 
