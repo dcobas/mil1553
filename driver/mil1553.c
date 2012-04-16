@@ -488,9 +488,30 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_TRIES 100
 #define TX_WAIT_US 10
 
+static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
+{
+	struct memory_map_s *memory_map = mdev->memory_map;
+	int icnt;
+	int ret;
+	int i;
+
+	for (i = 0; i < TX_TRIES; i++) {
+		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
+			iowrite32be(txreg, &memory_map->txreg);
+			mdev->tx_count++;
+			break;
+		}
+		udelay(TX_WAIT_US);
+	}
+	icnt = mdev->icnt;
+	ret = wait_event_interruptible_timeout(mdev->wq,
+			icnt != mdev->icnt, msecs_to_jiffies(RTI_TIMEOUT));
+	return ret;
+}
+
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
-	int i, rti;
+	int rti;
 	uint32_t txreg;
 	struct memory_map_s *memory_map;
 
@@ -499,20 +520,11 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 	spin_lock(&mdev->lock);
 	if (mdev->busy_done == BC_DONE) {       /** Make sure no transaction in progress */
 		for (rti=1; rti<=30; rti++) {   /** Next RTI to poll */
-
 			txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
-
-			for (i=0; i<TX_TRIES; i++) {
-				if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
-					iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
-					mdev->tx_count++;
-					break;
-				}
-				udelay(TX_WAIT_US);
-			}
+			do_start_tx(mdev, txreg);
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
@@ -624,14 +636,7 @@ static void _start_tx(int debug_level,
 	/* then we just send anyway. In fact if the bit is set high for more */
 	/* than 600us (32wds@1Mbit) this means the hardware has failed. */
 
-	for (i=0; i<TX_TRIES; i++) {
-		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
-			iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
-			mdev->tx_count++;
-			break;
-		}
-		udelay(TX_WAIT_US);
-	}
+	do_start_tx(mdev, tx_item->txreg);
 }
 
 /**
@@ -942,6 +947,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
+	wake_up_interruptible(&mdev->wq);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	if (isrc & ISRC_TIME_OUT) {
@@ -1221,6 +1227,7 @@ int mil1553_install(void)
 			mdev->bc = bc;
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
+			init_waitqueue_head(&mdev->wq);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
