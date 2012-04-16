@@ -34,7 +34,7 @@
 #define TX_END      0x02
 #define TX_ALL      0x04
 
-#define MAX_REGS 52
+#define MAX_REGS 53
 
 /**
  * Useful masks and shifts for working on registers
@@ -183,6 +183,8 @@ struct mil1553_dev_info_s {
 	unsigned int isrdebug;                /** Debug information from isr */
 	unsigned int tx_frames;               /** Number of tx frames */
 	unsigned int rx_frames;               /** Number of rx frames */
+	unsigned int rx_errors;               /** Rx errors counter value */
+	unsigned int timeouts;                /** Timeouts counter */
 	unsigned int parity_errors;           /** Number of parity errors */
 	unsigned int manchester_errors;       /** Number of manchester code errors */
 	unsigned int wc_errors;               /** Number of word count errors */

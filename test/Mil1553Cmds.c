@@ -1079,6 +1079,8 @@ float temp, ftmo;
 
    printf("TxFrames         :%d\n",dev_info.tx_frames);
    printf("RxFrames         :%d\n",dev_info.rx_frames);
+   printf("Rx errors        :%d\n",dev_info.rx_errors);
+   printf("Timeouts         :%d\n",dev_info.timeouts);
    printf("Parity errors    :%d\n",dev_info.parity_errors);
    printf("Manchester errors:%d\n",dev_info.manchester_errors);
    printf("Word count errors:%d\n",dev_info.wc_errors);

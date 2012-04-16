@@ -1461,6 +1461,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 
 			dev_info->tx_frames         = ioread32be(&memory_map->tx_frames);
 			dev_info->rx_frames         = ioread32be(&memory_map->rx_frames);
+			dev_info->rx_errors         = ioread32be(&memory_map->rx_errors);
+			dev_info->timeouts          = ioread32be(&memory_map->timeouts);
 			dev_info->parity_errors     = ioread32be(&memory_map->parity_errors);
 			dev_info->manchester_errors = ioread32be(&memory_map->manchester_errors);
 			dev_info->wc_errors         = ioread32be(&memory_map->wc_errors);

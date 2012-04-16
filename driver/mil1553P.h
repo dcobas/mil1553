@@ -52,6 +52,8 @@ struct memory_map_s {
 	uint32_t tx_clash_errors;    /** Number of tx clash errors */
 	uint32_t nb_wds;             /** Rx and Tx word counts and status bits */
 	uint32_t rti_timeouts;       /** Target RTI didn't respond errors */
+	uint32_t rx_errors;          /** Rx errors counter  */
+	uint32_t timeouts;           /** Timeout counter */
 };
 
 #define MAX_RTI_BUFFERS 30
