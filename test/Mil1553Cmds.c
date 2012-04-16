@@ -1067,7 +1067,6 @@ float temp, ftmo;
    printf("PCI Slot Number  :%d\n",dev_info.pci_slt_num);
    printf("Serial Number    :0x%08x:%08x\n",dev_info.snum_h,dev_info.snum_l);
    printf("Firmware Version :0x%08x\n",dev_info.hardware_ver_num);
-   printf("Interrupt count  :%d\n",dev_info.icnt);
 
    if (dev_info.hardware_ver_num < 0x200) {
       printf("OLD firmware ver :No more debug information available\n\n");
@@ -1085,6 +1084,10 @@ float temp, ftmo;
    printf("Manchester errors:%d\n",dev_info.manchester_errors);
    printf("Word count errors:%d\n",dev_info.wc_errors);
    printf("Tx clash errors  :%d\n",dev_info.tx_clash_errors);
+   printf("Tx count         :%d\n",dev_info.tx_count);
+   printf("Interrupt count  :%d\n",dev_info.icnt);
+   printf("Tx = Rx + timeouts?  : %d = %d\n",
+		dev_info.tx_frames, dev_info.rx_frames + dev_info.timeouts);
 
    tmo = dev_info.rti_timeouts;
    if (tmo >= 1023)

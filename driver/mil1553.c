@@ -508,6 +508,7 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			for (i=0; i<TX_TRIES; i++) {
 				if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 					iowrite32be(txreg,&memory_map->txreg);  /** Start Tx */
+					mdev->tx_count++;
 					break;
 				}
 				udelay(TX_WAIT_US);
@@ -626,6 +627,7 @@ static void _start_tx(int debug_level,
 	for (i=0; i<TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(tx_item->txreg,&memory_map->txreg); /** Start Tx */
+			mdev->tx_count++;
 			break;
 		}
 		udelay(TX_WAIT_US);
@@ -1471,6 +1473,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info->rti_timeouts      = ioread32be(&memory_map->rti_timeouts);
 
 			dev_info->icnt = mdev->icnt;
+			dev_info->tx_count = mdev->tx_count;
 			dev_info->isrdebug = wa.isrdebug;
 		break;
 

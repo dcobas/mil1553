@@ -162,6 +162,7 @@ struct mil1553_device_s {
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	uint32_t             icnt;        /** Device interrupt count */
+	uint32_t             tx_count;    /** Device TX count */
 };
 
 /**

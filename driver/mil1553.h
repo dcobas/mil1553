@@ -191,6 +191,7 @@ struct mil1553_dev_info_s {
 	unsigned int tx_clash_errors;         /** Number of tx clash errors */
 	unsigned int nb_wds;                  /** Word count expected/received + tr bit */
 	unsigned int rti_timeouts;            /** Target RTI didn't respond counter */
+	unsigned int tx_count;	              /** Number of tx initiated */
 };
 
 /*
