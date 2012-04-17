@@ -22,19 +22,14 @@
  *       appart from more difficult code there are no other problems.
  */
 
-#include <linux/kernel.h>
-#include <linux/fcntl.h>
-#include <linux/errno.h>
 #include <linux/spinlock.h>
 #include <linux/fs.h>
 #include <linux/types.h>
 #include <linux/module.h>
-#include <linux/version.h>
 #include <linux/pci.h>
+#include <asm/io.h>
 #include <linux/uaccess.h>
-#include <linux/types.h>
 #include <linux/interrupt.h>
-#include <linux/irqreturn.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
 
