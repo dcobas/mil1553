@@ -645,10 +645,6 @@ static void _start_tx(int debug_level,
 	}
 
 	/* Issue the start command, we get an interrupt when done. */
-	/* Before we can issue the start we need to check the bus is idle. */
-	/* If the bus remains busy for longer than TX_TRIES x TX_WAIT_US (1ms) */
-	/* then we just send anyway. In fact if the bit is set high for more */
-	/* than 600us (32wds@1Mbit) this means the hardware has failed. */
 
 	do_start_tx(mdev, tx_item->txreg);
 }
