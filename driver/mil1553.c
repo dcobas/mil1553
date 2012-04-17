@@ -487,25 +487,40 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
+/* jdgc: */
+#undef RTI_TIMEOUT
+#define RTI_TIMEOUT 3
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
-	int icnt;
-	int ret;
-	int i;
+	int i, ret;
 
+	mutex_lock(&mdev->tx_attempt);
+	if (mdev->irq_flag != 0) {
+		ret = wait_event_interruptible_timeout(mdev->wq,
+				mdev->irq_flag == 0, msecs_to_jiffies(RTI_TIMEOUT));
+		if (ret == 0) {
+			printk("jdgc: stalled irq_flag, expect a timeout!!\n");
+		}
+	}
+	mdev->irq_flag = 1;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
 			mdev->tx_count++;
 			break;
 		}
+		printk("jdgc: should this happen?\n");
 		udelay(TX_WAIT_US);
 	}
-	icnt = mdev->icnt;
 	ret = wait_event_interruptible_timeout(mdev->wq,
-			icnt != mdev->icnt, msecs_to_jiffies(RTI_TIMEOUT));
+			mdev->irq_flag == 0, msecs_to_jiffies(RTI_TIMEOUT));
+	if (ret == 0) {
+		reset_tx_queue(mdev);
+		printk("jdgc: line %d timeout!\n", __LINE__);
+	}
+	mutex_unlock(&mdev->tx_attempt);
 	return ret;
 }
 
@@ -614,7 +629,6 @@ static void _start_tx(int debug_level,
 			printk("mil1553:start_tx:Queue empty\n");
 		return;
 	}
-
 	tx_item = &(tx_queue->tx_item[*rp]);
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
 
@@ -947,6 +961,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
+	mdev->irq_flag = 0;
 	wake_up_interruptible(&mdev->wq);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
@@ -1037,7 +1052,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if (tx_item->pk_type & TX_END)           /** End packet stream */
 		mdev->busy_done = BC_DONE;       /** Transaction done */
 
-	_start_tx(0,mdev);                       /** Start next item */
 	return IRQ_HANDLED;
 }
 
@@ -1225,9 +1239,11 @@ int mil1553_install(void)
 			}
 
 			mdev->bc = bc;
+			mdev->irq_flag = 0;
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
 			init_waitqueue_head(&mdev->wq);
+			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
