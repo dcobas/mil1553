@@ -240,8 +240,6 @@ typedef enum {
 
 } mil1553_ioctl_function_t;
 
-#define mil1553IOCTL_FUNCTIONS (mil1553LAST - mil1553FIRST - 1)
-
 /*
  * Set up the IOCTL numbers
  */
