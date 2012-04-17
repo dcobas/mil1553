@@ -487,8 +487,6 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-/* jdgc: */
-#undef RTI_TIMEOUT
 #define RTI_TIMEOUT 3
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
@@ -1270,7 +1268,7 @@ int mil1553_open(struct inode *inode, struct file *filp)
 	memset(client,0,sizeof(struct client_s));
 
 	init_waitqueue_head(&client->wait_queue);
-	client->timeout = msecs_to_jiffies(RTI_TIMEOUT);
+	client->timeout = msecs_to_jiffies(DFLT_CLNT_TIMEOUT);
 	spin_lock_init(&client->rx_queue.lock);
 
 	filp->private_data = client;

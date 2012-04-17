@@ -29,7 +29,6 @@
 #define TX_BUF_SIZE 32
 #define RX_BUF_SIZE (TX_BUF_SIZE +1)
 
-#define RTI_TIMEOUT 10
 #define TX_START    0x01
 #define TX_END      0x02
 #define TX_ALL      0x04

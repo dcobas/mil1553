@@ -100,6 +100,7 @@ struct rx_queue_s {
  * filp->private_data. Each client has a queue.
  */
 
+#define DFLT_CLNT_TIMEOUT	10	/** Initial client timeout in ms */
 struct client_s {
 	uint32_t pk_type;               /** Interrupt mask for START, END, ALL */
 	uint32_t icnt;                  /** Number of interrupts for this client */
