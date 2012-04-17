@@ -73,38 +73,6 @@ MODULE_PARM_DESC(pci_slots, "pci slot number");
 #define COMPILE_TIME 0
 #endif
 
-/*
- * Driver routines
- */
-
-int  mil1553_open(struct inode *inode, struct file *filp);
-int  mil1553_close(struct inode *inode, struct file *filp);
-
-int  mil1553_ioctl(struct inode *inode,
-		   struct file *filp,
-		   unsigned int cmd,
-		   unsigned long arg);
-
-void mil1553_uninstall(void);
-int  mil1553_install(void);
-
-long mil1553_ioctl_ulck(struct file *filp,
-			unsigned int cmd,
-			unsigned long arg);
-
-int  mil1553_ioctl_lck(struct inode *inode,
-		       struct file *filp,
-		       unsigned int cmd,
-		       unsigned long arg);
-
-struct file_operations mil1553_fops = {
-	.owner          = THIS_MODULE,
-	.ioctl          = mil1553_ioctl_lck,
-	.unlocked_ioctl = mil1553_ioctl_ulck,
-	.open           = mil1553_open,
-	.release        = mil1553_close,
-};
-
 /**
  * Drivers static working area
  */
@@ -1185,67 +1153,6 @@ int get_unused_bc(void)
 
 /**
  * =========================================================
- * Installer, hunt down modules and install them
- */
-
-int mil1553_install(void)
-{
-	int cc, i, bc = 0;
-	struct pci_dev *pdev = NULL;
-	struct mil1553_device_s *mdev;
-
-	memset(&wa, 0, sizeof(struct working_area_s));
-
-	if (check_args()) {
-
-		cc = register_chrdev(mil1553_major, mil1553_major_name, &mil1553_fops);
-		if (cc < 0)
-			return cc;
-		if (mil1553_major == 0)
-			mil1553_major = cc; /* dynamic */
-
-		for (i=0; i<MAX_DEVS; i++) {
-			mdev = &wa.mil1553_dev[i];
-			spin_lock_init(&mdev->lock);
-			mdev->tx_queue = &wa.tx_queue[i];
-			spin_lock_init(&mdev->tx_queue->lock);
-			mutex_init(&mdev->bc_lock);
-
-			mdev->pdev = add_next_dev(pdev,mdev);
-			if (!mdev->pdev)
-				break;
-
-			bc = hunt_bc(mdev->pci_bus_num,mdev->pci_slt_num);
-			printk("mil1553:Hunt:Bus:%d Slot:%d => ",
-			       mdev->pci_bus_num,
-			       mdev->pci_slt_num);
-
-			if (bc) {
-				printk("Found declared BC:%d\n",bc);
-			} else {
-				bc = get_unused_bc();
-				printk("Assigned unused BC:%d\n",bc);
-			}
-
-			mdev->bc = bc;
-			mdev->irq_flag = 0;
-			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
-			init_device(mdev);
-			init_waitqueue_head(&mdev->wq);
-			mutex_init(&mdev->tx_attempt);
-			ping_rtis(mdev);
-			printk("BC:%d SerialNumber:0x%08X%08X\n",
-				bc,mdev->snum_h,mdev->snum_l);
-			pdev = mdev->pdev;
-			wa.bcs++;
-		}
-	}
-	printk("mil1553:Installed:%d Bus controllers\n",wa.bcs);
-	return 0;
-}
-
-/**
- * =========================================================
  * Open
  * Allocate a client context and initialize it
  * Place pointer to client in the file private data pointer
@@ -1713,6 +1620,75 @@ void mil1553_uninstall(void)
 /**
  * =========================================================
  */
+struct file_operations mil1553_fops = {
+	.owner          = THIS_MODULE,
+	.ioctl          = mil1553_ioctl_lck,
+	.unlocked_ioctl = mil1553_ioctl_ulck,
+	.open           = mil1553_open,
+	.release        = mil1553_close,
+};
+
+/**
+ * =========================================================
+ * Installer, hunt down modules and install them
+ */
+
+int mil1553_install(void)
+{
+	int cc, i, bc = 0;
+	struct pci_dev *pdev = NULL;
+	struct mil1553_device_s *mdev;
+
+	memset(&wa, 0, sizeof(struct working_area_s));
+
+	if (check_args()) {
+
+		cc = register_chrdev(mil1553_major, mil1553_major_name, &mil1553_fops);
+		if (cc < 0)
+			return cc;
+		if (mil1553_major == 0)
+			mil1553_major = cc; /* dynamic */
+
+		for (i=0; i<MAX_DEVS; i++) {
+			mdev = &wa.mil1553_dev[i];
+			spin_lock_init(&mdev->lock);
+			mdev->tx_queue = &wa.tx_queue[i];
+			spin_lock_init(&mdev->tx_queue->lock);
+			mutex_init(&mdev->bc_lock);
+
+			mdev->pdev = add_next_dev(pdev,mdev);
+			if (!mdev->pdev)
+				break;
+
+			bc = hunt_bc(mdev->pci_bus_num,mdev->pci_slt_num);
+			printk("mil1553:Hunt:Bus:%d Slot:%d => ",
+			       mdev->pci_bus_num,
+			       mdev->pci_slt_num);
+
+			if (bc) {
+				printk("Found declared BC:%d\n",bc);
+			} else {
+				bc = get_unused_bc();
+				printk("Assigned unused BC:%d\n",bc);
+			}
+
+			mdev->bc = bc;
+			mdev->irq_flag = 0;
+			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
+			init_device(mdev);
+			init_waitqueue_head(&mdev->wq);
+			mutex_init(&mdev->tx_attempt);
+			ping_rtis(mdev);
+			printk("BC:%d SerialNumber:0x%08X%08X\n",
+				bc,mdev->snum_h,mdev->snum_l);
+			pdev = mdev->pdev;
+			wa.bcs++;
+		}
+	}
+	printk("mil1553:Installed:%d Bus controllers\n",wa.bcs);
+	return 0;
+}
+
 
 module_init(mil1553_install);
 module_exit(mil1553_uninstall);
