@@ -685,23 +685,23 @@ int polling, cc;
 
 /* ============================= */
 
-char *tpnames[16] = {
-   "Transaction in progress",           // CMD_TP_TRANSACTION_IN_PROGRESS
-   "TX Enable",                         // CMD_TP_TX_ENABLE
-   "RX in progress",                    // CMD_TP_RX_IN_PROGRESS
-   "RXD",                               // CMD_TP_RXD
-   "TX Done",                           // CMD_TP_TX_DONE
-   "RX Done",                           // CMD_TP_RX_DONE
-   "Manchester error",                  // CMD_TP_MANCHESTER_ERROR
-   "Parity error",                      // CMD_TP_PARITY_ERROR
-   "Number of word error",              // CMD_TP_WC_ERROR
-   "Response timeout",                  // CMD_TP_TIMEOUT
-   "Request during transmission error", // CMD_TP_TX_CLASH
-   "Send frame",                        // CMD_TP_SEND_FRAME
-   "Send frame request",                // CMD_TP_SEND_FRAME_REQUEST
-   "TXD",                               // CMD_TP_TXD
-   "Transaction end",                   // CMD_TP_TRANSACTION_END
-   "Reception error"                    // CMD_TP_RX_ERROR
+char *tpnames[] = {
+	[CMD_TP_TRANSACTION_IN_PROGRESS] = "Transaction in progress",
+	[CMD_TP_TX_ENABLE]		 = "TX Enable",
+	[CMD_TP_RX_IN_PROGRESS]		 = "RX in progress",
+	[CMD_TP_RXD]			 = "RXD",
+	[CMD_TP_TX_DONE]		 = "TX Done",
+	[CMD_TP_RX_DONE]		 = "RX Done",
+	[CMD_TP_MANCHESTER_ERROR]	 = "Manchester error",
+	[CMD_TP_PARITY_ERROR]		 = "Parity error",
+	[CMD_TP_WC_ERROR]		 = "Number of word error",
+	[CMD_TP_TIMEOUT]		 = "Response timeout",
+	[CMD_TP_TX_CLASH]		 = "Request during transmission error",
+	[CMD_TP_SEND_FRAME]		 = "Send frame",
+	[CMD_TP_SEND_FRAME_REQUEST]	 = "Send frame request",
+	[CMD_TP_TXD]			 = "TXD",
+	[CMD_TP_TRANSACTION_END]	 = "Transaction end",
+	[CMD_TP_RX_ERROR]		 = "Reception error",
 };
 
 int GetSetTestPoints(int arg) {
