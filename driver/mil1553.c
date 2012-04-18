@@ -973,20 +973,12 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 		if (get_queue_size(*rp,*wp,QSZ) < QSZ) {
 			rti_interrupt = &(client->rx_queue.rti_interrupt[*wp]);
-
 			rti_interrupt->rti_number = rtin;
-
 			rti_interrupt->wc = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
-			/* not needed since v208
-				if (rti_interrupt->wc == 0)
-					rti_interrupt->wc = 32;
-			*/
-
 			rti_interrupt->bc = bc;
 
 			/* Remember rxbuf is accessed as u32 but wc is the u16 count */
 			/* Word order is little endian */
-
 			lregp = (uint32_t *) memory_map->rxbuf;
 			for (i=0; i<(rti_interrupt->wc + 2)/2 ; i++) {  /* Prepended status */
 			       lreg  = ioread32be(&lregp[i]);
