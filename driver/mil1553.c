@@ -466,7 +466,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 			mdev->tx_count++;
 			break;
 		}
-		printk("jdgc: should this happen?\n");
+		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT == 0; missing interrupt\n");
 		udelay(TX_WAIT_US);
 	}
 	timeleft = wait_for_completion_interruptible_timeout(
@@ -474,7 +474,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	if (timeleft <= 0) {
 		mdev->irq_flag = 0;
 		reset_tx_queue(mdev);
-		printk("mil1553: line %d timeout! missing int\n", __LINE__);
+		printk(KERN_ERR "mil1553: wait interrupt timeout!\n");
 	}
 	mutex_unlock(&mdev->tx_attempt);
 	return timeleft;
