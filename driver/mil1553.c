@@ -465,14 +465,14 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 			mdev->tx_count++;
 			break;
 		}
-		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT == 0; missing interrupt\n");
+		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT == 0; missing interrupt at tx_count %d\n", mdev->tx_count);
 		udelay(TX_WAIT_US);
 	}
 	timeleft = wait_for_completion_interruptible_timeout(
 		&mdev->int_pending, msecs_to_jiffies(CBMIA_INT_TIMEOUT));
 	if (timeleft <= 0) {
 		reset_tx_queue(mdev);
-		printk(KERN_ERR "mil1553: wait interrupt timeout!\n");
+		printk(KERN_ERR "mil1553: wait interrupt timeout at tx_count %d!\n", mdev->tx_count);
 	}
 	mutex_unlock(&mdev->tx_attempt);
 	return timeleft;
@@ -904,6 +904,8 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((isrc & ISRC) == 0)
 		return IRQ_NONE;
 
+	if (out_of_bounds)
+		printk(KERN_ERR "mil1553: isr, tx_count %d!\n", mdev->tx_count);
 	mdev->icnt++;
 	wa.icnt++;
 	complete(&mdev->int_pending);
