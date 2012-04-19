@@ -459,13 +459,6 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	int i, ret;
 
 	mutex_lock(&mdev->tx_attempt);
-	if (mdev->irq_flag != 0) {
-		ret = wait_event_interruptible_timeout(mdev->wq,
-				mdev->irq_flag == 0, msecs_to_jiffies(RTI_TIMEOUT));
-		if (ret == 0) {
-			printk("jdgc: stalled irq_flag, expect a timeout!!\n");
-		}
-	}
 	mdev->irq_flag = 1;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
