@@ -493,8 +493,6 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 	struct memory_map_s *memory_map;
 
 	memory_map = mdev->memory_map;
-
-	spin_lock(&mdev->lock);
 	if (mdev->busy_done == BC_DONE) {       /** Make sure no transaction in progress */
 		for (rti=1; rti<=30; rti++) {   /** Next RTI to poll */
 			txreg = ((1  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
@@ -505,7 +503,6 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
-	spin_unlock(&mdev->lock);
 }
 
 /**
