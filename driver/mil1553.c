@@ -459,7 +459,6 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	int i, timeleft;
 
 	mutex_lock(&mdev->tx_attempt);
-	mdev->irq_flag = 1;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
@@ -472,7 +471,6 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	timeleft = wait_for_completion_interruptible_timeout(
 		&mdev->int_pending, msecs_to_jiffies(RTI_TIMEOUT));
 	if (timeleft <= 0) {
-		mdev->irq_flag = 0;
 		reset_tx_queue(mdev);
 		printk(KERN_ERR "mil1553: wait interrupt timeout!\n");
 	}
@@ -910,7 +908,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
-	mdev->irq_flag = 0;
 	complete(&mdev->int_pending);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
@@ -1657,7 +1654,6 @@ int mil1553_install(void)
 			}
 
 			mdev->bc = bc;
-			mdev->irq_flag = 0;
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
 			init_completion(&mdev->int_pending);

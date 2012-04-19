@@ -165,8 +165,7 @@ struct mil1553_device_s {
 	uint32_t             icnt;        /** Device interrupt count */
 	uint32_t             tx_count;    /** Device TX count */
 	struct completion    int_pending; /** to wait for interrupt after TX */
-	int		     irq_flag;	  /** Signals irq pending state */
-	struct mutex         tx_attempt;  /** protects irq_flag */
+	struct mutex         tx_attempt;  /** protects TX CMD register */
 };
 
 /**
