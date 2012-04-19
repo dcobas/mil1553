@@ -615,10 +615,8 @@ static void _start_tx(int debug_level,
 static void start_tx(int debug_level,
 		     struct mil1553_device_s *mdev)
 {
-	spin_lock(&mdev->lock);
 	if (mdev->busy_done == BC_DONE)      /** If transaction in progress no need */
 		_start_tx(debug_level,mdev); /** to start, leave that to the ISR    */
-	spin_unlock(&mdev->lock);
 }
 
 /**
