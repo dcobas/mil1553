@@ -164,7 +164,7 @@ struct mil1553_device_s {
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	uint32_t             icnt;        /** Device interrupt count */
 	uint32_t             tx_count;    /** Device TX count */
-	wait_queue_head_t    wq;	  /** Wait to synchronize with IRQ */
+	struct completion    int_pending; /** to wait for interrupt after TX */
 	int		     irq_flag;	  /** Signals irq pending state */
 	struct mutex         tx_attempt;  /** protects irq_flag */
 };

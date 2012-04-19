@@ -456,7 +456,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
-	int i, ret;
+	int i, timeleft;
 
 	mutex_lock(&mdev->tx_attempt);
 	mdev->irq_flag = 1;
@@ -469,14 +469,15 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 		printk("jdgc: should this happen?\n");
 		udelay(TX_WAIT_US);
 	}
-	ret = wait_event_interruptible_timeout(mdev->wq,
-			mdev->irq_flag == 0, msecs_to_jiffies(RTI_TIMEOUT));
-	if (ret == 0) {
+	timeleft = wait_for_completion_interruptible_timeout(
+		&mdev->int_pending, msecs_to_jiffies(RTI_TIMEOUT));
+	if (timeleft <= 0) {
+		mdev->irq_flag = 0;
 		reset_tx_queue(mdev);
-		printk("jdgc: line %d timeout!\n", __LINE__);
+		printk("mil1553: line %d timeout! missing int\n", __LINE__);
 	}
 	mutex_unlock(&mdev->tx_attempt);
-	return ret;
+	return timeleft;
 }
 
 static void ping_rtis(struct mil1553_device_s *mdev)
@@ -910,7 +911,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	mdev->icnt++;
 	wa.icnt++;
 	mdev->irq_flag = 0;
-	wake_up_interruptible(&mdev->wq);
+	complete(&mdev->int_pending);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	if (isrc & ISRC_TIME_OUT) {
@@ -1659,7 +1660,7 @@ int mil1553_install(void)
 			mdev->irq_flag = 0;
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
-			init_waitqueue_head(&mdev->wq);
+			init_completion(&mdev->int_pending);
 			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
