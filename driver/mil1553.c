@@ -451,7 +451,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 4
+#define CBMIA_INT_TIMEOUT 10
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -904,8 +904,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if ((isrc & ISRC) == 0)
 		return IRQ_NONE;
 
-	if (out_of_bounds)
-		printk(KERN_ERR "mil1553: isr, tx_count %d!\n", mdev->tx_count);
 	mdev->icnt++;
 	wa.icnt++;
 	complete(&mdev->int_pending);
