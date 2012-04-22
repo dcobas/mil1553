@@ -651,40 +651,6 @@ int tdebug, cc;
 
 /* ============================= */
 
-int GetSetPolling(int arg) {
-ArgVal   *v;
-AtomType  at;
-
-int polling, cc;
-
-   arg++;
-
-   v = &(vals[arg]);
-   at = v->Type;
-   if (at == Numeric) {
-      arg++;
-      if (v->Number) polling = 0;
-      else           polling = 1;
-      cc = milib_set_polling(milf,polling);
-      if (cc)
-	 mil1553_print_error(cc);
-   }
-
-   cc = milib_get_polling(milf,&polling);
-   if (cc)
-      mil1553_print_error(cc);
-
-   printf("RTI polling:%d = ",polling);
-   if (polling)
-      printf("ON\n");
-   else
-      printf("OFF\n");
-
-   return arg;
-}
-
-/* ============================= */
-
 char *tpnames[] = {
 	[CMD_TP_TRANSACTION_IN_PROGRESS] = "Transaction in progress",
 	[CMD_TP_TX_ENABLE]		 = "TX Enable",
