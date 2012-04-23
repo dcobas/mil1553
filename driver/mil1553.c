@@ -860,6 +860,8 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		if (qs)
 			return 0;
 
+		printk(KERN_ERR "mil1553: jdgc: this should not happen\n");
+		printk(KERN_ERR "mil1553: jdgc: qs == 0\n");
 		icnt = client->icnt;
 		cc = wait_event_interruptible_timeout(client->wait_queue,
 						     icnt != client->icnt,
