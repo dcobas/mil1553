@@ -461,7 +461,8 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, timeleft;
 
-	mutex_lock_interruptible(&mdev->tx_attempt);
+	if (mutex_lock_interruptible(&mdev->tx_attempt) != 0)
+		return -EINTR;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
@@ -868,9 +869,10 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 			for (i=0; i<wc +1; i++) /* Prepended status */
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
 
-			printk("jdgc: dumping packet\n");
-			if (dump_packet)
-				dump(mrecv->interrupt.rxbuf, mrecv->interrupt.wc);
+			if (dump_packet && wc > 40) {
+				printk("jdgc: dumping packet\n");
+				dump(rti_interrupt->rxbuf, wc+1);
+			}
 			get_next_rp(rp,*wp,QSZ);
 		}
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
@@ -1474,8 +1476,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				return -ENOMEM;
 			}
 			cc = copy_from_user(buf, msend->tx_item_array, blen);
-			if (blen != 1) {
-				printk(KERN_ERR "jdgc: warning: MIL1553_SEND called with blen != 1\n");
+			if (msend->item_count != 1) {
+				printk(KERN_ERR "jdgc: warning: MIL1553_SEND called with item_count %d != 1\n", msend->item_count);
 			}
 			if (cc) {
 				kfree(buf);
