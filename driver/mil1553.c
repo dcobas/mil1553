@@ -869,7 +869,7 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 			for (i=0; i<wc +1; i++) /* Prepended status */
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
 
-			if (dump_packet && wc > 40) {
+			if (dump_packet && wc > 20) {
 				printk("jdgc: dumping packet\n");
 				dump(rti_interrupt->rxbuf, wc+1);
 			}
