@@ -69,6 +69,9 @@ MODULE_PARM_DESC(bcs,       "bus controller number 1..8");
 MODULE_PARM_DESC(pci_buses, "pci bus number");
 MODULE_PARM_DESC(pci_slots, "pci slot number");
 
+static int dump_packet;			/* to dump corrupted packets */
+module_param(dump_packet, int, 0);
+
 #ifndef COMPILE_TIME
 #define COMPILE_TIME 0
 #endif
@@ -886,6 +889,17 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
  * wakes him up, and starts the next transaction.
  */
 
+static void dump(uint32_t *rxbuf, int wc)
+{
+	int i;
+
+	printk("jdgc: wc = %d\n", wc);
+	for (i = 0; i < (wc + 2) / 2; i++) {
+		printk(": %04x %04x\n", rxbuf[i*2 + 0], rxbuf[i*2 + 1]);
+	}
+	printk("jdgc:\n");
+}
+
 static irqreturn_t mil1553_isr(int irq, void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
@@ -974,12 +988,15 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			       rti_interrupt->rxbuf[i*2 + 1] = lreg >> 16;
 			       rti_interrupt->rxbuf[i*2 + 0] = lreg & 0xFFFF;
 			}
+			printk("jdgc: dumping packet\n");
+			if (dump_packet)
+				dump(rti_interrupt->rxbuf, rti_interrupt->wc);
 		}
 
 		get_next_wp(*rp,wp,QSZ);
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
 
-		if (tx_item->pk_type & client->pk_type) /* Wake only demanded types */
+		if (tx_item->pk_type & client->pk_type)	/* Wake only demanded types */
 			wake_up(&client->wait_queue);
 	}
 
