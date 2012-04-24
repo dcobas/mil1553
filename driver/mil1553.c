@@ -461,7 +461,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, timeleft;
 
-	mutex_lock(&mdev->tx_attempt);
+	mutex_lock_interruptible(&mdev->tx_attempt);
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
@@ -825,6 +825,17 @@ static int send_items(struct client_s *client,
  * is empty the call waits for a wake up call from the ISR or times out.
  */
 
+static void dump(uint32_t *rxbuf, int wc)
+{
+	int i;
+
+	printk("jdgc: wc = %d\n", wc);
+	for (i = 0; i < (wc + 2) / 2; i++) {
+		printk(": %04x %04x\n", rxbuf[i*2 + 0], rxbuf[i*2 + 1]);
+	}
+	printk("jdgc:\n");
+}
+
 int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 {
 	unsigned long flags;
@@ -857,6 +868,9 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 			for (i=0; i<wc +1; i++) /* Prepended status */
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
 
+			printk("jdgc: dumping packet\n");
+			if (dump_packet)
+				dump(mrecv->interrupt.rxbuf, mrecv->interrupt.wc);
 			get_next_rp(rp,*wp,QSZ);
 		}
 		spin_unlock_irqrestore(&rx_queue->lock,flags);
@@ -889,16 +903,6 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
  * wakes him up, and starts the next transaction.
  */
 
-static void dump(uint32_t *rxbuf, int wc)
-{
-	int i;
-
-	printk("jdgc: wc = %d\n", wc);
-	for (i = 0; i < (wc + 2) / 2; i++) {
-		printk(": %04x %04x\n", rxbuf[i*2 + 0], rxbuf[i*2 + 1]);
-	}
-	printk("jdgc:\n");
-}
 
 static irqreturn_t mil1553_isr(int irq, void *arg)
 {
@@ -988,9 +992,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			       rti_interrupt->rxbuf[i*2 + 1] = lreg >> 16;
 			       rti_interrupt->rxbuf[i*2 + 0] = lreg & 0xFFFF;
 			}
-			printk("jdgc: dumping packet\n");
-			if (dump_packet)
-				dump(rti_interrupt->rxbuf, rti_interrupt->wc);
 		}
 
 		get_next_wp(*rp,wp,QSZ);
@@ -1000,7 +1001,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 			wake_up(&client->wait_queue);
 	}
 
-	/** Remember that some items can have both START and END set */
+	/** Remember that some items can have both START and END set */ 
 	if (tx_item->pk_type & TX_START)         /** Start packet stream */
 		mdev->busy_done = BC_BUSY;       /** Set Transaction start */
 
@@ -1473,6 +1474,9 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				return -ENOMEM;
 			}
 			cc = copy_from_user(buf, msend->tx_item_array, blen);
+			if (blen != 1) {
+				printk(KERN_ERR "jdgc: warning: MIL1553_SEND called with blen != 1\n");
+			}
 			if (cc) {
 				kfree(buf);
 				if (client->debug_level > 4)
