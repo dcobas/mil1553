@@ -451,7 +451,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 15
+#define CBMIA_INT_TIMEOUT 10
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -860,8 +860,8 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 		if (qs)
 			return 0;
 
-		printk(KERN_ERR "mil1553: jdgc: this should not happen\n");
-		printk(KERN_ERR "mil1553: jdgc: qs == 0\n");
+		// printk(KERN_ERR "mil1553: jdgc: this should not happen\n");
+		// printk(KERN_ERR "mil1553: jdgc: qs == 0\n");
 		icnt = client->icnt;
 		cc = wait_event_interruptible_timeout(client->wait_queue,
 						     icnt != client->icnt,
@@ -908,7 +908,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
-	complete(&mdev->int_pending);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	if (isrc & ISRC_TIME_OUT) {
@@ -935,6 +934,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
+		complete(&mdev->int_pending);
 		return IRQ_HANDLED;
 	}
 	tx_item = &(tx_queue->tx_item[*rp]); /* Get item at read pointer */
@@ -944,6 +944,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
+		complete(&mdev->int_pending);
 		return IRQ_HANDLED;
 	}
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
@@ -983,13 +984,13 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	}
 
 	/** Remember that some items can have both START and END set */
-
 	if (tx_item->pk_type & TX_START)         /** Start packet stream */
 		mdev->busy_done = BC_BUSY;       /** Set Transaction start */
 
 	if (tx_item->pk_type & TX_END)           /** End packet stream */
 		mdev->busy_done = BC_DONE;       /** Transaction done */
 
+	complete(&mdev->int_pending);
 	return IRQ_HANDLED;
 }
 
