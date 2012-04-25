@@ -826,15 +826,108 @@ static int send_items(struct client_s *client,
  * is empty the call waits for a wake up call from the ISR or times out.
  */
 
-static void dump(uint32_t *rxbuf, int wc)
+struct acq_msg {
+
+	/* req_msg */
+
+	short     family;
+	char      type;
+	char      sub_family;
+	short     member;
+	short     service;
+	short	  machine_number;
+	short	  pls_line;
+	short	  unix_seconds;
+	short	  unix_us;
+	short     specialist;
+
+	/* specific part */
+
+	unsigned char phys_status; /*  0 - PHY_STUS_NOT_DEFINED
+				       1 - PHY_STUS_OPERATIONAL
+				       2 - PHY_STUS_PARTIALLY_OPERATIONAL
+				       3 - PHY_STUS_NOT_OPERATIONAL
+				       4 - PHY_STUS_NEEDS_COMMISIONING */
+
+	unsigned char static_status; /* enum TConverterState from types.h */
+	unsigned char ext_aspect;    /* enum Texternal_aspects from types.h */
+	unsigned char status_qualif; /* bitfield.
+					b0 - interlock fault
+					b1 - unresettable fault
+					b2 - resettable fault
+					b3 - busy
+					b4 - warning
+					b5 - CCV out of limits in G64
+					(CCV == current control value)
+					b6 - forewarning pulse missing
+					b7 - veto security */
+	short         busytime;
+	uint32_t         aqn;
+	uint32_t         aqn1;
+	uint32_t         aqn2;
+	uint32_t         aqn3;
+};
+
+void mil1553_print_acq_msg(struct acq_msg *acq_p) {
+
+	int sec, usec;
+
+	sec  = acq_p->unix_seconds;
+	usec = acq_p->unix_us;
+
+	if (acq_p->ext_aspect != 4)
+		return;
+	printk(KERN_ERR"==> AcquisitionMessage: ");
+	printk(KERN_ERR"Sec:0x%08X Usec:0x%08X\n",sec,usec);
+	printk(KERN_ERR"   PhysicalStatus :%02d",acq_p->phys_status);
+	if (acq_p->phys_status == 0) printk(KERN_ERR" ==> NotDefined");
+	if (acq_p->phys_status == 1) printk(KERN_ERR" ==> Operational");
+	if (acq_p->phys_status == 2) printk(KERN_ERR" ==> PartialOperation");
+	if (acq_p->phys_status == 3) printk(KERN_ERR" ==> NotInOperation");
+	if (acq_p->phys_status == 4) printk(KERN_ERR" ==> NeedsComissioning");
+	printk(KERN_ERR"\n");
+	printk(KERN_ERR"   ConvertorStatus:%02d",acq_p->static_status);
+	if (acq_p->static_status == 0 ) printk(KERN_ERR" ==> Unconfigured");
+	if (acq_p->static_status == 1 ) printk(KERN_ERR" ==> Off");
+	if (acq_p->static_status == 2 ) printk(KERN_ERR" ==> Standby");
+	if (acq_p->static_status == 3 ) printk(KERN_ERR" ==> On");
+	if (acq_p->static_status == 4 ) printk(KERN_ERR" ==> AtPowerOn");
+	if (acq_p->static_status == 5 ) printk(KERN_ERR" ==> BeforeStandby");
+	if (acq_p->static_status == 6 ) printk(KERN_ERR" ==> BeforeOff");
+	if (acq_p->static_status == 7 ) printk(KERN_ERR" ==> OffToOnRetarded");
+	if (acq_p->static_status == 8 ) printk(KERN_ERR" ==> OffToStandbyRetarded");
+	if (acq_p->static_status == 9 ) printk(KERN_ERR" ==> WaitingCurrentZero_1");
+	if (acq_p->static_status == 10) printk(KERN_ERR" ==> WaitingCurrentZero_2");
+	printk(KERN_ERR"\n");
+	printk(KERN_ERR"   ExternalAspects:%02d",acq_p->ext_aspect);
+	if (acq_p->ext_aspect == 0) printk(KERN_ERR" ==> NotDefined");
+	if (acq_p->ext_aspect == 1) printk(KERN_ERR" ==> NotConnected");
+	if (acq_p->ext_aspect == 2) printk(KERN_ERR" ==> Local");
+	if (acq_p->ext_aspect == 3) printk(KERN_ERR" ==> Remote");
+	if (acq_p->ext_aspect == 4) printk(KERN_ERR" ==> VetoSecurity");
+	if (acq_p->ext_aspect == 5) printk(KERN_ERR" ==> BeamToDump");
+	printk(KERN_ERR"\n");
+	printk(KERN_ERR"   StatusQualifier:0x%02hx ==> ",acq_p->status_qualif);
+	if (acq_p->status_qualif & 0x01) printk(KERN_ERR"InterlockFault:");
+	if (acq_p->status_qualif & 0x02) printk(KERN_ERR"UnresetableFault:");
+	if (acq_p->status_qualif & 0x04) printk(KERN_ERR"ResetableFault:");
+	if (acq_p->status_qualif & 0x08) printk(KERN_ERR"Busy:");
+	if (acq_p->status_qualif & 0x10) printk(KERN_ERR"Warning:");
+	if (acq_p->status_qualif & 0x20) printk(KERN_ERR"CCVOutOfRange:");
+	if (acq_p->status_qualif & 0x40) printk(KERN_ERR"ForewarningPulseMissing:");
+	if (acq_p->status_qualif & 0x80) printk(KERN_ERR"VetoSecurity:");
+	printk(KERN_ERR"\n");
+	printk(KERN_ERR"   BusyTime       :%02d\n",acq_p->busytime);
+	printk(KERN_ERR"   aqn|[1-3]      :%x %x %x %x\n",acq_p->aqn,acq_p->aqn1,acq_p->aqn2,acq_p->aqn3);
+	printk(KERN_ERR"<==\n");
+}
+
+static void packet_dump(uint32_t *rxbuf, int wc)
 {
 	int i;
+	struct acq_msg *msg = (struct acq_msg *)rxbuf;
 
-	printk("jdgc: wc = %d\n", wc);
-	for (i = 0; i < (wc + 2) / 2; i++) {
-		printk(": %04x %04x\n", rxbuf[i*2 + 0], rxbuf[i*2 + 1]);
-	}
-	printk("jdgc:\n");
+	mil1553_print_acq_msg(msg);
 }
 
 int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
@@ -870,8 +963,7 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 				mrecv->interrupt.rxbuf[i] = rti_interrupt->rxbuf[i];
 
 			if (dump_packet && wc > 20) {
-				printk("jdgc: dumping packet\n");
-				dump(rti_interrupt->rxbuf, wc+1);
+				packet_dump(rti_interrupt->rxbuf, wc+1);
 			}
 			get_next_rp(rp,*wp,QSZ);
 		}

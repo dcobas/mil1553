@@ -1447,7 +1447,7 @@ int cc, up_rtis;
       mil1553_print_error(cc);
    }
                                                                                                                                                                     
-   if (trti && ((1 << trti) & up_rtis))                                                                                                                             
+   if (trti)
       rti = trti;                                                                                                                                                   
                                                                                                                                                                     
    printf("Current RTI:%02d\n",rti);                                                                                                                                
