@@ -454,7 +454,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 50
+#define CBMIA_INT_TIMEOUT 3
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -473,7 +473,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 		udelay(TX_WAIT_US);
 	}
 	timeleft = wait_for_completion_interruptible_timeout(
-		&mdev->int_pending, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
+		&mdev->int_pending, msecs_to_jiffies(CBMIA_INT_TIMEOUT));
 	if (timeleft <= 0) {
 		reset_tx_queue(mdev);
 		printk(KERN_ERR "mil1553: wait interrupt timeout at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
