@@ -459,28 +459,30 @@ static int raw_write(struct mil1553_device_s *mdev,
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
-	int i, timeleft;
+	int i, irqs, timeleft;
 
 	if (mutex_lock_interruptible(&mdev->tx_attempt) != 0) {
 		printk(KERN_ERR "mil1553: TX aborted by signal\n");
 		return -EINTR;
 	}
+	irqs = mdev->icnt;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
 			mdev->tx_count++;
 			break;
 		}
-		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT == 0; missing interrupt at" 
-		" tx_count %d, us %ld on pid %d\n", mdev->tx_count,
-		jiffies_to_msecs(jiffies), current->pid);
+		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT != 0 in do_start_tx; "
+				"tx_count %d, ms %u on pid %d\n", mdev->tx_count,
+					jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
 	}
-	timeleft = wait_for_completion_interruptible_timeout(
-		&mdev->int_pending, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
+	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
+			mdev->icnt != irqs, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
 	if (timeleft <= 0) {
 		reset_tx_queue(mdev);
-		printk(KERN_ERR "mil1553: wait interrupt timeout at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
+		printk(KERN_ERR "mil1553: wait interrupt timeout or signal"
+				"at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
 	}
 	mutex_unlock(&mdev->tx_attempt);
 	return timeleft;
@@ -1039,7 +1041,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
-	complete(&mdev->int_pending);
+	wake_up_interruptible(&mdev->int_complete);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	if (isrc & ISRC_TIME_OUT) {
@@ -1066,7 +1068,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
-		complete(&mdev->int_pending);
 		return IRQ_HANDLED;
 	}
 	tx_item = &(tx_queue->tx_item[*rp]); /* Get item at read pointer */
@@ -1076,7 +1077,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
-		complete(&mdev->int_pending);
 		return IRQ_HANDLED;
 	}
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
@@ -1791,7 +1791,7 @@ int mil1553_install(void)
 			mdev->bc = bc;
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
-			init_completion(&mdev->int_pending);
+			init_waitqueue_head(&mdev->int_complete);
 			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
