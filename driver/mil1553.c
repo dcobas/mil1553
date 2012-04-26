@@ -454,15 +454,17 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 900
+#define CBMIA_INT_TIMEOUT 2000	/* in us */
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, timeleft;
 
-	if (mutex_lock_interruptible(&mdev->tx_attempt) != 0)
+	if (mutex_lock_interruptible(&mdev->tx_attempt) != 0) {
+		printk(KERN_ERR "mil1553: TX aborted by signal\n");
 		return -EINTR;
+	}
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
