@@ -454,7 +454,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 10
+#define CBMIA_INT_TIMEOUT 50
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -473,7 +473,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 		udelay(TX_WAIT_US);
 	}
 	timeleft = wait_for_completion_interruptible_timeout(
-		&mdev->int_pending, msecs_to_jiffies(CBMIA_INT_TIMEOUT));
+		&mdev->int_pending, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
 	if (timeleft <= 0) {
 		reset_tx_queue(mdev);
 		printk(KERN_ERR "mil1553: wait interrupt timeout at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
@@ -868,6 +868,17 @@ struct acq_msg {
 	uint32_t         aqn3;
 };
 
+void dump(uint32_t *buf, int wc)
+{
+	int i;
+
+	printk("VetoSecurity packt: wc = %d\n", wc);
+	for (i = 0; i < (wc + 2) / 2; i++) {
+		printk(": %04x %04x\n", buf[i*2 + 0], buf[i*2 + 1]);
+	}
+	printk("\n");
+}
+
 void mil1553_print_acq_msg(struct acq_msg *acq_p) {
 
 	int sec, usec;
@@ -875,8 +886,6 @@ void mil1553_print_acq_msg(struct acq_msg *acq_p) {
 	sec  = acq_p->unix_seconds;
 	usec = acq_p->unix_us;
 
-	if (acq_p->ext_aspect != 4)
-		return;
 	printk(KERN_ERR"==> AcquisitionMessage: ");
 	printk(KERN_ERR"Sec:0x%08X Usec:0x%08X\n",sec,usec);
 	printk(KERN_ERR"   PhysicalStatus :%02d",acq_p->phys_status);
@@ -924,9 +933,15 @@ void mil1553_print_acq_msg(struct acq_msg *acq_p) {
 
 static void packet_dump(uint32_t *rxbuf, int wc)
 {
-	int i;
 	struct acq_msg *msg = (struct acq_msg *)rxbuf;
+	uint32_t copy[64];
 
+	memcpy(copy, rxbuf, wc);
+
+	if (msg->ext_aspect != 4)
+		return;
+	dump(copy, wc);
+	msg = (struct acq_msg *)copy;
 	mil1553_print_acq_msg(msg);
 }
 
@@ -973,6 +988,7 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 
 		// printk(KERN_ERR "mil1553: jdgc: this should not happen\n");
 		// printk(KERN_ERR "mil1553: jdgc: qs == 0\n");
+		return -ETIME;
 		icnt = client->icnt;
 		cc = wait_event_interruptible_timeout(client->wait_queue,
 						     icnt != client->icnt,
