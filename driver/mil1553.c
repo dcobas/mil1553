@@ -454,7 +454,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 3
+#define CBMIA_INT_TIMEOUT 900
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -473,7 +473,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 		udelay(TX_WAIT_US);
 	}
 	timeleft = wait_for_completion_interruptible_timeout(
-		&mdev->int_pending, msecs_to_jiffies(CBMIA_INT_TIMEOUT));
+		&mdev->int_pending, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
 	if (timeleft <= 0) {
 		reset_tx_queue(mdev);
 		printk(KERN_ERR "mil1553: wait interrupt timeout at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
@@ -988,7 +988,6 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 
 		// printk(KERN_ERR "mil1553: jdgc: this should not happen\n");
 		// printk(KERN_ERR "mil1553: jdgc: qs == 0\n");
-		return -ETIME;
 		icnt = client->icnt;
 		cc = wait_event_interruptible_timeout(client->wait_queue,
 						     icnt != client->icnt,
@@ -1036,6 +1035,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
+	complete(&mdev->int_pending);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	if (isrc & ISRC_TIME_OUT) {
@@ -1118,7 +1118,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if (tx_item->pk_type & TX_END)           /** End packet stream */
 		mdev->busy_done = BC_DONE;       /** Transaction done */
 
-	complete(&mdev->int_pending);
 	return IRQ_HANDLED;
 }
 
