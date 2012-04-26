@@ -477,12 +477,14 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 					jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
 	}
-	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-			mdev->icnt != irqs, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
-	if (timeleft <= 0) {
-		reset_tx_queue(mdev);
-		printk(KERN_ERR "mil1553: wait interrupt timeout or signal"
-				"at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
+	if (irqs == mdev->icnt) {
+		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
+				mdev->icnt != irqs, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
+		if (timeleft < 0) {
+			reset_tx_queue(mdev);
+			printk(KERN_ERR "mil1553: wait interrupt timeout or signal"
+					"at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
+		}
 	}
 	mutex_unlock(&mdev->tx_attempt);
 	return timeleft;
