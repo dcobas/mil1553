@@ -456,7 +456,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_WAIT_US 10
 #define CBMIA_INT_TIMEOUT 2	/* in ms */
 
-static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
+static int do_start_tx_(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, irqs, timeleft;
@@ -477,17 +477,40 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 					jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
 	}
-	if (irqs == mdev->icnt) {
-		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-				mdev->icnt != irqs, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
-		if (timeleft < 0) {
-			reset_tx_queue(mdev);
-			printk(KERN_ERR "mil1553: wait interrupt timeout or signal"
-					"at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
-		}
+	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
+			mdev->icnt != irqs, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
+	if (timeleft < 0) {
+		reset_tx_queue(mdev);
+		printk(KERN_ERR "mil1553: wait interrupt timeout or signal"
+				"at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
 	}
 	mutex_unlock(&mdev->tx_attempt);
 	return timeleft;
+}
+
+static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
+{
+	struct memory_map_s *memory_map = mdev->memory_map;
+	int i;
+
+	 do {
+		wait_event_interruptible(mdev->int_complete, atomic_read(&mdev->busy) == 0);
+		if (signal_pending(current))
+			return -ERESTARTSYS;
+	} while (atomic_xchg(&mdev->busy, 1));
+
+	for (i = 0; i < TX_TRIES; i++) {
+		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
+			iowrite32be(txreg, &memory_map->txreg);
+			mdev->tx_count++;
+			break;
+		}
+		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT != 0 in do_start_tx; "
+				"tx_count %d, ms %u on pid %d\n", mdev->tx_count,
+					jiffies_to_msecs(jiffies), current->pid);
+		udelay(TX_WAIT_US);
+	}
+	return 0;
 }
 
 static void ping_rtis(struct mil1553_device_s *mdev)
@@ -1043,6 +1066,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
+	if (!atomic_xchg(&mdev->busy, 0)) {
+		printk("mil1553 horror\n");
+	}
 	wake_up_interruptible(&mdev->int_complete);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
@@ -1794,6 +1820,7 @@ int mil1553_install(void)
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
 			init_waitqueue_head(&mdev->int_complete);
+			atomic_set(&mdev->busy, 0);
 			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
