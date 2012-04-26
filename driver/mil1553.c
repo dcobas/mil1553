@@ -454,7 +454,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 2000	/* in us */
+#define CBMIA_INT_TIMEOUT 2	/* in ms */
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -471,7 +471,9 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 			mdev->tx_count++;
 			break;
 		}
-		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT == 0; missing interrupt at tx_count %d\n", mdev->tx_count);
+		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT == 0; missing interrupt at" 
+		" tx_count %d, us %ld on pid %d\n", mdev->tx_count,
+		jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
 	}
 	timeleft = wait_for_completion_interruptible_timeout(
