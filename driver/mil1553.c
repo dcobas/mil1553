@@ -1072,10 +1072,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	mdev->icnt++;
 	wa.icnt++;
-	if (!atomic_xchg(&mdev->busy, 0)) {
-		printk("mil1553 horror\n");
-	}
-	wake_up_interruptible(&mdev->int_complete);
 
 	rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT; /** Zero on timeout */
 	if (isrc & ISRC_TIME_OUT) {
@@ -1102,7 +1098,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
-		return IRQ_HANDLED;
+		goto handled;
 	}
 	tx_item = &(tx_queue->tx_item[*rp]); /* Get item at read pointer */
 	get_next_rp(rp,*wp,QSZ);             /* and set rp to the next item */
@@ -1111,7 +1107,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
-		return IRQ_HANDLED;
+		goto handled;
 	}
 	spin_unlock_irqrestore(&tx_queue->lock,flags);
 
@@ -1156,6 +1152,10 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	if (tx_item->pk_type & TX_END)           /** End packet stream */
 		mdev->busy_done = BC_DONE;       /** Transaction done */
 
+handled:
+	if (!atomic_xchg(&mdev->busy, 0))
+		printk("mil1553: horror in handler\n");
+	wake_up_interruptible(&mdev->int_complete);
 	return IRQ_HANDLED;
 }
 
