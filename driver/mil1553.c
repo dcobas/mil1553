@@ -1846,7 +1846,10 @@ int mil1553_install(void)
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
 			init_waitqueue_head(&mdev->int_complete);
+			init_waitqueue_head(&mdev->quick_wq);
 			atomic_set(&mdev->busy, 0);
+			atomic_set(&mdev->quick_owned, 0);
+			mdev->quick_owner = 0;
 			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
