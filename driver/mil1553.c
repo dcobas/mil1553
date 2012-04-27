@@ -451,11 +451,7 @@ static int raw_write(struct mil1553_device_s *mdev,
  * the corresponding bit in an new RTI present mask.
  */
 
-#define BETWEEN_TRIES_MS 1
-#define TX_TRIES 100
-#define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT 2	/* in ms */
-
+#if 0
 static int do_start_tx_(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
@@ -487,8 +483,13 @@ static int do_start_tx_(struct mil1553_device_s *mdev, uint32_t txreg)
 	mutex_unlock(&mdev->tx_attempt);
 	return timeleft;
 }
+#endif
 
-#define INT_MISSING_TIMEOUT msecs_to_jiffies(20000)
+#define BETWEEN_TRIES_MS 1
+#define TX_TRIES 100
+#define TX_WAIT_US 10
+#define CBMIA_INT_TIMEOUT (msecs_to_jiffies(1))
+#define INT_MISSING_TIMEOUT (msecs_to_jiffies(20000))
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -523,7 +524,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	if (timeleft == 0)
 		printk(KERN_ERR "mil1553: interrupt pending"
 				" after %d msecs in bc %d\n",
-				CBMIA_INT_TIMEOUT, mdev->bc);
+				jiffies_to_msecs(CBMIA_INT_TIMEOUT), mdev->bc);
 	return 0;
 }
 
