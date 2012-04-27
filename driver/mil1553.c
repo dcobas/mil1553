@@ -1675,8 +1675,15 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = -EDEADLK;
 				goto error_exit;
 			}
-			mutex_lock(&mdev->bc_lock);
+			while (atomic_xchg(&mdev->quick_owned, 1)) {
+				wait_event_interruptible(mdev->quick_wq,
+							atomic_read(&mdev->quick_owned) == 0);
+				if (signal_pending(current))
+					return -ERESTARTSYS;
+			}
+			mdev->quick_owner = current->pid;
 			client->bc_locked = bc;
+			return 0;
 		break;
 
 		case mil1553UNLOCK_BC:
@@ -1691,7 +1698,10 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				goto error_exit;
 			}
 			client->bc_locked = 0;
-			mutex_unlock(&mdev->bc_lock);
+			mdev->quick_owner = 0;
+			BUG_ON(atomic_xchg(&mdev->quick_owned, 0) == 0);
+			wake_up(&mdev->quick_wq);
+			return 0;
 		break;
 
 		default:
@@ -1822,7 +1832,10 @@ int mil1553_install(void)
 			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
 			init_device(mdev);
 			init_waitqueue_head(&mdev->int_complete);
+			init_waitqueue_head(&mdev->quick_wq);
 			atomic_set(&mdev->busy, 0);
+			atomic_set(&mdev->quick_owned, 0);
+			mdev->quick_owner = 0;
 			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
