@@ -499,7 +499,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 			atomic_read(&mdev->busy) == 0, INT_MISSING_TIMEOUT);
 		if (timeleft == 0) {
-			printk(KERN_ERR "mil1553: missing int \n");
+			printk(KERN_ERR "mil1553: missing int in bc %d\n", mdev->bc);
 			atomic_set(&mdev->busy, 0);
 		}
 		if (signal_pending(current))
@@ -522,7 +522,8 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 					atomic_read(&mdev->busy) == 0, CBMIA_INT_TIMEOUT);
 	if (timeleft == 0)
 		printk(KERN_ERR "mil1553: interrupt pending"
-				" after %d msecs\n", CBMIA_INT_TIMEOUT);
+				" after %d msecs in bc %d\n",
+				CBMIA_INT_TIMEOUT, mdev->bc);
 	return 0;
 }
 
