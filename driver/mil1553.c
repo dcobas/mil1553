@@ -1642,6 +1642,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			spin_lock_irqsave(&rx_queue->lock,flags);
 			*ularg = get_queue_size(*rp,*wp,QSZ);
 			spin_unlock_irqrestore(&rx_queue->lock,flags);
+			if (*ularg > 1)
+				printk(KERN_ERR "jdgc: warning: client queue > 1 element\n");
 		break;
 
 		case mil1553RECV:
