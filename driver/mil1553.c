@@ -1561,6 +1561,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info->tx_count = mdev->tx_count;
 			dev_info->isrdebug = wa.isrdebug;
 			dev_info->jifd = mdev->jifd;
+			dev_info->quick_owned = atomic_read(&mdev->quick_owned);
+			dev_info->quick_owner = mdev->quick_owner;
 		break;
 
 		case mil1553RAW_READ:          /** Raw read PCI registers */
@@ -1702,10 +1704,16 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				goto error_exit;
 			}
 			while (atomic_xchg(&mdev->quick_owned, 1)) {
-				wait_event_interruptible(mdev->quick_wq,
-							atomic_read(&mdev->quick_owned) == 0);
+				cc = wait_event_interruptible_timeout(mdev->quick_wq,
+							atomic_read(&mdev->quick_owned) == 0,
+							msecs_to_jiffies(5000));
+				if (cc == 0)
+					printk(KERN_ERR "jdgc: could not get lock of BC %d owned by pid %d\n",
+						mdev->bc, mdev->quick_owner);
 				if (signal_pending(current))
 					return -ERESTARTSYS;
+				return -EDEADLK;
+
 			}
 			mdev->quick_owner = current->pid;
 			client->bc_locked = bc;

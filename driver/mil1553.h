@@ -193,6 +193,8 @@ struct mil1553_dev_info_s {
 	unsigned int rti_timeouts;            /** Target RTI didn't respond counter */
 	unsigned int tx_count;	              /** Number of tx initiated */
 	unsigned int jifd;	              /** max us time reply to date */
+	unsigned int quick_owned;	      /** owned device flag */
+	unsigned int quick_owner;	      /** owner of device */
 };
 
 /*
