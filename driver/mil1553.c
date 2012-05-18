@@ -667,8 +667,12 @@ static void _start_tx(int debug_level,
 static void start_tx(int debug_level,
 		     struct mil1553_device_s *mdev)
 {
+	mutex_lock_interruptible(&mdev->mutex);
 	if (mdev->busy_done == BC_DONE)      /** If transaction in progress no need */
 		_start_tx(debug_level,mdev); /** to start, leave that to the ISR    */
+	else
+		printk(KERN_ERR "jdgc: leaving transaction to ISR\n");
+	mutex_unlock(&mdev->mutex);
 }
 
 /**
@@ -1860,6 +1864,7 @@ int mil1553_install(void)
 			mdev->quick_owner = 0;
 			mdev->jifd = 0;
 			mutex_init(&mdev->tx_attempt);
+			mutex_init(&mdev->mutex);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
