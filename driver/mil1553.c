@@ -519,6 +519,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 					jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
 	}
+	udelay(3*TX_WAIT_US);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 					icnt < mdev->icnt, CBMIA_INT_TIMEOUT);
 	if (timeleft == 0)
