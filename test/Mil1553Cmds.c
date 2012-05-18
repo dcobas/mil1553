@@ -1067,6 +1067,9 @@ float temp, ftmo;
       printf("RTI response time:%4.3f us\n",ftmo);
    }
    printf("\n");
+   printf("Real max resp t  :%d\n",dev_info.jifd);
+   printf("BC owned         :%d\n",dev_info.quick_owned);
+   printf("BC owner pid     :%d\n",dev_info.quick_owner);
 
    printf("IsrTrace         :0x%08X\n",dev_info.isrdebug);
    printf("         RtiMask :0x%X\n",(dev_info.isrdebug & ISRC_RTI_MASK));

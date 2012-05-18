@@ -510,6 +510,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	icnt = mdev->icnt;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
+			mdev->jif0 = jiffies;
 			iowrite32be(txreg, &memory_map->txreg);
 			mdev->tx_count++;
 			break;
@@ -1074,6 +1075,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	uint32_t lreg, *lregp;
 	int i, rtin, pk_ok;
 	int timeout;
+	uint32_t delta;
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
@@ -1081,6 +1083,9 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		return IRQ_NONE;
 
 	mdev->icnt++;
+	delta = jiffies - mdev->jif0;
+	if (delta > mdev->jifd)
+		mdev->jifd = jiffies_to_usecs(delta);
 	wa.icnt++;
 	if (!atomic_xchg(&mdev->busy, 0)) {
 		printk("mil1553 horror\n");
@@ -1551,6 +1556,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info->icnt = mdev->icnt;
 			dev_info->tx_count = mdev->tx_count;
 			dev_info->isrdebug = wa.isrdebug;
+			dev_info->jifd = mdev->jifd;
 		break;
 
 		case mil1553RAW_READ:          /** Raw read PCI registers */
@@ -1852,6 +1858,7 @@ int mil1553_install(void)
 			atomic_set(&mdev->busy, 0);
 			atomic_set(&mdev->quick_owned, 0);
 			mdev->quick_owner = 0;
+			mdev->jifd = 0;
 			mutex_init(&mdev->tx_attempt);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
