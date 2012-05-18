@@ -1052,8 +1052,12 @@ float temp, ftmo;
    printf("Tx clash errors  :%d\n",dev_info.tx_clash_errors);
    printf("Tx count         :%d\n",dev_info.tx_count);
    printf("Interrupt count  :%d\n",dev_info.icnt);
-   printf("Tx = Rx + timeouts?  : %d = %d\n",
-		dev_info.tx_frames, dev_info.rx_frames + dev_info.timeouts);
+   printf("Tx = Rx + timeouts = ints?  : %d = %d = %d ... %s\n",
+		dev_info.tx_frames,
+		dev_info.rx_frames + dev_info.timeouts,
+		dev_info.icnt,
+		((dev_info.tx_frames == dev_info.rx_frames + dev_info.timeouts) &&
+		 (dev_info.tx_frames == dev_info.icnt)) ? "OK" : "bad!");
 
    tmo = dev_info.rti_timeouts;
    if (tmo >= 1023)
