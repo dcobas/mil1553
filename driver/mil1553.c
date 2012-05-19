@@ -1695,7 +1695,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553LOCK_BC:
-			break;
 			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {
@@ -1710,13 +1709,13 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 				cc = wait_event_interruptible_timeout(mdev->quick_wq,
 							atomic_read(&mdev->quick_owned) == 0,
 							msecs_to_jiffies(5000));
-				if (cc == 0)
+				if (cc == 0) {
 					printk(KERN_ERR "jdgc: could not get lock of BC %d owned by pid %d\n",
 						mdev->bc, mdev->quick_owner);
+					return -EFAULT;
+				}
 				if (signal_pending(current))
 					return -ERESTARTSYS;
-				return -EDEADLK;
-
 			}
 			mdev->quick_owner = current->pid;
 			client->bc_locked = bc;
@@ -1724,7 +1723,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553UNLOCK_BC:
-			break;
 			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {

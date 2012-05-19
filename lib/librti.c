@@ -358,23 +358,31 @@ int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 	/* Poll the TB bit WAIT_POLL times waiting WAIT_TB_us between tests */
 
 	tb = 0;
+	milib_lock_bc(fn, bc);
+
 	for (i=0; i<WAIT_POLLS; i++) {
 		cc = rtilib_read_str(fn,bc,rti,&str);
 		if (cc)
-			return cc;
+			goto exit;
 		tb = str & STR_TB;
-		if (tb) break;
+		if (tb)
+			break;
 		usleep(WAIT_TB_us); /* According to the man page this is thread safe */
 	}
 
-	if (!tb)
-		return -ETIMEDOUT;
+	if (!tb) {
+		cc = -ETIMEDOUT;
+		goto exit;
+	}
 
 	cc = rtilib_read_txbuf(fn,bc,rti,wc,rxbuf);
 	if (cc)
-		return cc;
+		goto exit;
 
-	return rtilib_clear_csr(fn,bc,rti,CSR_TB | CSR_INT);
+	cc = rtilib_clear_csr(fn,bc,rti,CSR_TB | CSR_INT);
+exit:
+	milib_unlock_bc(fn, bc);
+	return cc;
 }
 
 /* ===================================== */

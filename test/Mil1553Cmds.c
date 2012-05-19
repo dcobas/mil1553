@@ -1812,22 +1812,29 @@ int cc;
 
 int read_acq_msg(int arg) {
 
-acq_msg acq;
-int cc;
+   int cc;
+   struct quick_data_buffer acq, *quickptr_acq = &acq;
 
    arg++;
+   bzero(&quickptr_acq->pkt, sizeof(quickptr_acq->pkt));
 
-   bzero((void *) &acq, sizeof(acq_msg));
-   milib_lock_bc(milf,bc);
-   cc = mil1553_read_acq_msg(milf,bc,rti,&acq);
-   milib_unlock_bc(milf,bc);
+   quickptr_acq->bc = bc;
+   quickptr_acq->rt = rti;
+   quickptr_acq->next = NULL;
+
+   /* expected answer: we'll wait for packet 44 bytes long (22 words) */
+
+   quickptr_acq->pktcnt = sizeof(acq_msg);
+
+   cc = mil1553_get_quick_data(milf,quickptr_acq);
+
    if (cc) {
-      printf("mil1553_read_acq_msg:Error:%d\n",cc);
+      printf("mil1553_read_acq_msg:Error:%d:quick acq err:%d\n",cc, quickptr_acq->error);
       mil1553_print_error(cc);
       return arg;
    }
 
-   mil1553_print_acq_msg(&acq);
+   mil1553_print_acq_msg(&quickptr_acq->pkt);
    return arg;
 }
 
