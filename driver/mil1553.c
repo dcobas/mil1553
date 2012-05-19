@@ -1694,6 +1694,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553LOCK_BC:
+			return 0;
 			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {
@@ -1722,6 +1723,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553UNLOCK_BC:
+			return 0;
 			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {
