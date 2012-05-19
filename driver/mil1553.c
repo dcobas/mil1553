@@ -523,10 +523,11 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	udelay(3*TX_WAIT_US);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 					icnt < mdev->icnt, CBMIA_INT_TIMEOUT);
-	if (timeleft == 0)
+	if (timeleft <= 0)
 		printk(KERN_ERR "mil1553: interrupt pending"
-				" after %d msecs in bc %d\n",
-				jiffies_to_msecs(CBMIA_INT_TIMEOUT), mdev->bc);
+				" after %d msecs in bc %d, timeleft = %d\n",
+				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
+				mdev->bc, timeleft);
 	return 0;
 }
 
