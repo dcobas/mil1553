@@ -1829,6 +1829,7 @@ int read_acq_msg(int arg) {
    cc = mil1553_get_quick_data(milf,quickptr_acq);
 
    if (cc) {
+      return arg;
       printf("mil1553_read_acq_msg:Error:%d:quick acq err:%d\n",cc, quickptr_acq->error);
       mil1553_print_error(cc);
       return arg;
