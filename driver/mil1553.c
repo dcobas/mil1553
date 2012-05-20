@@ -799,13 +799,14 @@ static int send_items(struct client_s *client,
 
 		memset(&tx_item,0,sizeof(struct tx_item_s));
 		tx_item.client = client;
-		bc = item_array[i].bc;
-		tx_item.bc = bc;
-		client->bc = bc;
-		rtin = item_array[i].rti_number;
-		tx_item.rti_number = rtin;
+		
+		tx_item.bc = item_array[i].bc;
+		tx_item.rti_number = item_array[i].rti_number;
 		tx_item.txreg = item_array[i].txreg;
 		tx_item.no_reply = item_array[i].no_reply;
+
+		bc = client->bc = tx_item.bc;
+		rtin = tx_item.rti_number;
 
 		wc = get_wc(tx_item.txreg);
 		for (j=0; j<wc; j++) {
