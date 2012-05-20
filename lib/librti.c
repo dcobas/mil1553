@@ -1,6 +1,7 @@
 #include <libmil1553.h>
 #include <librti.h>
 #include <unistd.h>
+#include <time.h>
 
 #define DEBUG
 
@@ -348,12 +349,16 @@ int rtilib_read_txbuf(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
  */
 
 #define WAIT_POLLS 100
-#define WAIT_TB_us 1000
+#define WAIT_TB_us 300
 
 int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 
 	unsigned short str, tb;
 	int i, cc;
+	struct timespec req, rem;
+
+	req.tv_sec = 0;
+	req.tv_nsec = WAIT_TB_us * 1000;
 
 	/* Poll the TB bit WAIT_POLL times waiting WAIT_TB_us between tests */
 
@@ -367,7 +372,7 @@ int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 		tb = str & STR_TB;
 		if (tb)
 			break;
-		usleep(WAIT_TB_us); /* According to the man page this is thread safe */
+		nanosleep(&req, &rem); /* According to the man page this is thread safe */
 	}
 
 	if (!tb) {
