@@ -764,6 +764,9 @@ static int send_items(struct client_s *client,
 
 	if (item_count <= 0)
 		return 0;
+	if (item_count >1) {
+		printk(KERN_ERR "jdgc: send_items called with >1 item\n");
+	}
 
 	/* Check the RTIs are up */
 
