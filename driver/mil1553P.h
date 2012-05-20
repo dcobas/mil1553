@@ -160,6 +160,10 @@ struct mil1553_device_s {
 	uint32_t             up_rtis;     /** Last known up rtis mask */
 	uint32_t             new_up_rtis; /** New mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
+	uint32_t	     txbuf[TX_BUF_SIZE];
+					  /** Tx buffer */
+	uint32_t	     rxbuf[RX_BUF_SIZE+1];
+					  /** Rx buffer */
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	uint32_t             icnt;        /** Device interrupt count */
 	uint32_t             tx_count;    /** Device TX count */
