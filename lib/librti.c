@@ -119,6 +119,21 @@ int rtilib_empty_queue(int fn) {
 
 /* ===================================== */
 
+static void dump_buf(unsigned short *buf, int wc)
+{
+	int i;
+
+	printf("wc = %d\n", wc);
+	for (i = 0; i < wc; i++) {
+		if (i % 2 == 0)
+			printf("%04x: ", i);
+		printf("%04x ", buf[i]);
+		if (i % 2 == 1)
+			printf("\n");
+	}
+	printf("\n");
+}
+
 int rtilib_send_receive(int fn,
 			int bc,
 			int rti,
@@ -147,6 +162,11 @@ int rtilib_send_receive(int fn,
 	tx_item.txreg = txreg;
 	tx_item.no_reply = nreply;
 
+	printf("\njdgc: calling send_receive "
+		"%d:%d wc:%d sa:%d tr:%d %s -------------\n",
+		bc, rti, wc, sa, tr,
+		nreply? "noreply" : "reply");
+
 	if (txbuf) {
 		for (i=0; i<wc; i++) {
 			if (i >= TX_BUF_SIZE)
@@ -155,7 +175,10 @@ int rtilib_send_receive(int fn,
 		}
 	}
 
+	printf("jdgc: sending txbuf -----------\n");
+	dump_buf(txbuf, wc);
 	cc = milib_send(fn, &send);
+
 	if (cc)
 		return cc;
 
@@ -178,6 +201,8 @@ int rtilib_send_receive(int fn,
 			}
 		}
 	}
+	printf("jdgc: got rxbuf -----------\n");
+	dump_buf(rxbuf, wc);
 	return 0;
 }
 
