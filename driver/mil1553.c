@@ -444,47 +444,6 @@ static int raw_write(struct mil1553_device_s *mdev,
 	return res;
 }
 
-/**
- * =========================================================
- * Attempt to read the RTI signature from all RTIs 1..30, in
- * the case the RTI responds the resulting interrupt sets
- * the corresponding bit in an new RTI present mask.
- */
-
-#if 0
-static int do_start_tx_(struct mil1553_device_s *mdev, uint32_t txreg)
-{
-	struct memory_map_s *memory_map = mdev->memory_map;
-	int i, irqs, timeleft;
-
-	if (mutex_lock_interruptible(&mdev->tx_attempt) != 0) {
-		printk(KERN_ERR "mil1553: TX aborted by signal\n");
-		return -EINTR;
-	}
-	irqs = mdev->icnt;
-	for (i = 0; i < TX_TRIES; i++) {
-		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
-			iowrite32be(txreg, &memory_map->txreg);
-			mdev->tx_count++;
-			break;
-		}
-		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT != 0 in do_start_tx; "
-				"tx_count %d, ms %u on pid %d\n", mdev->tx_count,
-					jiffies_to_msecs(jiffies), current->pid);
-		udelay(TX_WAIT_US);
-	}
-	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-			mdev->icnt != irqs, usecs_to_jiffies(CBMIA_INT_TIMEOUT));
-	if (timeleft < 0) {
-		reset_tx_queue(mdev);
-		printk(KERN_ERR "mil1553: wait interrupt timeout or signal"
-				"at bc:tx_count %d:%d!\n", mdev->bc, mdev->tx_count);
-	}
-	mutex_unlock(&mdev->tx_attempt);
-	return timeleft;
-}
-#endif
-
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_RETRIES 5
