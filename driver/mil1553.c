@@ -1254,6 +1254,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	encode_txreg(&txreg, wc, sa, tr, rti);
 	if (wc > TX_BUF_SIZE)
 		wc = TX_BUF_SIZE;
+	regp = (uint32_t *) memory_map->txbuf;
 	for (i=0; i < (wc + 1) / 2; i++) {
 		reg  = txbuf[i*2 + 1] << 16;
 		reg |= txbuf[i*2 + 0] & 0xFFFF;
@@ -1386,6 +1387,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 	struct mil1553_send_s       *msend;
 	struct mil1553_recv_s       *mrecv;
 	struct mil1553_dev_info_s   *dev_info;
+	struct mil1553_send_recv_s  *sr;
 
 	struct rx_queue_s *rx_queue;
 	struct client_s   *client = (struct client_s *) filp->private_data;
@@ -1620,6 +1622,18 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			}
 			ping_rtis(mdev);
 			*ularg = mdev->up_rtis;
+		break;
+
+		case mil1553SEND_RECEIVE:
+			sr = mem;
+			if ((mdev = get_dev(sr->bc)) == NULL) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
+			cc = send_receive(mdev,
+				sr->rti, sr->wc, sr->sa, sr->tr,
+				sr->wants_reply,
+				sr->rxbuf, sr->txbuf);
 		break;
 
 		case mil1553SEND:

@@ -171,6 +171,18 @@ struct mil1553_recv_s {
 	struct mil1553_rti_interrupt_s interrupt;
 };
 
+struct mil1553_send_recv_s {
+	unsigned int bc;			/** bc to talk to */
+	unsigned int rti;			/** rti to talk to */
+	unsigned int wc;			/** word count of tx packet */
+	unsigned int tr;			/** read request bit */
+	unsigned int sa;			/** sub address */
+	unsigned int wants_reply;		/** 1 if recv is needed */
+	unsigned short txbuf[TX_BUF_SIZE];	/** Tx items */
+	unsigned short rxbuf[TX_BUF_SIZE+1];	/** status + Rx buffer */
+	unsigned int received_wc;		/** received wc */
+};
+
 struct mil1553_dev_info_s {
 	unsigned int bc;                      /** The BC you want to get info about */
 	unsigned int pci_bus_num;             /** PCI bus number */
@@ -239,6 +251,7 @@ typedef enum {
 
 	mil1553SET_TP,            /** Set up test points */
 	mil1553GET_TP,            /** Get test points */
+	mil1553SEND_RECEIVE,	  /** do a send/receive transaction */
 
 	mil1553LAST               /** For range checking (LAST - FIRST) */
 
@@ -277,5 +290,6 @@ typedef enum {
 #define MIL1553_GET_POLLING      PIOR(mil1553GET_POLLING,      unsigned long)
 #define MIL1553_SET_TP           PIOWR(mil1553SET_TP,          unsigned long)
 #define MIL1553_GET_TP           PIOWR(mil1553GET_TP,          unsigned long)
+#define MIL1553_SEND_RECEIVE	 PIOWR(mil1553SEND_RECEIVE,    struct mil1553_send_recv_s)
 
 #endif
