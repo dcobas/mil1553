@@ -130,53 +130,36 @@ int rtilib_send_receive(int fn,
 			unsigned short *rxbuf,
 			unsigned short *txbuf) {
 
-	struct mil1553_tx_item_s tx_item;
-	struct mil1553_send_s send;
-	struct mil1553_recv_s recv;
-	unsigned int txreg;
+	struct mil1553_send_recv_s sr, *srp = &sr;
 	int i, cc;
 
-	rtilib_empty_queue(fn);
-
-	milib_encode_txreg(&txreg,wc,sa,tr,rti);
-
-	send.item_count = 1;
-	send.tx_item_array = &tx_item;
-
-	tx_item.bc = bc;
-	tx_item.rti_number = rti;
-	tx_item.txreg = txreg;
-	tx_item.no_reply = nreply;
+	srp->bc = bc;
+	srp->rti = rti;
+	srp->wc = wc;
+	srp->tr= tr;
+	srp->sa= sa;
+	srp->wants_reply = !nreply;
 
 	if (txbuf) {
-		for (i=0; i<wc; i++) {
+		for (i = 0; i < wc; i++) {
 			if (i >= TX_BUF_SIZE)
 				break;
-			tx_item.txbuf[i] = txbuf[i];
+			srp->txbuf[i] = txbuf[i];
 		}
 	}
 
-	cc = milib_send(fn, &send);
+	cc = ioctl(fn, MIL1553_SEND_RECEIVE, srp);
 	if (cc)
 		return cc;
 
-	if (nreply == REPLY) {
+	if (!srp->wants_reply)
+		return cc;
 
-		bzero((void *) &recv, sizeof(struct mil1553_recv_s));
-
-		recv.pk_type = TX_ALL;
-		recv.timeout = RTI_TIMEOUT;
-
-		cc = milib_recv(fn, &recv);
-		if (cc)
-			return cc;
-
-		if (rxbuf) {
-			for (i=0; i<recv.interrupt.wc + 1; i++) {
-				if (i >= RX_BUF_SIZE)
-					break;
-				rxbuf[i] = recv.interrupt.rxbuf[i];
-			}
+	if (rxbuf) {
+		for (i = 0; i < srp->received_wc + 1; i++) {
+			if (i >= RX_BUF_SIZE)
+				break;
+			rxbuf[i] = srp->rxbuf[i];
 		}
 	}
 	return 0;
