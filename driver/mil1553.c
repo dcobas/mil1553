@@ -1184,7 +1184,7 @@ static irqreturn_t mil1553_isr_(int irq, void *arg)
 			wake_up(&client->wait_queue);
 	}
 
-	/** Remember that some items can have both START and END set */ 
+	/** Remember that some items can have both START and END set */
 	if (tx_item->pk_type & TX_START)         /** Start packet stream */
 		mdev->busy_done = BC_BUSY;       /** Set Transaction start */
 
@@ -1326,6 +1326,18 @@ static void encode_txreg(unsigned int *txreg,
 		       | ((rti << TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 }
 
+static void dump_buf(unsigned short *buf, int wc)
+{
+	int i;
+
+	for (i = 0; i < wc; i++) {
+		printk(KERN_ERR "%04x ", buf[i]);
+		if (i % 2 == 1)
+			printk(KERN_ERR "\n");
+	}
+	printk(KERN_ERR "\n");
+}
+
 static int send_receive(struct mil1553_device_s *mdev,
 			int rti, int wc, int sa, int tr,
 			int wants_reply,
@@ -1338,6 +1350,10 @@ static int send_receive(struct mil1553_device_s *mdev,
 	struct rti_interrupt_s	*rti_interrupt = &mdev->rti_interrupt;
 	struct memory_map_s	*memory_map = mdev->memory_map;
 
+	printk(KERN_ERR "jdgc: calling send_receive "
+		"%d:%d wc:%d sa:%d tr:%d %s",
+		mdev->bc, rti, wc, sa, tr,
+		wants_reply? "reply" : "noreply");
 	encode_txreg(&txreg, wc, sa, tr, rti);
 	if (wc > TX_BUF_SIZE)
 		wc = TX_BUF_SIZE;
@@ -1347,6 +1363,8 @@ static int send_receive(struct mil1553_device_s *mdev,
 		reg |= txbuf[i*2 + 0] & 0xFFFF;
 		iowrite32be(reg, &regp[i]);
 	}
+	printk(KERN_ERR "jdgc: sending txbuf\n");
+	dump_buf(txbuf, wc);
 	cc = do_start_tx(mdev, txreg);
 	if (cc)
 		return cc;
@@ -1354,7 +1372,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	if (!wants_reply)
 		return 0;
 
-	memset(&rxbuf, 0, sizeof(rxbuf));
+	memset(rxbuf, 0, sizeof(rxbuf));
 	if (rti_interrupt->rti_number == 0) {
 		return -ETIME;
 	} else if (rti_interrupt->rti_number != rti) {
@@ -1366,8 +1384,8 @@ static int send_receive(struct mil1553_device_s *mdev,
 	regp = (uint32_t *) memory_map->rxbuf;
 	for (i = 0; i < (rti_interrupt->wc + 2) / 2 ; i++) {  /* Prepended status */
 	       reg  = ioread32be(&regp[i]);
-	       rti_interrupt->rxbuf[i*2 + 1] = reg >> 16;
-	       rti_interrupt->rxbuf[i*2 + 0] = reg & 0xFFFF;
+	       rxbuf[i*2 + 1] = reg >> 16;
+	       rxbuf[i*2 + 0] = reg & 0xFFFF;
 	}
 	return 0;
 }
