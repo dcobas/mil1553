@@ -1336,9 +1336,9 @@ static void dump_buf(unsigned short *buf, int wc)
 			printk("%04x: ", i);
 		printk("%04x ", buf[i]);
 		if (i % 2 == 1)
-			printk(KERN_ERR "\n");
+			printk("\n");
 	}
-	printk(KERN_ERR "\n");
+	printk("\n");
 }
 
 static int send_receive(struct mil1553_device_s *mdev,
