@@ -60,10 +60,12 @@ static int pci_slots[MAX_DEVS];
 static int bc_num;
 static int pci_bus_num;
 static int pci_slot_num;
+static int debug_msg;
 
 module_param_array(bcs,       int, &bc_num,       0);
 module_param_array(pci_buses, int, &pci_bus_num,  0);
 module_param_array(pci_slots, int, &pci_slot_num, 0);
+module_param(debug_msg, int, 0);
 
 MODULE_PARM_DESC(bcs,       "bus controller number 1..8");
 MODULE_PARM_DESC(pci_buses, "pci bus number");
