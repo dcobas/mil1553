@@ -1204,8 +1204,11 @@ static void dump_buf(unsigned short *buf, int wc)
 {
 	int i;
 
+	printk("wc = %d\n", wc);
 	for (i = 0; i < wc; i++) {
-		printk(KERN_ERR "%04x ", buf[i]);
+		if (i % 2 == 0)
+			printk("%04x: ", i);
+		printk("%04x ", buf[i]);
 		if (i % 2 == 1)
 			printk(KERN_ERR "\n");
 	}
@@ -1226,7 +1229,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 
 	if (debug_msg)
 	printk(KERN_ERR "jdgc: calling send_receive "
-		"%d:%d wc:%d sa:%d tr:%d %s",
+		"%d:%d wc:%d sa:%d tr:%d %s\n",
 		mdev->bc, rti, wc, sa, tr,
 		wants_reply? "reply" : "noreply");
 	encode_txreg(&txreg, wc, sa, tr, rti);
