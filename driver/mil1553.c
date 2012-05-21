@@ -1112,6 +1112,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	return IRQ_HANDLED;
 }
 
+#if 0
 /**
  * =========================================================
  * Interrupt service routine.
@@ -1122,7 +1123,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
  */
 
 
-static irqreturn_t mil1553_isr(int irq, void *arg)
+static irqreturn_t mil1553_isr_(int irq, void *arg)
 {
 	struct mil1553_device_s *mdev = arg;
 	struct memory_map_s *memory_map;
@@ -1231,6 +1232,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 
 	return IRQ_HANDLED;
 }
+#endif
 
 /**
  * =========================================================
