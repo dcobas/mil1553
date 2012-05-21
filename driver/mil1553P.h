@@ -165,6 +165,7 @@ struct mil1553_device_s {
 	struct rti_interrupt_s
 			     rti_interrupt;
 	struct mutex         bc_lock;     /** Transaction lock mutex */
+	struct mutex         bcdev;	  /** Lock the device while accesing it*/
 	uint32_t             icnt;        /** Device interrupt count */
 	uint32_t             tx_count;    /** Device TX count */
 	wait_queue_head_t    int_complete;/** to wait for interrupt after TX */
