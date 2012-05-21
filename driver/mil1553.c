@@ -1232,6 +1232,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 		"%d:%d wc:%d sa:%d tr:%d %s\n",
 		mdev->bc, rti, wc, sa, tr,
 		wants_reply? "reply" : "noreply");
+	mutex_lock_interruptible(&mdev->bcdev);
 	encode_txreg(&txreg, wc, sa, tr, rti);
 	if (wc > TX_BUF_SIZE)
 		wc = TX_BUF_SIZE;
@@ -1247,14 +1248,15 @@ static int send_receive(struct mil1553_device_s *mdev,
 	}
 	cc = do_start_tx(mdev, txreg);
 	if (cc)
-		return cc;
+		goto exit;
 
 	if (!wants_reply)
-		return 0;
+		goto exit;
 
 	memset(rxbuf, 0, sizeof(rxbuf));
 	if (rti_interrupt->rti_number == 0) {
-		return -ETIME;
+		cc = -ETIME;
+		goto exit;
 	} else if (rti_interrupt->rti_number != rti) {
 		printk(KERN_ERR "jdgc: wrong rti expected %d, got %d replied\n",
 		rti_interrupt->rti_number, rti);
@@ -1272,7 +1274,9 @@ static int send_receive(struct mil1553_device_s *mdev,
 		printk(KERN_ERR "jdgc: received rxbuf\n");
 		dump_buf(rxbuf, rti_interrupt->wc);
 	}
-	return 0;
+exit:
+	mutex_unlock(&mdev->bcdev);
+	return cc;
 }
 
 int get_unused_bc(void)
@@ -1869,6 +1873,7 @@ int mil1553_install(void)
 			atomic_set(&mdev->quick_owned, 0);
 			mdev->quick_owner = 0;
 			mutex_init(&mdev->mutex);
+			mutex_init(&mdev->bcdev);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
