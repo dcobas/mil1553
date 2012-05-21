@@ -164,16 +164,11 @@ struct mil1553_device_s {
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
 	struct rti_interrupt_s
 			     rti_interrupt;
-	uint32_t	     txbuf[TX_BUF_SIZE];
-					  /** Tx buffer */
-	uint32_t	     rxbuf[RX_BUF_SIZE+1];
-					  /** Rx buffer */
 	struct mutex         bc_lock;     /** Transaction lock mutex */
 	uint32_t             icnt;        /** Device interrupt count */
 	uint32_t             tx_count;    /** Device TX count */
 	wait_queue_head_t    int_complete;/** to wait for interrupt after TX */
 	atomic_t	     int_busy;	  /** busy during int transaction */
-	struct mutex         tx_attempt;  /** protects TX CMD register */
 	struct mutex         mutex;       /** protects device during send */
 
 	wait_queue_head_t    quick_wq;	  /** wait to enter quick ops */
