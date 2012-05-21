@@ -168,7 +168,7 @@ struct mil1553_device_s {
 	uint32_t             icnt;        /** Device interrupt count */
 	uint32_t             tx_count;    /** Device TX count */
 	wait_queue_head_t    int_complete;/** to wait for interrupt after TX */
-	atomic_t	     busy;	  /** busy during int transaction */
+	atomic_t	     int_busy;	  /** busy during int transaction */
 	struct mutex         tx_attempt;  /** protects TX CMD register */
 	struct mutex         mutex;       /** protects device during send */
 
