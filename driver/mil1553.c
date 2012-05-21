@@ -487,7 +487,7 @@ static int do_start_tx_(struct mil1553_device_s *mdev, uint32_t txreg)
 
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
-#define TX_RETRIES 2
+#define TX_RETRIES 5
 #define TX_WAIT_US 10
 #define CBMIA_INT_TIMEOUT (msecs_to_jiffies(6))
 #define INT_MISSING_TIMEOUT (msecs_to_jiffies(1000))
