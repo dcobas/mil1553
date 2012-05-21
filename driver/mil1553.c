@@ -1350,6 +1350,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	struct rti_interrupt_s	*rti_interrupt = &mdev->rti_interrupt;
 	struct memory_map_s	*memory_map = mdev->memory_map;
 
+	if (debug_msg)
 	printk(KERN_ERR "jdgc: calling send_receive "
 		"%d:%d wc:%d sa:%d tr:%d %s",
 		mdev->bc, rti, wc, sa, tr,
@@ -1363,8 +1364,10 @@ static int send_receive(struct mil1553_device_s *mdev,
 		reg |= txbuf[i*2 + 0] & 0xFFFF;
 		iowrite32be(reg, &regp[i]);
 	}
-	printk(KERN_ERR "jdgc: sending txbuf\n");
-	dump_buf(txbuf, wc);
+	if (debug_msg) {
+		printk(KERN_ERR "jdgc: sending txbuf\n");
+		dump_buf(txbuf, wc);
+	}
 	cc = do_start_tx(mdev, txreg);
 	if (cc)
 		return cc;
@@ -1386,6 +1389,10 @@ static int send_receive(struct mil1553_device_s *mdev,
 	       reg  = ioread32be(&regp[i]);
 	       rxbuf[i*2 + 1] = reg >> 16;
 	       rxbuf[i*2 + 0] = reg & 0xFFFF;
+	}
+	if (debug_msg) {
+		printk(KERN_ERR "jdgc: received rxbuf\n");
+		dump_buf(rxbuf, rti_interrupt->wc);
 	}
 	return 0;
 }
