@@ -513,7 +513,6 @@ retries:
 	icnt = mdev->icnt;
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
-			mdev->jif0 = jiffies;
 			iowrite32be(txreg, &memory_map->txreg);
 			mdev->tx_count++;
 			break;
@@ -1101,7 +1100,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	uint32_t lreg, *lregp;
 	int i, rtin, pk_ok;
 	int timeout;
-	uint32_t delta;
 
 	memory_map = mdev->memory_map;
 	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
@@ -1109,9 +1107,6 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 		return IRQ_NONE;
 
 	mdev->icnt++;
-	delta = jiffies - mdev->jif0;
-	if (delta > mdev->jifd)
-		mdev->jifd = jiffies_to_usecs(delta);
 	wa.icnt++;
 	if (!atomic_xchg(&mdev->busy, 0)) {
 		printk(KERN_ERR "jdgc: spurious int on idle bc %d\n", mdev->bc);
@@ -1583,9 +1578,6 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			dev_info->icnt = mdev->icnt;
 			dev_info->tx_count = mdev->tx_count;
 			dev_info->isrdebug = wa.isrdebug;
-			dev_info->jifd = mdev->jifd;
-			dev_info->quick_owned = atomic_read(&mdev->quick_owned);
-			dev_info->quick_owner = mdev->quick_owner;
 		break;
 
 		case mil1553RAW_READ:          /** Raw read PCI registers */
@@ -1899,7 +1891,6 @@ int mil1553_install(void)
 			atomic_set(&mdev->busy, 0);
 			atomic_set(&mdev->quick_owned, 0);
 			mdev->quick_owner = 0;
-			mdev->jifd = 0;
 			mutex_init(&mdev->tx_attempt);
 			mutex_init(&mdev->mutex);
 			ping_rtis(mdev);

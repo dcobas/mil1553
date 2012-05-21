@@ -175,9 +175,6 @@ struct mil1553_device_s {
 	wait_queue_head_t    quick_wq;	  /** wait to enter quick ops */
 	atomic_t	     quick_owned; /** 1 if busy during quick op */
 	int		     quick_owner; /** quick op initiator */
-	uint32_t	     jif0;	  /** start TX jiffie */
-	uint32_t	     jif1;	  /** end TX jiffie */
-	uint32_t	     jifd;	  /** max response time of RTI to date */
 };
 
 /**
