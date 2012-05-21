@@ -60,10 +60,12 @@ static int pci_slots[MAX_DEVS];
 static int bc_num;
 static int pci_bus_num;
 static int pci_slot_num;
+static int debug_msg;
 
 module_param_array(bcs,       int, &bc_num,       0);
 module_param_array(pci_buses, int, &pci_bus_num,  0);
 module_param_array(pci_slots, int, &pci_slot_num, 0);
+module_param(debug_msg, int, 0);
 
 MODULE_PARM_DESC(bcs,       "bus controller number 1..8");
 MODULE_PARM_DESC(pci_buses, "pci bus number");
@@ -1198,6 +1200,18 @@ static void encode_txreg(unsigned int *txreg,
 		       | ((rti << TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 }
 
+static void dump_buf(unsigned short *buf, int wc)
+{
+	int i;
+
+	for (i = 0; i < wc; i++) {
+		printk(KERN_ERR "%04x ", buf[i]);
+		if (i % 2 == 1)
+			printk(KERN_ERR "\n");
+	}
+	printk(KERN_ERR "\n");
+}
+
 static int send_receive(struct mil1553_device_s *mdev,
 			int rti, int wc, int sa, int tr,
 			int wants_reply,
@@ -1210,6 +1224,11 @@ static int send_receive(struct mil1553_device_s *mdev,
 	struct rti_interrupt_s	*rti_interrupt = &mdev->rti_interrupt;
 	struct memory_map_s	*memory_map = mdev->memory_map;
 
+	if (debug_msg)
+	printk(KERN_ERR "jdgc: calling send_receive "
+		"%d:%d wc:%d sa:%d tr:%d %s",
+		mdev->bc, rti, wc, sa, tr,
+		wants_reply? "reply" : "noreply");
 	encode_txreg(&txreg, wc, sa, tr, rti);
 	if (wc > TX_BUF_SIZE)
 		wc = TX_BUF_SIZE;
@@ -1219,6 +1238,10 @@ static int send_receive(struct mil1553_device_s *mdev,
 		reg |= txbuf[i*2 + 0] & 0xFFFF;
 		iowrite32be(reg, &regp[i]);
 	}
+	if (debug_msg) {
+		printk(KERN_ERR "jdgc: sending txbuf\n");
+		dump_buf(txbuf, wc);
+	}
 	cc = do_start_tx(mdev, txreg);
 	if (cc)
 		return cc;
@@ -1226,7 +1249,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	if (!wants_reply)
 		return 0;
 
-	memset(&rxbuf, 0, sizeof(rxbuf));
+	memset(rxbuf, 0, sizeof(rxbuf));
 	if (rti_interrupt->rti_number == 0) {
 		return -ETIME;
 	} else if (rti_interrupt->rti_number != rti) {
@@ -1238,8 +1261,12 @@ static int send_receive(struct mil1553_device_s *mdev,
 	regp = (uint32_t *) memory_map->rxbuf;
 	for (i = 0; i < (rti_interrupt->wc + 2) / 2 ; i++) {  /* Prepended status */
 	       reg  = ioread32be(&regp[i]);
-	       rti_interrupt->rxbuf[i*2 + 1] = reg >> 16;
-	       rti_interrupt->rxbuf[i*2 + 0] = reg & 0xFFFF;
+	       rxbuf[i*2 + 1] = reg >> 16;
+	       rxbuf[i*2 + 0] = reg & 0xFFFF;
+	}
+	if (debug_msg) {
+		printk(KERN_ERR "jdgc: received rxbuf\n");
+		dump_buf(rxbuf, rti_interrupt->wc);
 	}
 	return 0;
 }
