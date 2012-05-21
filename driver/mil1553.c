@@ -1253,7 +1253,8 @@ static int send_receive(struct mil1553_device_s *mdev,
 	if (rti_interrupt->rti_number == 0) {
 		return -ETIME;
 	} else if (rti_interrupt->rti_number != rti) {
-		printk(KERN_ERR "jdgc: wrong rti replied\n");
+		printk(KERN_ERR "jdgc: wrong rti expected %d, got %d replied\n",
+		rti_interrupt->rti_number, rti);
 	}
 
 	/* Remember rxbuf is accessed as u32 but wc is the u16 count */
