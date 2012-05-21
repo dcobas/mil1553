@@ -1226,6 +1226,64 @@ static void init_device(struct mil1553_device_s *mdev)
 
 static int used_bcs = 1;
 
+#define RTI_WAIT_us 100
+static void encode_txreg(unsigned int *txreg,
+	unsigned int wc, unsigned int sa, unsigned int tr, unsigned int rti)
+{
+	if (wc >= 32)
+		wc = 0;
+	if (txreg)
+		*txreg = ((wc  << TXREG_WC_SHIFT)   & TXREG_WC_MASK)
+		       | ((sa  << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
+		       | ((tr  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
+		       | ((rti << TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
+}
+
+static int send_receive(struct mil1553_device_s *mdev,
+			int rti, int wc, int sa, int tr,
+			int wants_reply,
+			unsigned short *rxbuf,
+			unsigned short *txbuf)
+{
+	uint32_t		txreg;
+	uint32_t		*regp, reg;
+	int			i, cc;
+	struct rti_interrupt_s	*rti_interrupt = &mdev->rti_interrupt;
+	struct memory_map_s	*memory_map = mdev->memory_map;
+
+	encode_txreg(&txreg, wc, sa, tr, rti);
+	if (wc > TX_BUF_SIZE)
+		wc = TX_BUF_SIZE;
+	for (i=0; i < (wc + 1) / 2; i++) {
+		reg  = txbuf[i*2 + 1] << 16;
+		reg |= txbuf[i*2 + 0] & 0xFFFF;
+		iowrite32be(reg, &regp[i]);
+	}
+	cc = do_start_tx(mdev, txreg);
+	if (cc)
+		return cc;
+
+	if (!wants_reply)
+		return 0;
+
+	memset(&rxbuf, 0, sizeof(rxbuf));
+	if (rti_interrupt->rti_number == 0) {
+		return -ETIME;
+	} else if (rti_interrupt->rti_number != rti) {
+		printk(KERN_ERR "jdgc: wrong rti replied\n");
+	}
+
+	/* Remember rxbuf is accessed as u32 but wc is the u16 count */
+	/* Word order is little endian */
+	regp = (uint32_t *) memory_map->rxbuf;
+	for (i = 0; i < (rti_interrupt->wc + 2) / 2 ; i++) {  /* Prepended status */
+	       reg  = ioread32be(&regp[i]);
+	       rti_interrupt->rxbuf[i*2 + 1] = reg >> 16;
+	       rti_interrupt->rxbuf[i*2 + 0] = reg & 0xFFFF;
+	}
+	return 0;
+}
+
 int get_unused_bc(void)
 {
 
