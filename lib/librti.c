@@ -379,7 +379,8 @@ int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 		tb = str & STR_TB;
 		if (tb)
 			break;
-		nanosleep(&req, &rem); /* According to the man page this is thread safe */
+		//nanosleep(&req, &rem); /* According to the man page this is thread safe */
+		usleep(WAIT_TB_us);
 	}
 
 	if (!tb) {
