@@ -1076,6 +1076,42 @@ int read_queue(struct client_s *client, struct mil1553_recv_s *mrecv)
 	return 0; /* This never happens */
 }
 
+static irqreturn_t mil1553_isr(int irq, void *arg)
+{
+	struct mil1553_device_s *mdev = arg;
+	struct rti_interrupt_s *rti_interrupt = &mdev->rti_interrupt;
+	struct memory_map_s *memory_map = mdev->memory_map;
+	uint32_t isrc;
+	int rtin, pk_ok, timeout;
+
+	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
+	if ((isrc & ISRC) == 0)
+		return IRQ_NONE;
+
+	mdev->icnt++;
+	wa.icnt++;
+	
+	rti_interrupt->bc	  = mdev->bc;		/* redundant */
+	rti_interrupt->rti_number = rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+	rti_interrupt->wc	  = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
+	rti_interrupt->timeout	  = timeout = (isrc & ISRC_TIME_OUT);
+	rti_interrupt->packet_ok  = pk_ok = (ISRC_GOOD_BITS & isrc) &&
+					    ((ISRC_BAD_BITS & isrc) == 0);
+	if (!timeout)
+		mdev->up_rtis |= 1 << rtin;
+	if (!pk_ok || timeout) {
+		mdev->up_rtis &= ~(1 << rtin);
+		wa.isrdebug = isrc;
+		mdev->busy_done = BC_DONE;
+	}
+
+	if (!atomic_xchg(&mdev->int_busy, 0)) {
+		printk(KERN_ERR "jdgc: spurious int on idle bc %d\n", mdev->bc);
+	}
+	wake_up_interruptible(&mdev->int_complete);
+	return IRQ_HANDLED;
+}
+
 /**
  * =========================================================
  * Interrupt service routine.
