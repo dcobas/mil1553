@@ -1837,7 +1837,7 @@ int mil1553_install(void)
 			atomic_set(&mdev->int_busy, 0);
 			atomic_set(&mdev->quick_owned, 0);
 			mdev->quick_owner = 0;
-			mutex_init(&mdev->tx_attempt);
+			mutex_init(&mdev->mutex);
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);
