@@ -80,6 +80,8 @@ struct rti_interrupt_s {
 	uint32_t bc;                      /** Bus controller */
 	uint32_t rti_number;              /** Rti that interrupted */
 	uint32_t wc;                      /** Buffer word count */
+	uint32_t timeout;                 /** Interrupt timeout */
+	uint32_t packet_ok;               /** Bad packet received */
 	uint32_t rxbuf_rti_stat;          /** RTI status in RX buffer */
 	uint32_t rxbuf[RX_BUF_SIZE+1];      /** Receive  buffer */
 };
@@ -160,6 +162,8 @@ struct mil1553_device_s {
 	uint32_t             up_rtis;     /** Last known up rtis mask */
 	uint32_t             new_up_rtis; /** New mask */
 	struct tx_queue_s   *tx_queue;    /** Transmit Queue pointer */
+	struct rti_interrupt_s
+			     rti_interrupt;
 	uint32_t	     txbuf[TX_BUF_SIZE];
 					  /** Tx buffer */
 	uint32_t	     rxbuf[RX_BUF_SIZE+1];
