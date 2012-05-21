@@ -501,14 +501,14 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 retries:
 	do {
 		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-			atomic_read(&mdev->busy) == 0, INT_MISSING_TIMEOUT);
+			atomic_read(&mdev->int_busy) == 0, INT_MISSING_TIMEOUT);
 		if (timeleft == 0) {
 			printk(KERN_ERR "mil1553: busy bc %d for pid %d\n", mdev->bc, current->pid);
-			atomic_set(&mdev->busy, 0);
+			atomic_set(&mdev->int_busy, 0);
 		}
 		if (signal_pending(current))
 			return -ERESTARTSYS;
-	} while (atomic_xchg(&mdev->busy, 1));
+	} while (atomic_xchg(&mdev->int_busy, 1));
 
 	icnt = mdev->icnt;
 	for (i = 0; i < TX_TRIES; i++) {
@@ -531,7 +531,7 @@ retries:
 				"timeleft = %d, pid = %d\n",
 				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
 				mdev->bc, timeleft, current->pid);
-		if (!atomic_xchg(&mdev->busy, 0)) {
+		if (!atomic_xchg(&mdev->int_busy, 0)) {
 			printk(KERN_ERR "jdgc: restoring mil1553 horror\n");
 		}
 		wake_up_interruptible(&mdev->int_complete);
@@ -1887,7 +1887,7 @@ int mil1553_install(void)
 			init_device(mdev);
 			init_waitqueue_head(&mdev->int_complete);
 			init_waitqueue_head(&mdev->quick_wq);
-			atomic_set(&mdev->busy, 0);
+			atomic_set(&mdev->int_busy, 0);
 			atomic_set(&mdev->quick_owned, 0);
 			mdev->quick_owner = 0;
 			mutex_init(&mdev->tx_attempt);
