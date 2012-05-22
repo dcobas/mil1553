@@ -25,7 +25,7 @@
 #include <Cmds.h>
 #include <libmil1553.h>
 #include <librti.h>
-#include <libquick.h>
+#include <libquick-serial.h>
 #include "pow_messages.h"
 
 #ifndef COMPILE_TIME
