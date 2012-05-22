@@ -15,8 +15,9 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
+#define __USE_XOPEN
+#include <unistd.h>
 
-void swab(const void *from, void *to, ssize_t n);
 
 /**
  * This is a header understood by RTI driven equipment such as a power supply or a relay box.
