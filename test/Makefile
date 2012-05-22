@@ -10,8 +10,7 @@ COMPILE_TIME:=$(shell date +%s)
 
 CFLAGS = -g -Wall -I. -I../lib -I../driver -DCOMPILE_TIME=$(COMPILE_TIME)
 
-LDLIBS= ../lib/libmil1553.$(CPU).a ../lib/librti.$(CPU).a
-		../lib/libquick-serial.$(CPU).a
+LDLIBS= ../lib/libquick-serial.$(CPU).a
 
 ALL  = mil1553test.$(CPU).o mil1553test.$(CPU)
 

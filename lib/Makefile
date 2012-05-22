@@ -17,13 +17,19 @@ ARFLAGS=rcv
 MILSRC=$(MILIB).c $(MILIB).h $(RTILIB).c $(RTILIB).h $(QCKLIB).c \
 	$(QCKLIB).h $(TSTLIB).c $(TSTLIB).h
 
-all: $(MILIB).$(CPU).a $(RTILIB).$(CPU).a \
-	$(QCKLIB).$(CPU).a $(TSTLIB).$(CPU).a
+all: $(QCKLIB).$(CPU).a $(TSTLIB).$(CPU).a
 
 $(MILIB).$(CPU).o: $(MILSRCS)
 $(RTILIB).$(CPU).o: $(MILSRCS)
 $(QCKLIB).$(CPU).o: $(MILSRCS)
 $(TSTLIB).$(CPU).o: $(MILSRCS)
+
+$(QCKLIB).$(CPU).a: $(QCKLIB).$(CPU).o $(RTILIB).$(CPU).o
+	$(AR) $(ARFLAGS) $@ $^
+	$(RANLIB) $@
+$(TSTLIB).$(CPU).a: $(TSTLIB).$(CPU).o $(RTILIB).$(CPU).o $(MILIB).$(CPU).o
+	$(AR) $(ARFLAGS) $@ $^
+	$(RANLIB) $@
 
 clean:
 	-$(RM) -rf *.$(CPU).a *.$(CPU).o 
