@@ -39,6 +39,9 @@
 #ifndef MIL1553_DRIVER_VERSION
 #define MIL1553_DRIVER_VERSION	"noversion"
 #endif
+
+#define PFX	"mil1553: "
+
 char *mil1553_driver_version = MIL1553_DRIVER_VERSION;
 
 static int   mil1553_major      = 0;
@@ -386,7 +389,7 @@ retries:
 		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 			atomic_read(&mdev->int_busy) == 0, INT_MISSING_TIMEOUT);
 		if (timeleft == 0) {
-			printk(KERN_ERR "mil1553: busy bc %d for pid %d\n", mdev->bc, current->pid);
+			printk(KERN_ERR PFX "busy bc %d for pid %d\n", mdev->bc, current->pid);
 			atomic_set(&mdev->int_busy, 0);
 		}
 		if (signal_pending(current))
@@ -400,7 +403,7 @@ retries:
 			mdev->tx_count++;
 			break;
 		}
-		printk(KERN_ERR "mil1553: HSTAT_BUSY_BIT != 0 in do_start_tx; "
+		printk(KERN_ERR PFX "HSTAT_BUSY_BIT != 0 in do_start_tx; "
 				"tx_count %d, ms %u on pid %d\n", mdev->tx_count,
 					jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
@@ -409,19 +412,19 @@ retries:
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 					icnt < mdev->icnt, CBMIA_INT_TIMEOUT);
 	if (timeleft <= 0) {
-		printk(KERN_ERR "mil1553: interrupt pending"
+		printk(KERN_ERR PFX "interrupt pending"
 				" after %d msecs in bc %d, "
 				"timeleft = %d, pid = %d\n",
 				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
 				mdev->bc, timeleft, current->pid);
 		if (!atomic_xchg(&mdev->int_busy, 0)) {
-			printk(KERN_ERR "jdgc: restoring mil1553 horror\n");
+			printk(KERN_ERR PFX "restoring mil1553 horror\n");
 		}
 		wake_up_interruptible(&mdev->int_complete);
 		if (--retries > 0)
 			goto retries;
 		else
-			printk(KERN_ERR "jdgc: could not TX to "
+			printk(KERN_ERR PFX "could not TX to "
 				"bc %d after %d retries, leaving\n",
 				mdev->bc, TX_RETRIES);
 			return -EBUSY;
@@ -502,7 +505,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	}
 
 	if (!atomic_xchg(&mdev->int_busy, 0)) {
-		printk(KERN_ERR "jdgc: spurious int on idle bc %d\n", mdev->bc);
+		printk(KERN_ERR PFX "spurious int on idle bc %d\n", mdev->bc);
 	}
 	wake_up_interruptible(&mdev->int_complete);
 	return IRQ_HANDLED;
@@ -668,7 +671,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	struct memory_map_s	*memory_map = mdev->memory_map;
 
 	if (debug_msg)
-	printk(KERN_ERR "jdgc: calling send_receive "
+	printk(KERN_ERR PFX "calling send_receive "
 		"%d:%d wc:%d sa:%d tr:%d %s\n",
 		mdev->bc, rti, sent_wc, sa, tr,
 		wants_reply? "reply" : "noreply");
@@ -683,7 +686,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 		iowrite32be(reg, &regp[i]);
 	}
 	if (debug_msg) {
-		printk(KERN_ERR "jdgc: sending txbuf\n");
+		printk(KERN_ERR PFX "sending txbuf\n");
 		dump_buf(txbuf, sent_wc);
 	}
 	cc = do_start_tx(mdev, txreg);
@@ -698,7 +701,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 		cc = -ETIME;
 		goto exit;
 	} else if (rti_interrupt->rti_number != rti) {
-		printk(KERN_ERR "jdgc: wrong rti expected %d, got %d replied\n",
+		printk(KERN_ERR PFX "wrong rti expected %d, got %d replied\n",
 		rti_interrupt->rti_number, rti);
 	}
 
@@ -707,7 +710,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	*received_wc = rti_interrupt->wc;
 	regp = (uint32_t *) memory_map->rxbuf;
 	if (debug_msg) {
-		printk(KERN_ERR "jdgc: copying wc = %d\n", rti_interrupt->wc);
+		printk(KERN_ERR PFX "copying wc = %d\n", rti_interrupt->wc);
 		if (rti_interrupt->wc > 29) {
 			for (i = 0; i < RX_BUF_SIZE; i++) {
 				reg = ioread32be(&regp[i]);
@@ -721,7 +724,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 	       rxbuf[i*2 + 0] = reg & 0xFFFF;
 	}
 	if (debug_msg) {
-		printk(KERN_ERR "jdgc: received rxbuf\n");
+		printk(KERN_ERR PFX "received rxbuf\n");
 		dump_buf(rxbuf, rti_interrupt->wc);
 	}
 exit:
@@ -1094,7 +1097,7 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 							atomic_read(&mdev->quick_owned) == 0,
 							msecs_to_jiffies(5000));
 				if (cc == 0)
-					printk(KERN_ERR "jdgc: could not get lock of BC %d owned by pid %d\n",
+					printk(KERN_ERR PFX "could not get lock of BC %d owned by pid %d\n",
 						mdev->bc, mdev->quick_owner);
 				if (signal_pending(current))
 					return -ERESTARTSYS;
