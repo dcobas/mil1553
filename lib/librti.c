@@ -87,36 +87,6 @@ char *rtilib_str_to_str(unsigned short str) {
 	return res;
 }
 
-/**
- * =====================================
- * There can be leftover stuff on the
- * from previous transactions on the
- * callers queue. This routine insures
- * that a transaction starts off with a
- * clean slate.
- */
-
-#define RTI_WAIT_us 100
-
-int rtilib_empty_queue(int fn) {
-
-	int cc, qsz;
-	struct mil1553_recv_s recv;
-
-	usleep(RTI_WAIT_us); // Slow things down for RTI
-
-	while (milib_get_queue_size(fn,&qsz)) {
-
-		recv.pk_type = TX_ALL;
-		recv.timeout = 1;
-
-		cc = milib_recv(fn, &recv);
-		if (cc)
-			return cc;
-	}
-	return 0;
-}
-
 /* ===================================== */
 
 static void dump_buf(unsigned short *buf, int wc)
