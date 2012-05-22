@@ -718,7 +718,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 			}
 		}
 	}
-	for (i = 0; i < (rti_interrupt->wc + 2) / 2 ; i++) {  /* Prepended status */
+	for (i = 0; i < (rti_interrupt->wc + 1) / 2 ; i++) {
 	       reg  = ioread32be(&regp[i]);
 	       rxbuf[i*2 + 1] = reg >> 16;
 	       rxbuf[i*2 + 0] = reg & 0xFFFF;
