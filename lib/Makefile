@@ -1,30 +1,32 @@
 MILIB = libmil1553
 RTILIB = librti
 QCKLIB = libquick
+TSTLIB = libquick-serial
 
 CPU=L865
 
 include /acc/dsc/src/co/Make.auto
 
-.o.a:
+%.$(CPU).a: %.$(CPU).o
 	$(AR) $(ARFLAGS) $@ $^
 	$(RANLIB) $@
 
 CFLAGS= -g -Wall -I. -I../driver -fPIC
 ARFLAGS=rcv
 
-MILSRC=$(MILIB).c $(MILIB).h $(RTILIB).c $(RTILIB).h $(QCKLIB).c $(QCKLIB).h
+MILSRC=$(MILIB).c $(MILIB).h $(RTILIB).c $(RTILIB).h $(QCKLIB).c \
+	$(QCKLIB).h $(TSTLIB).c $(TSTLIB).h
 
-all: $(MILIB).$(CPU).a $(RTILIB).$(CPU).a $(QCKLIB).$(CPU).a
+all: $(MILIB).$(CPU).a $(RTILIB).$(CPU).a \
+	$(QCKLIB).$(CPU).a $(TSTLIB).$(CPU).a
 
 $(MILIB).$(CPU).o: $(MILSRCS)
 $(RTILIB).$(CPU).o: $(MILSRCS)
 $(QCKLIB).$(CPU).o: $(MILSRCS)
+$(TSTLIB).$(CPU).o: $(MILSRCS)
 
 clean:
-	-$(RM) $(MILIB).$(CPU).so $(MILIB).$(CPU).a $(MILIB).$(CPU).o
-	-$(RM) $(RTILIB).$(CPU).so $(RTILIB).$(CPU).a $(RTILIB).$(CPU).o
-	-$(RM) $(QCKLIB).$(CPU).so $(QCKLIB).$(CPU).a $(QCKLIB).$(CPU).o
+	-$(RM) -rf *.$(CPU).a *.$(CPU).o 
 	-$(RM) -rf html Doxyfile
 
 install:
