@@ -18,6 +18,7 @@ KERNELSRC=/acc/sys/$(CPU)/usr/src/kernels/$(KVER)
 
 CFLAGS=-g -Wall
 
+all: modules
 modules: 
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
 	rm -rf ./$(CPU)/$(KVER)

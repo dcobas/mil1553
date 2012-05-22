@@ -3,5 +3,5 @@ DIRS = \
     lib \
     test
 
-all:
-	for f in $(DIRS) ; do make -C $$f ; done
+all clean:
+	for d in $(DIRS); do $(MAKE) -C $$d $@ || exit 1; done
