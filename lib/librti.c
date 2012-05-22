@@ -181,8 +181,8 @@ int rtilib_send_receive(int fn,
 		return cc;
 
 	if (rxbuf) {
-		for (i = 0; i < srp->received_wc + 1; i++) {
-			if (i >= RX_BUF_SIZE)
+		for (i = 0; i < srp->received_wc + 2; i++) {
+			if (i > RX_BUF_SIZE+1)
 				break;
 			rxbuf[i] = srp->rxbuf[i];
 		}

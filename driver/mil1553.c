@@ -1216,10 +1216,11 @@ static void dump_buf(unsigned short *buf, int wc)
 }
 
 static int send_receive(struct mil1553_device_s *mdev,
-			int rti, int wc, int sa, int tr,
+			int rti, int sent_wc, int sa, int tr,
 			int wants_reply,
 			unsigned short *rxbuf,
-			unsigned short *txbuf)
+			unsigned short *txbuf,
+			int *received_wc)
 {
 	uint32_t		txreg;
 	uint32_t		*regp, reg;
@@ -1230,21 +1231,21 @@ static int send_receive(struct mil1553_device_s *mdev,
 	if (debug_msg)
 	printk(KERN_ERR "jdgc: calling send_receive "
 		"%d:%d wc:%d sa:%d tr:%d %s\n",
-		mdev->bc, rti, wc, sa, tr,
+		mdev->bc, rti, sent_wc, sa, tr,
 		wants_reply? "reply" : "noreply");
 	mutex_lock_interruptible(&mdev->bcdev);
-	encode_txreg(&txreg, wc, sa, tr, rti);
-	if (wc > TX_BUF_SIZE)
-		wc = TX_BUF_SIZE;
+	encode_txreg(&txreg, sent_wc, sa, tr, rti);
+	if (sent_wc > TX_BUF_SIZE)
+		sent_wc = TX_BUF_SIZE;
 	regp = (uint32_t *) memory_map->txbuf;
-	for (i=0; i < (wc + 1) / 2; i++) {
+	for (i=0; i < (sent_wc + 1) / 2; i++) {
 		reg  = txbuf[i*2 + 1] << 16;
 		reg |= txbuf[i*2 + 0] & 0xFFFF;
 		iowrite32be(reg, &regp[i]);
 	}
 	if (debug_msg) {
 		printk(KERN_ERR "jdgc: sending txbuf\n");
-		dump_buf(txbuf, wc);
+		dump_buf(txbuf, sent_wc);
 	}
 	cc = do_start_tx(mdev, txreg);
 	if (cc)
@@ -1264,6 +1265,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 
 	/* Remember rxbuf is accessed as u32 but wc is the u16 count */
 	/* Word order is little endian */
+	*received_wc = rti_interrupt->wc;
 	regp = (uint32_t *) memory_map->rxbuf;
 	if (debug_msg) {
 		printk(KERN_ERR "jdgc: copying wc = %d\n", rti_interrupt->wc);
@@ -1636,7 +1638,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			cc = send_receive(mdev,
 				sr->rti, sr->wc, sr->sa, sr->tr,
 				sr->wants_reply,
-				sr->rxbuf, sr->txbuf);
+				sr->rxbuf, sr->txbuf,
+				&sr->received_wc);
 		break;
 
 		case mil1553SEND:
