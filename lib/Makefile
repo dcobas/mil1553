@@ -6,44 +6,20 @@ CPU=L865
 
 include /acc/dsc/src/co/Make.auto
 
+.o.a:
+	$(AR) $(ARFLAGS) $@ $^
+	$(RANLIB) $@
+
 CFLAGS= -g -Wall -I. -I../driver -fPIC
+ARFLAGS=rcv
 
 MILSRC=$(MILIB).c $(MILIB).h $(RTILIB).c $(RTILIB).h $(QCKLIB).c $(QCKLIB).h
 
-all: $(MILIB).$(CPU).a $(MILIB).$(CPU).so $(RTILIB).$(CPU).a $(RTILIB).$(CPU).so $(QCKLIB).$(CPU).a $(QCKLIB).$(CPU).so
+all: $(MILIB).$(CPU).a $(RTILIB).$(CPU).a $(QCKLIB).$(CPU).a
 
 $(MILIB).$(CPU).o: $(MILSRCS)
-
-$(MILIB).$(CPU).a: $(MILIB).$(CPU).o
-	-$(RM) $@
-	$(AR) $(ARFLAGS) $@ $^
-	$(RANLIB) $@
-
-$(MILIB).$(CPU).so: $(MILIB).$(CPU).o
-	-$(RM) $@
-	$(CC) $(CFLAGS) -o $@ -shared $^
-
 $(RTILIB).$(CPU).o: $(MILSRCS)
-
-$(RTILIB).$(CPU).a: $(RTILIB).$(CPU).o
-	-$(RM) $@
-	$(AR) $(ARFLAGS) $@ $^
-	$(RANLIB) $@
-
-$(RTILIB).$(CPU).so: $(RTILIB).$(CPU).o
-	-$(RM) $@
-	$(CC) $(CFLAGS) -o $@ -shared $^
-
 $(QCKLIB).$(CPU).o: $(MILSRCS)
-
-$(QCKLIB).$(CPU).a: $(QCKLIB).$(CPU).o
-	-$(RM) $@
-	$(AR) $(ARFLAGS) $@ $^
-	$(RANLIB) $@
-
-$(QCKLIB).$(CPU).so: $(QCKLIB).$(CPU).o
-	-$(RM) $@
-	$(CC) $(CFLAGS) -o $@ -shared $^
 
 clean:
 	-$(RM) $(MILIB).$(CPU).so $(MILIB).$(CPU).a $(MILIB).$(CPU).o
