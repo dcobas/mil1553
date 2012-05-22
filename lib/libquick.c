@@ -104,8 +104,12 @@ void mil1553_print_message_header(struct msg_header_s *msh) {
  * This is now thread safe, sorry I changed the API.
  */
 
+#define MIL1553_DEV_PATH "/dev/mil1553"
+
 int mil1553_init_quickdriver(void) {
-	return milib_handle_open();
+	int cc;
+	cc = open(MIL1553_DEV_PATH, O_RDWR, 0);
+	return cc;
 }
 
 /**
