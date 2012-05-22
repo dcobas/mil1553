@@ -1265,6 +1265,15 @@ static int send_receive(struct mil1553_device_s *mdev,
 	/* Remember rxbuf is accessed as u32 but wc is the u16 count */
 	/* Word order is little endian */
 	regp = (uint32_t *) memory_map->rxbuf;
+	if (debug_msg) {
+		printk(KERN_ERR "jdgc: copying wc = %d\n", rti_interrupt->wc);
+		if (rti_interrupt->wc > 29) {
+			for (i = 0; i < RX_BUF_SIZE; i++) {
+				reg = ioread32be(&regp[i]);
+				printk(KERN_ERR "%04x:  %08x\n", i, reg);
+			}
+		}
+	}
 	for (i = 0; i < (rti_interrupt->wc + 2) / 2 ; i++) {  /* Prepended status */
 	       reg  = ioread32be(&regp[i]);
 	       rxbuf[i*2 + 1] = reg >> 16;

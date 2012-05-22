@@ -147,10 +147,12 @@ int rtilib_send_receive(int fn,
 	struct mil1553_send_recv_s sr, *srp = &sr;
 	int i, cc;
 
+#if 0
 	printf("\njdgc: calling send_receive "
 		"%d:%d wc:%d sa:%d tr:%d %s -------------\n",
 		bc, rti, wc, sa, tr,
 		nreply? "noreply" : "reply");
+#endif
 
 	srp->bc = bc;
 	srp->rti = rti;
@@ -167,8 +169,10 @@ int rtilib_send_receive(int fn,
 		}
 	}
 
+#if 0
 	printf("jdgc: sending txbuf -----------\n");
 	dump_buf(txbuf, wc);
+#endif
 	cc = ioctl(fn, MIL1553_SEND_RECEIVE, srp);
 	if (cc)
 		return cc;
@@ -183,8 +187,10 @@ int rtilib_send_receive(int fn,
 			rxbuf[i] = srp->rxbuf[i];
 		}
 	}
+#if 0
 	printf("jdgc: got rxbuf -----------\n");
-	dump_buf(rxbuf, wc);
+	dump_buf(rxbuf, wc+1);
+#endif
 	return 0;
 }
 
