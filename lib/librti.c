@@ -1,4 +1,3 @@
-#include <libmil1553.h>
 #include <librti.h>
 #include <unistd.h>
 
@@ -55,7 +54,7 @@ char *rtilib_csr_to_str(unsigned short csr) {
 	int i;
 	static char res[128];
 
-	bzero((void *) res, 128);
+	memset(res, 0, 128);
 
 	for (i=0; i<16; i++) {
 		if ((1<<i) & csr)
@@ -75,7 +74,7 @@ char *rtilib_str_to_str(unsigned short str) {
 	unsigned int i, rti;
 	static char res[128];
 
-	bzero((void *) res, 128);
+	memset(res, 0, 128);
 
 	rti = (str & STR_RTI_MASK) >> STR_RTI_SHIFT;
 	sprintf(res,"RTI:%02d ",rti);
@@ -172,8 +171,8 @@ int rtilib_read_csr(int fn, int bc, int rti, unsigned short *csr, unsigned short
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = 1; sa = SA_CSR; tr = TR_READ;
 	cc = rtilib_send_receive(fn,bc,rti,wc,sa,tr,REPLY,rxbuf,txbuf);
@@ -190,8 +189,8 @@ int rtilib_clear_csr(int fn, int bc, int rti, unsigned short csr) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = 1; sa = SA_CLEAR_CSR; tr = TR_WRITE;
 	txbuf[0] = csr;
@@ -207,8 +206,8 @@ int rtilib_set_csr(int fn, int bc, int rti, unsigned short csr) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = 1; sa = SA_SET_CSR; tr = TR_WRITE;
 	txbuf[0] = csr;
@@ -227,7 +226,7 @@ int rtilib_read_rxbuf(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, sa, tr;
 
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	rtilib_clear_csr(fn,bc,rti,CSR_RRP);
 
@@ -247,7 +246,7 @@ int rtilib_write_rxbuf(int fn, int bc, int rti, int wc, unsigned short *txbuf) {
 	unsigned short rxbuf[RX_BUF_SIZE];
 	int cc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
 
 	cc = rtilib_set_csr(fn,bc,rti,CSR_RRP);
 	if (cc)
@@ -304,7 +303,7 @@ int rtilib_read_txbuf(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, sa, tr;
 
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	cc = rtilib_set_csr(fn,bc,rti,CSR_RTP);
 	if (cc)
@@ -371,7 +370,7 @@ int rtilib_write_txbuf(int fn, int bc, int rti, int wc, unsigned short *txbuf) {
 	unsigned short rxbuf[RX_BUF_SIZE];
 	int cc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
 
 	rtilib_clear_csr(fn,bc,rti,CSR_RTP);
 
@@ -388,8 +387,8 @@ int rtilib_read_signature(int fn, int bc, int rti, unsigned short *sig) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = 1; sa = SA_SIGNATURE; tr = TR_READ;
 	cc = rtilib_send_receive(fn,bc,rti,wc,sa,tr,REPLY,rxbuf,txbuf);
@@ -405,8 +404,8 @@ int rtilib_read_str(int fn, int bc, int rti, unsigned short *str) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = MODE_READ_STR; sa = SA_MODE; tr = TR_READ;
 	cc = rtilib_send_receive(fn,bc,rti,wc,sa,tr,REPLY,rxbuf,txbuf);
@@ -422,8 +421,8 @@ int rtilib_read_last_str(int fn, int bc, int rti, unsigned short *str) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = MODE_READ_LAST_STR; sa = SA_MODE; tr = TR_READ;
 	cc = rtilib_send_receive(fn,bc,rti,wc,sa,tr,REPLY,rxbuf,txbuf);
@@ -439,8 +438,8 @@ int rtilib_master_reset(int fn, int bc, int rti) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = MODE_MASTER_RESET; sa = SA_MODE; tr = TR_READ;
 	cc = rtilib_send_receive(fn,bc,rti,wc,sa,tr,1,rxbuf,txbuf);
@@ -455,8 +454,8 @@ int rtilib_read_last_cmd(int fn, int bc, int rti, unsigned short *cmd) {
 	unsigned short txbuf[TX_BUF_SIZE];
 	int cc, wc, sa, tr;
 
-	bzero((void *) rxbuf, sizeof(unsigned short) * RX_BUF_SIZE);
-	bzero((void *) txbuf, sizeof(unsigned short) * TX_BUF_SIZE);
+	memset(rxbuf, 0, sizeof(unsigned short) * RX_BUF_SIZE);
+	memset(txbuf, 0, sizeof(unsigned short) * TX_BUF_SIZE);
 
 	wc = MODE_READ_LAST_CMD; sa = SA_MODE; tr = TR_READ;
 	cc = rtilib_send_receive(fn,bc,rti,wc,sa,tr,REPLY,rxbuf,txbuf);
