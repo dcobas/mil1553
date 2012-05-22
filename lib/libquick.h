@@ -1,7 +1,7 @@
 #ifndef LIBQUICK
 #define LIBQUICK
 
-#include <linux/errno.h>
+#include <errno.h>
 
 #include <mil1553.h>
 #include <libmil1553.h>
