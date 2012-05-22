@@ -1,5 +1,10 @@
+#include <mil1553.h>
 #include <librti.h>
 #include <unistd.h>
+#include <string.h>
+#include <stdio.h>
+#include <errno.h>
+#include <sys/ioctl.h>
 
 #define DEBUG
 

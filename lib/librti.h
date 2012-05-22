@@ -1,9 +1,6 @@
 #ifndef LIBRTI
 #define LIBRTI
 
-#include <stdio.h>
-#include <errno.h>
-
 #define CSR_TB  0x0001
 #define CSR_RB  0x0002
 #define CSR_INV 0x0004
