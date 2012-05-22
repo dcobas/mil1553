@@ -496,8 +496,13 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, icnt, timeleft;
 
-	 do {
-		wait_event_interruptible(mdev->int_complete, atomic_read(&mdev->busy) == 0);
+	do {
+		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
+			atomic_read(&mdev->busy) == 0, INT_MISSING_TIMEOUT);
+		if (timeleft == 0) {
+			printk(KERN_ERR "mil1553: missing int in bc %d\n", mdev->bc);
+			atomic_set(&mdev->busy, 0);
+		}
 		if (signal_pending(current))
 			return -ERESTARTSYS;
 	} while (atomic_xchg(&mdev->busy, 1));
