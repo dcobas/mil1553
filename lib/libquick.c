@@ -15,7 +15,6 @@
 #include <stdlib.h>
 #include <time.h>
 #include <sys/time.h>
-#include <arpa/inet.h>
 
 void swab(const void *from, void *to, ssize_t n);
 
