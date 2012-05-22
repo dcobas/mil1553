@@ -731,6 +731,29 @@ void mil1553_print_msg(struct quick_data_buffer *quick_pt, int rflag, int expect
 	}
 }
 
+
+
+static int lock_bc(int fn, int bc)
+{
+	int cc = 0;
+	unsigned long reg = bc;
+	cc = ioctl(fn, MIL1553_LOCK_BC, &reg);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+static int unlock_bc(int fn, int bc) {
+
+	int cc = 0;
+	unsigned long reg = bc;
+	cc = ioctl(fn, MIL1553_UNLOCK_BC, &reg);
+	if (cc < 0)
+		return errno;
+	return 0;
+}
+
+
 /* ===================================== */
 
 /**
@@ -760,7 +783,7 @@ struct timeval cur_time = { 0 };
 
    /* Wait for the BC lock */
 
-   milib_lock_bc(fn,bc);
+   lock_bc(fn,bc);
 
 retry:
 
@@ -793,7 +816,7 @@ retry:
 
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_req->error)
 	 cc = quickptr_req->error;
       return cc;
@@ -808,7 +831,7 @@ retry:
 
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_req->error)
 	 cc = quickptr_req->error;
       return cc;
@@ -821,7 +844,7 @@ retry:
       if (retries++ < RETRIES) goto retry;
       else cc = EAGAIN;
    }
-   milib_unlock_bc(fn,bc);
+   unlock_bc(fn,bc);
 
    memcpy(conf_ptr,loc_conf_ptr,sizeof(conf_msg));
 
@@ -855,7 +878,7 @@ struct timeval cur_time = { 0 };
 
    /* Wait for the BC lock */
 
-   milib_lock_bc(fn,bc);
+   lock_bc(fn,bc);
 
 retry:
 
@@ -888,7 +911,7 @@ retry:
 
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_req->error)
 	 cc = quickptr_req->error;
       return cc;
@@ -904,7 +927,7 @@ retry:
 
    cc = mil1553_get_quick_data(fn,quickptr_acq);
    if (cc) {
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_acq->error)
 	 cc = quickptr_acq->error;
       return cc;
@@ -918,7 +941,7 @@ retry:
       if (retries++ < RETRIES) goto retry;
       else cc = EAGAIN;
    }
-   milib_unlock_bc(fn,bc);
+   unlock_bc(fn,bc);
 
    memcpy(acq_ptr,loc_acq_ptr,sizeof(acq_msg));
 
@@ -951,7 +974,7 @@ int mil1553_read_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
 
    /* Wait for the BC lock */
 
-   milib_lock_bc(fn,bc);
+   lock_bc(fn,bc);
 
 retry:
 
@@ -976,7 +999,7 @@ retry:
 
    cc = mil1553_send_quick_data(fn,quickptr_req);
    if (cc) {
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_req->error)
 	 cc = quickptr_req->error;
       return cc;
@@ -989,7 +1012,7 @@ retry:
    quickptr_ctl->pktcnt = sizeof(ctrl_msg);
    cc = mil1553_get_quick_data(fn,quickptr_ctl);
    if (cc) {
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_req->error)
 	 cc = quickptr_req->error;
       return cc;
@@ -1002,7 +1025,7 @@ retry:
       if (retries++ < RETRIES) goto retry;
       else cc = EAGAIN;
    }
-   milib_unlock_bc(fn,bc);
+   unlock_bc(fn,bc);
 
    memcpy(ctrl_ptr,loc_ctrl_ptr,sizeof(ctrl_msg));
 
@@ -1034,7 +1057,7 @@ int mil1553_write_ctrl_msg(int fn, int bc, int rti, ctrl_msg *ctrl_ptr) {
 
    /* Wait for the BC lock */
 
-   milib_lock_bc(fn,bc);
+   lock_bc(fn,bc);
 
 retry:
 
@@ -1067,13 +1090,13 @@ retry:
    cc = mil1553_send_quick_data(fn,quickptr_ctl);
    if (cc) {
       if (retries++ < RETRIES) goto retry;
-      milib_unlock_bc(fn,bc);
+      unlock_bc(fn,bc);
       if (quickptr_ctl->error)
 	 cc = quickptr_ctl->error;
       return cc;
    }
 
-   milib_unlock_bc(fn,bc);
+   unlock_bc(fn,bc);
    return cc;
 }
 
