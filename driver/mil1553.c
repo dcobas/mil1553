@@ -487,20 +487,23 @@ static int do_start_tx_(struct mil1553_device_s *mdev, uint32_t txreg)
 
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
+#define TX_RETRIES 5
 #define TX_WAIT_US 10
 #define CBMIA_INT_TIMEOUT (msecs_to_jiffies(6))
-#define INT_MISSING_TIMEOUT (msecs_to_jiffies(20000))
+#define INT_MISSING_TIMEOUT (msecs_to_jiffies(1000))
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, icnt, timeleft;
+	int retries = TX_RETRIES;
 
+retries:
 	do {
 		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 			atomic_read(&mdev->busy) == 0, INT_MISSING_TIMEOUT);
 		if (timeleft == 0) {
-			printk(KERN_ERR "mil1553: missing int in bc %d for pid %d\n", mdev->bc, current->pid);
+			printk(KERN_ERR "mil1553: busy bc %d for pid %d\n", mdev->bc, current->pid);
 			atomic_set(&mdev->busy, 0);
 		}
 		if (signal_pending(current))
@@ -522,13 +525,25 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	udelay(3*TX_WAIT_US);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 					icnt < mdev->icnt, CBMIA_INT_TIMEOUT);
-	if (timeleft <= 0)
+	if (timeleft <= 0) {
 		printk(KERN_ERR "mil1553: interrupt pending"
 				" after %d msecs in bc %d, "
 				"timeleft = %d, pid = %d\n",
 				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
 				mdev->bc, timeleft, current->pid);
-	return 0;
+		if (!atomic_xchg(&mdev->busy, 0)) {
+			printk(KERN_ERR "jdgc: restoring mil1553 horror\n");
+		}
+		wake_up_interruptible(&mdev->int_complete);
+		if (--retries > 0)
+			goto retries;
+		else
+			printk(KERN_ERR "jdgc: could not TX to "
+				"bc %d after %d retries, leaving\n",
+				mdev->bc, TX_RETRIES);
+			return -EBUSY;
+	} else
+		return 0;
 }
 
 static void ping_rtis(struct mil1553_device_s *mdev)
@@ -760,7 +775,8 @@ static int send_items(struct client_s *client,
 	if (item_count <= 0)
 		return 0;
 	if (item_count >1) {
-		printk(KERN_ERR "jdgc: send_items called with >1 item\n");
+		printk(KERN_ERR "jdgc: send_items called with %d>1 item"
+		" by pid %d, \n", item_count, current->pid);
 	}
 
 	/* Check the RTIs are up */
@@ -1089,7 +1105,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	mdev->icnt++;
 	wa.icnt++;
 	if (!atomic_xchg(&mdev->busy, 0)) {
-		printk("mil1553 horror\n");
+		printk(KERN_ERR "jdgc: spurious int on idle bc %d\n", mdev->bc);
 	}
 	wake_up_interruptible(&mdev->int_complete);
 
@@ -1115,6 +1131,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	wp = &tx_queue->wp;
 	if (get_queue_size(*rp,*wp,QSZ) == 0) {
 		/* Queue empty or crap in packet, keep isrc for debug */
+		printk(KERN_ERR "mil1553:jdgc: unsolicited interrupt on idle bc %d!\n", bc);
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 		spin_unlock_irqrestore(&tx_queue->lock,flags);
@@ -1668,7 +1685,9 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			*ularg = get_queue_size(*rp,*wp,QSZ);
 			spin_unlock_irqrestore(&rx_queue->lock,flags);
 			if (*ularg > 1)
-				printk(KERN_ERR "jdgc: warning: client queue > 1 element\n");
+				printk(KERN_ERR "jdgc: warning: client"
+				" queue %lu > 1 element, client pid %d\n",
+				*ularg, current->pid);
 		break;
 
 		case mil1553RECV:
@@ -1690,6 +1709,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553LOCK_BC:
+		        cc = 0;
+			goto error_exit;
 			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {
@@ -1718,6 +1739,8 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		break;
 
 		case mil1553UNLOCK_BC:
+		        cc = 0;
+			goto error_exit;
 			bc = *ularg;
 			mdev = get_dev(bc);
 			if (!mdev) {
