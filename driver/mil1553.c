@@ -1,5 +1,5 @@
 /**
- * Julian Lewis March 28 2012 BE/CO/HT
+ Julian Lewis March 28 2012 BE/CO/HT
  * Julian.Lewis@cern.ch
  *
  * This is a total rewrite of the CBMIA PCI driver to control MIL 1553
@@ -408,7 +408,7 @@ retries:
 					jiffies_to_msecs(jiffies), current->pid);
 		udelay(TX_WAIT_US);
 	}
-	udelay(3*TX_WAIT_US);
+	udelay(8*TX_WAIT_US);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 					icnt < mdev->icnt, CBMIA_INT_TIMEOUT);
 	if (timeleft <= 0) {
