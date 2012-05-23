@@ -418,7 +418,8 @@ retries:
 				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
 				mdev->bc, timeleft, current->pid);
 		if (!atomic_xchg(&mdev->int_busy, 0)) {
-			printk(KERN_ERR PFX "restoring mil1553 horror\n");
+			printk(KERN_ERR PFX "not busy anymore, restoring\n");
+			return 0;
 		}
 		wake_up_interruptible(&mdev->int_complete);
 		if (--retries > 0)
