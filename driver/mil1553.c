@@ -375,7 +375,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_TRIES 100
 #define TX_RETRIES 5
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT (msecs_to_jiffies(6))
+#define CBMIA_INT_TIMEOUT (msecs_to_jiffies(2))
 #define INT_MISSING_TIMEOUT (msecs_to_jiffies(1000))
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
