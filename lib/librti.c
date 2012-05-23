@@ -334,7 +334,7 @@ int rtilib_read_txbuf(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
  * after data has been read.
  */
 
-#define WAIT_POLLS 100
+#define WAIT_POLLS 3
 #define WAIT_TB_us 1000
 
 int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
