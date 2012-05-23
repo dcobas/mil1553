@@ -26,7 +26,7 @@
 #include <libmil1553.h>
 #include <librti.h>
 #include <libquick-serial.h>
-#include "pow_messages.h"
+#include "pow_messages_serial.h"
 
 #ifndef COMPILE_TIME
 #define COMPILE_TIME 0

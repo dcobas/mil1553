@@ -6,7 +6,7 @@
 #include <mil1553.h>
 #include <libmil1553.h>
 #include <librti.h>
-#include <pow_messages.h>
+#include <pow_messages_serial.h>
 
 /**
  * Implement the quick data interface for legacy code.
