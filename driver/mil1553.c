@@ -376,7 +376,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_RETRIES 5
 #define TX_WAIT_US 10
 #define CBMIA_INT_TIMEOUT (msecs_to_jiffies(2))
-#define INT_MISSING_TIMEOUT (msecs_to_jiffies(1000))
+#define INT_MISSING_TIMEOUT (msecs_to_jiffies(4))
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -385,18 +385,15 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	int retries = TX_RETRIES;
 
 retries:
-	do {
-		timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-			atomic_read(&mdev->int_busy) == 0, INT_MISSING_TIMEOUT);
-		if (timeleft == 0) {
-			printk(KERN_ERR PFX "busy bc %d for pid %d\n", mdev->bc, current->pid);
-			atomic_set(&mdev->int_busy, 0);
-		}
-		if (signal_pending(current))
-			return -ERESTARTSYS;
-	} while (atomic_xchg(&mdev->int_busy, 1));
-
 	icnt = mdev->icnt;
+	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
+		!atomic_read(&mdev->int_busy), INT_MISSING_TIMEOUT);
+	if (timeleft <= 0) {
+		printk(KERN_ERR PFX 
+			"attempt to Tx on busy BC %d, timed out after "
+			" %lu ms\n", mdev->bc, INT_MISSING_TIMEOUT);
+	}
+	atomic_set(&mdev->int_busy, 1);
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
@@ -410,18 +407,13 @@ retries:
 	}
 	udelay(8*TX_WAIT_US);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-					icnt < mdev->icnt, CBMIA_INT_TIMEOUT);
+					!atomic_read(&mdev->int_busy), CBMIA_INT_TIMEOUT);
 	if (timeleft <= 0) {
 		printk(KERN_ERR PFX "interrupt pending"
 				" after %d msecs in bc %d, "
 				"timeleft = %d, pid = %d\n",
 				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
 				mdev->bc, timeleft, current->pid);
-		if (!atomic_xchg(&mdev->int_busy, 0)) {
-			printk(KERN_ERR PFX "not busy anymore, restoring\n");
-			return 0;
-		}
-		wake_up_interruptible(&mdev->int_complete);
 		if (--retries > 0)
 			goto retries;
 		else
