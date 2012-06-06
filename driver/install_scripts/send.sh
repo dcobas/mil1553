@@ -1,0 +1,10 @@
+#!	/bin/sh
+
+VERSION=`git describe --dirty`
+BINARY=L865/2.6.24.7-rt27/mil1553.ko
+VERSIONED_BINARY=$BINARY-$VERSION
+DEPLOYDIR=/acc/dsc/oper/L865/2.6.24.7-rt27/mil1553/
+
+cp $BINARY $VERSIONED_BINARY
+dsc_install $VERSIONED_BINARY $DEPLOYDIR
+echo "installed $VERSION"
