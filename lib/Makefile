@@ -36,13 +36,10 @@ clean:
 	-$(RM) -rf html Doxyfile
 
 install:
-	dsc_install libmil1553.$(CPU).a /acc/local/$(CPU)/mil1553
-	dsc_install librti.$(CPU).a /acc/local/$(CPU)/mil1553
 	dsc_install libquick.$(CPU).a /acc/local/$(CPU)/mil1553
 	dsc_install libmil1553.h /acc/local/$(CPU)/mil1553
 	dsc_install librti.h /acc/local/$(CPU)/mil1553
 	dsc_install libquick.h /acc/local/$(CPU)/mil1553
-	dsc_install pow_messages.h /acc/local/$(CPU)/mil1553
 	dsc_install ../driver/mil1553.h /acc/local/$(CPU)/mil1553
 
 docs: Doxyfile.patch
