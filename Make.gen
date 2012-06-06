@@ -1,0 +1,172 @@
+#========================================================
+# Generic Makefile to produce DSC and associated RT tasks
+#========================================================
+#
+# Input:
+# PROCS = property code sources list
+# PROCSS = same but C++
+# RTS   = RT tasks source files independant from gm_pbt
+# RTX   = RT tasks source files calling local EMs to be relinked
+#         each time we extract new data-table from Oracle.
+#
+# Internal:
+# PROCO = property code objects list
+
+include /acc/src/dsc/co/Make.auto
+
+ifeq ($(CPU),68k)
+TGMLIBS=-ltgm
+else
+TGMLIBS=-ltgm -ltim -ltgm -ltgv -ldtm
+endif
+
+
+PROCO=$(PROCS:.c=.$(CPU).o) $(PROCSS:.cc=.$(CPU).o)
+
+RTE=$(RTS:.c=.$(CPU)) $(RTSS:.cc=.$(CPU))
+
+ifneq ($(RTX),)
+ifneq ($(RTXX),)
+RTO=$(RTX:.c=.$(CPU).o) $(RTXX:.cc=.$(CPU).o)
+else
+RTO=$(RTX:.c=.$(CPU).o)
+endif
+else
+ifneq ($(RTXX),)
+RTO=$(RTXX:.cc=.$(CPU).o)
+endif
+endif
+
+ifneq ($(RTSS),)
+# use C++ linker instead of C linker
+LINK.o=$(LINK.cc)
+endif
+ifneq ($(PROCO),)
+ifndef EM
+EM=$(shell basename `/bin/pwd | tr a-z A-Z`)
+endif
+LIB=lib$(EM).$(CPU).a
+else
+LIB=
+endif
+
+
+all:: $(LIB) $(RTE) $(RTO)
+	@echo '-----> ' $^ ready to deliver
+
+#========================================================
+# Rules to produce and deliver our library
+#========================================================
+ifneq ($(PROCO),)
+$(LIB): $(PROCO)
+	$(AR) $(ARFLAGS) $@ $^
+	$(RANLIB) $@
+
+install:: $(LIB) $(HDRS) $(RTO)
+	$(INSTALL) $^ /acc/local/$(CPU)/em
+endif
+
+#========================================================
+# Rules to install executables
+#========================================================
+ifneq ($(RTE),)
+install:: $(RTE)
+	@echo ==========================================================================
+	@echo to install $^ on $(ACCS), type command
+	@echo .   gmake deliver
+	@echo to install $^ only on lab, type command
+	@echo .   gmake ACCS=lab deliver
+	@echo ==========================================================================
+
+deliver:: $(RTE)
+	@for a in $(ACCS); do \
+	    if [ -w /acc/dsc/$$a/$(CPU)/rt ]; then \
+		echo Installing $^ in /acc/dsc/$$a/$(CPU)/rt ;\
+		$(INSTALL) $^ /acc/dsc/$$a/$(CPU)/rt ;\
+	    else \
+		echo Cannot access directory /acc/dsc/$$a/$(CPU)/rt ; \
+	    fi; \
+	done
+else
+deliver::
+	@echo No RT Executable to deliver
+endif
+
+
+#========================================================
+# Rules to produce ANSI headers for PROCS
+#========================================================
+ANSI.h: $(PROCS) $(RTX) $(RTS) $(RTSS) $(RTXX)
+	cproto -es -o $@ -I- -I. $(STDFLAGS) $^
+
+#========================================================
+# Rules to extract uptodate sources from either RCS or SCCS
+#========================================================
+sources: $(PROCS) $(PROCSS) $(RTS) $(RTX) $(RTSS) $(RTXX)
+
+#========================================================
+# Rule to force a full cleanup
+#========================================================
+clobber: clean
+	@echo ' '
+	@echo '-----> Removing all files already in RCS  ...'
+	@echo ' '
+	grcsclean
+	@if [ ! -f Makefile ]; then $(CO) Makefile ; fi
+	@echo ' '
+	@echo '-----> Normal situation should be Makefile and RCS only'
+	@echo ' '
+	@echo '       Use "make sources" to extract back all files'
+	@echo ' '
+
+
+#========================================================
+# Rules to produce a symbolic link to the WEB documentation
+#========================================================
+
+EMDOCPATH=/acc/doc/html/private/gm/gmdescrip
+
+doccreate:: $(EMDOCPATH)/template.html
+	cp $(EMDOCPATH)/template.html $(EM).html
+	chmod 664 $(EM).html
+	mv $(EMDOCPATH)/$(EM).html $(EMDOCPATH)/$(EM).html.old
+	cp $^ $(EMDOCPATH)/$(EM).html
+	chmod 664 $(EMDOCPATH)/$(EM).html
+	@echo A new EMPTY document has been created in your current directory
+	@echo and in the Web directory for allowing other commands to run properly
+	@echo The new document name is $(EM).html
+
+docshow:: $(EMDOCPATH)/$(EM).html
+	ln -s $^
+	@echo A symbolic link to $(EMDOCPATH)/$(EM).html has been created in your directory
+
+docgetcopy:: $(EMDOCPATH)/$(EM).html
+	cp -p $^ $(EM).html
+	chmod 664 $(EM).html
+	@echo Now you can edit your private copy ofthe document $(EM).html
+
+docdeliver:: $(EMDOCPATH)/$(EM).html
+	$(RM) $(EMDOCPATH)/$^.old
+	mv $(EMDOCPATH)/$^ $(EMDOCPATH)/$^.old
+	cp -p $(EM).html $(EMDOCPATH)/$^
+	chmod 664 $^
+	@echo Your document has been delivered to the WWW directory as $^
+	@echo Note: the old HTML document has been saved as $^.old
+
+dochelp::
+	@echo ==========================================================================
+	@echo
+	@echo to CREATE the EMPTY file $(EM).html in your current directory, type
+	@echo .   gmake doccreate
+	@echo
+	@echo to GET a symbolic LINK to $(EMDOCPATH)/$(EM).html, type
+	@echo .   gmake docshow
+	@echo
+	@echo to GET a writeble COPY of $(EMDOCPATH)/$(EM).html in your current directory, type
+	@echo .   gmake docgetcopy
+	@echo
+	@echo to DELIVER a COPY of $(EM).html to the Web server, type
+	@echo .   gmake docdeliver
+	@echo
+	@echo ==========================================================================
+

@@ -1,4 +1,4 @@
-static char __attribute__ ((unused)) rcsid[] = "$Id: pci_procos.c,v 1.1 2011/07/08 14:47:01 nmn Exp lewis $";
+static char __attribute__ ((unused)) rcsid[] = "$Id: pci_procos.c,v 1.2 2011/08/31 07:02:04 lewis Exp $";
 /* Property code for module POW-V   
    Started  05-OCT-92 by W.HEINZE              
    Modified 24-FEB-93 correction in STAQ property code
@@ -88,6 +88,7 @@ static /* __inline__ */ void __htonx(float *a, float b) {
 
 
 #include "pow_messages.h"
+#ifdef __linux__
 #include "libquick.h"
 
 static int mil1533_init_done = 0;
@@ -104,9 +105,7 @@ static short send_quick_data (struct quick_data_buffer *p)
 	}
 	mil1533_init_done = 1;
     }
-    milib_lock_bc(mil1533_fh,p->bc);
     cc = mil1553_send_raw_quick_data_net(mil1533_fh, p);
-    milib_unlock_bc(mil1533_fh,p->bc);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
@@ -125,15 +124,15 @@ static short get_quick_data (struct quick_data_buffer *p)
 	}
 	mil1533_init_done = 1;
     }
-    milib_lock_bc(mil1533_fh,p->bc);
     cc = mil1553_get_raw_quick_data_net(mil1533_fh, p);
-    milib_unlock_bc(mil1533_fh,p->bc);
     if ((cc) && (cc != EINPROGRESS)) {
 	mil1553_print_error(cc);
 	return cc;
     }
     return 0;
 }
+
+#endif
 
 /*====================================================*/
 /*  Convert MIL-1553 error to EM error codes          */

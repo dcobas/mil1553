@@ -1,6 +1,5 @@
-
 /*==========================================================================*/
-static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 1.4 2011/07/25 14:22:09 nmn Exp $";
+static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 2.2 2012/05/14 15:04:12 nmn Exp $";
 /*==========================================================================*/
 /*
  * Real-Time task to handle double ppm for POW EM,
@@ -26,9 +25,6 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 1.4 2011/07/
  */
 /*==========================================================================*/
 
-#if defined(__Lynx__) && !defined(LYNX)
-#define LYNX
-#endif
 
 /* Conditionnal compilation for POW-V included */
 
@@ -54,16 +50,6 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 1.4 2011/07/
 
 #include "pow_messages.h"	/* ctrl. and acqn. message formats */
 
-#if defined(__BIG_ENDIAN__)
-
-#define htons(x) (x)
-#define ntohs(x) (x)
-#define htonl(x) (x)
-#define ntohl(x) (x)
-#define ntohx(x) (x)
-
-#else
-
 #include <byteswap.h>
 
 #define htons(x) __bswap_16 (x)
@@ -75,12 +61,12 @@ static char __attribute__ ((unused)) rcsid[] = "$Id: pci-powvrt.c,v 1.4 2011/07/
 /* Read Float from network to host order */
 #define ntohx(x)   __ntohx((int *)&x)
 static __inline__ float __ntohx (int *b) {
-    int     __a__ = ntohl(*b);
-    float  *__p__ = (float *)&__a__;
+    int __a__ = ntohl (*b);
+    float *__p__ = (float *) &__a__;
+
     return *__p__;
 }
 
-#endif
 
 /* non documented GM subroutine to find pointer to data table */
 extern void eqm_ptr_iv (int, col_descr *, data_array *, int, int *, int, int,
@@ -91,25 +77,23 @@ extern void eqm_ptr_iv (int, col_descr *, data_array *, int, int *, int, int,
 #include <libquick.h>
 
 static int mil1533_init_done = 0;
-static int milf = (-1);
+static int mil1533_fh = (-1);
 
 static short send_quick_data (struct quick_data_buffer *p)
 {
     int cc;
 
     if (mil1533_init_done == 0) {
-	if ((milf = mil1553_init_quickdriver ()) < 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
 	mil1533_init_done = 1;
     }
 
-    milib_lock_bc(milf,p->bc);
-    cc = mil1553_send_raw_quick_data_net(milf, p);
-    milib_unlock_bc(milf,p->bc);
+    cc = mil1553_send_raw_quick_data_net (mil1533_fh, p);
     if ((cc) && (cc != EINPROGRESS)) {
-	mil1553_print_error(cc);
+	mil1553_print_error (cc);
 	return cc;
     }
     return 0;
@@ -120,17 +104,15 @@ static short get_quick_data (struct quick_data_buffer *p)
     int cc;
 
     if (mil1533_init_done == 0) {
-	if ((milf = mil1553_init_quickdriver ()) < 0) {
+	if ((mil1533_fh = mil1553_init_quickdriver ()) < 0) {
 	    perror ("mil1553_init_quickdriver");
 	    return (-1);
 	}
 	mil1533_init_done = 1;
     }
-    milib_lock_bc(milf,p->bc);
-    cc = mil1553_get_raw_quick_data_net(milf, p);
-    milib_unlock_bc(milf,p->bc);
+    cc = mil1553_get_raw_quick_data_net (mil1533_fh, p);
     if ((cc) && (cc != EINPROGRESS)) {
-	mil1553_print_error(cc);
+	mil1553_print_error (cc);
 	return cc;
     }
     return 0;
@@ -275,51 +257,54 @@ typedef struct action {
 /*--------------------------------------------------------------------------*/
 /* Global variables:                                                        */
 /*--------------------------------------------------------------------------*/
-char *program;			/* program name */
-int blsx = (-1);		/* EM Block Serial Number */
-Action *act0 = NULL;		/* Actions list start, initiated with 0 */
-Action *act;			/* Actions list current pointer */
-TgmMachine plstb;		/* telegram to use for normal PPM */
-Cardinal user_grp_nr;		/* telegram group number */
-Cardinal next_user_grp_nr;	/* telegram "next" group number */
-int pres_grp_val;		/* telegram USER group value */
-int next_grp_val;		/* telegram next USER group value */
-int no_timing = 0;		/* true if PPMVI, PPMAQI = 0 for POW-V */
-data_array data_desc;		/* data descriptor for rtgrim_acc */
-col_descr col_ccva;		/* column descriptor of CCVA */
-col_descr col_aq;		/* column descriptor of AQ */
-col_descr col_bffr;		/* column descriptor of BFFR */
-col_descr col_err1;		/* column descriptor of ERR1 */
-col_descr col_err2;		/* column descriptor of ERR2 */
-col_descr col_stmp;		/* column descriptor of AQSTMP */
+static char *program;		/* program name */
+static int blsx = (-1);		/* EM Block Serial Number */
+static Action *act0 = NULL;	/* Actions list start, initiated with 0 */
+static Action *act;		/* Actions list current pointer */
+static TgmMachine plstb;	/* telegram to use for normal PPM */
+static Cardinal user_grp_nr;	/* telegram group number */
+static Cardinal next_user_grp_nr;	/* telegram "next" group number */
+static int pres_grp_val;	/* telegram USER group value */
+static int next_grp_val;	/* telegram next USER group value */
+static int no_timing = 0;	/* true if PPMVI, PPMAQI = 0 for POW-V */
+static data_array data_desc;	/* data descriptor for rtgrim_acc */
+static col_descr col_ccva;	/* column descriptor of CCVA */
+static col_descr col_aq;	/* column descriptor of AQ */
+static col_descr col_bffr;	/* column descriptor of BFFR */
+static col_descr col_err1;	/* column descriptor of ERR1 */
+static col_descr col_err2;	/* column descriptor of ERR2 */
+static col_descr col_stmp;	/* column descriptor of AQSTMP */
 
-col_descr col_ccac;		/* column descriptor of CCAC */
-col_descr col_fupa;		/* column descriptor of FUPA */
-col_descr col_hwmn;		/* column descriptor of HWMN */
-col_descr col_hwmx;		/* column descriptor of HWMX */
-col_descr col_erres;		/* column descriptor of ERRES */
-col_descr col_aq_ac;		/* column descriptor of AQ_AC */
-col_descr col_namm;		/* column descriptor of NAMM */
-col_descr col_mes;		/* column descriptor of MES */
-col_descr col_mes2;		/* column descriptor of MES2 */
-col_descr col_dmn;		/* column descriptor of DMN */
-col_descr col_dmx;		/* column descriptor of DMX */
+static col_descr col_ccac;	/* column descriptor of CCAC */
+static col_descr col_fupa;	/* column descriptor of FUPA */
+static col_descr col_hwmn;	/* column descriptor of HWMN */
+static col_descr col_hwmx;	/* column descriptor of HWMX */
+static col_descr col_erres;	/* column descriptor of ERRES */
+static col_descr col_aq_ac;	/* column descriptor of AQ_AC */
+static col_descr col_namm;	/* column descriptor of NAMM */
+static col_descr col_mes;	/* column descriptor of MES */
+static col_descr col_mes2;	/* column descriptor of MES2 */
+static col_descr col_dmn;	/* column descriptor of DMN */
+static col_descr col_dmx;	/* column descriptor of DMX */
 
 /*--------------------------------------------------------------------------*/
 /* Variables defined in argument list:                                      */
 /*--------------------------------------------------------------------------*/
 static int verbose_flg = FALSE;	/* verbose start flag */
 static int exit_flg = FALSE;	/* exit after configuration check flag */
-static int delay_flg = 0;       /* number of ms to wait before ACQ */
+static int delay_flg = 0;	/* number of ms to wait before ACQ */
 static int pdelay_flg = FALSE;	/* print total traitement time  */
 static int trace_acq_flg = FALSE;	/* trace acquisition flag */
 static int trace_ctl_flg = FALSE;	/* trace control flag */
+static int loop_flg = FALSE;	/* hanldle a single BC */
+static int loop_val = 1;	/* BC value */
 static int jitter_flg = FALSE;	/* check for jitter > jitter_val */
 static int jitter_val = 0;	/* jitter value */
 static int trace_gbelm = 0;	/* global elem nb to be traced */
 
 static int trace_elm = 0;	/* local elem nb corresponding to glob. elem. */
 static int int_flg = FALSE;	/* interrupt to trace */
+
 
 /*
  * Different actions corresponding to different values of the PPMV bit
@@ -336,23 +321,23 @@ static int int_flg = FALSE;	/* interrupt to trace */
  * The ppm arrays contain the parameters 1 = next, 0 = present, -1 = previous
    for the acquisition and control routines:
  */
-int ppm_acq[] = { EQP_RTPRESENT,	/* 0 */
-		  EQP_RTPRESENT,        /* 1 */
-		  EQP_RTPRESENT,        /* 2 */
-		  EQP_RTNEXT,           /* 3 */
-		  EQP_RTPREVIOUS,       /* 4 */
-		  EQP_RTPREVIOUS,       /* 5 */
-		  EQP_RTPRESENT,        /* 6 */
-		  EQP_RTPRESENT         /* 7 */
+static int ppm_acq[] = { EQP_RTPRESENT,	/* 0 */
+    EQP_RTPRESENT,		/* 1 */
+    EQP_RTPRESENT,		/* 2 */
+    EQP_RTNEXT,			/* 3 */
+    EQP_RTPREVIOUS,		/* 4 */
+    EQP_RTPREVIOUS,		/* 5 */
+    EQP_RTPRESENT,		/* 6 */
+    EQP_RTPRESENT		/* 7 */
 };
-int ppm_ctl[] = { EQP_RTNEXT,           /* 0 */
-		  EQP_RTNEXT,           /* 1 */
-		  EQP_RTPREVIOUS,       /* 2 */
-		  EQP_RTNEXT,           /* 3 */
-		  EQP_RTPRESENT,        /* 4 */
-		  EQP_RTNEXT,           /* 5 */
-		  EQP_RTNEXT,           /* 6 */
-		  EQP_RTPRESENT         /* 7 */
+static int ppm_ctl[] = { EQP_RTNEXT,	/* 0 */
+    EQP_RTNEXT,			/* 1 */
+    EQP_RTPREVIOUS,		/* 2 */
+    EQP_RTNEXT,			/* 3 */
+    EQP_RTPRESENT,		/* 4 */
+    EQP_RTNEXT,			/* 5 */
+    EQP_RTNEXT,			/* 6 */
+    EQP_RTPRESENT		/* 7 */
 };
 
 
@@ -362,6 +347,7 @@ int ppm_ctl[] = { EQP_RTNEXT,           /* 0 */
 static int *CheckedAlloc (int nb, int sz)
 {
     int *p = (int *) calloc ((unsigned) nb, (unsigned) sz);
+
     if (p == NULL) {
 	fprintf (stderr, "\n%s: CheckedAlloc: not enough memory. Aborting!\n", program);
 	exit (-1);
@@ -372,6 +358,7 @@ static int *CheckedAlloc (int nb, int sz)
 static double *CheckedAllocd (int nb, int sz)
 {
     double *p = (double *) calloc ((unsigned) nb, (unsigned) sz);
+
     if (p == NULL) {
 	fprintf (stderr, "\n%s: CheckedAllocd: not enough memory. Aborting!\n", program);
 	exit (-1);
@@ -428,7 +415,6 @@ static void InitPLS (void)
 	    exit (-1);
 	}
     }
-
 }
 
 
@@ -506,7 +492,7 @@ static int FindBitPatternFlag (int machine, int group)
 /*====================================================*/
 /* Build linked list of action structures             */
 /*====================================================*/
-static void BuildActions (void)
+static void BuildActions (int argc, char **argv)
 {
     int i, j, k, cc, plsmsk, group;
     int cfg_err;
@@ -520,6 +506,7 @@ static void BuildActions (void)
     /* Temporary arrays */
     int *el;			/* internal element numbers */
     int *co;			/* completion code */
+    int *ads;			/* address1 */
     int *its;			/* interrupt starting the cycle for multiple acquisitions */
     int *ci;			/* control interrupt */
     int *ai;			/* acquisition interrupt */
@@ -541,14 +528,12 @@ static void BuildActions (void)
 
     blsx = blsnam ("POW-V");
     if (blsx < 0) {
-	fprintf (stderr, "%s: BuildActions: can't find BLSNR for EM POW or POW-V\n", program);
+	fprintf (stderr, "%s: BuildActions: can't find BLSNR for EM POW-V\n", program);
 	exit (1);
     }
 
     /* Get the max PPM capability from datatable */
     max_pls_line = rdbls_gtfield (blsx, PPM_NR);
-
-
 
     /* <<< DEBUG info >>> Translate the traced element number */
     if (trace_acq_flg || trace_ctl_flg) {
@@ -592,6 +577,7 @@ static void BuildActions (void)
     n = mx + 1;
     el = MyCalloc (n);
     co = MyCalloc (n);
+    ads = MyCalloc (n);
     its = MyCalloc (n);
     ci = MyCalloc (n);
     ai = MyCalloc (n);
@@ -620,6 +606,11 @@ static void BuildActions (void)
      * ELMSTR = master equ. nr. of slaves
      * PLSDBL = PLS condition for double ppm, joined to slave power supplies
      */
+    DTRS (ads, EQP_ADDRESS1);
+    if (co[0] != EQP_NOERR) {
+	fprintf (stderr, "%s: BuildActions: can't read ADDRESS1 column in DT, coco = %d. Aborting!\n", program, co[0]);
+	exit (1);
+    }
     DTRS (its, EQP_IT_START);
     if (co[0] != EQP_NOERR) {
 	fprintf (stderr, "%s: BuildActions: can't read IT_START column in DT, coco = %d. Aborting!\n", program, co[0]);
@@ -669,6 +660,42 @@ static void BuildActions (void)
 	nr_sla[i] = 0;
     }
 
+    /* Count number of loops if not specified */
+    if (loop_flg == FALSE) {
+	int loops[16];
+
+	for (i = 0; i < 16; i++)
+	    loops[i] = 0;
+	for (i = 0; i < mx; i++) {	/* scan all elements */
+	    n = UPW (ads[i]);
+	    if (n > 16) {
+		fprintf (stderr, "illegal BC %d for %d - abort\n", n, i);
+		exit (2);
+	    }
+	    ++loops[n - 1];
+	}
+	n = 0;
+	for (i = 0; i < 16; i++)
+	    if (loops[i] != 0) {
+		n++;
+		loop_val = i + 1;
+	    };
+	if (n == 0) {
+	    fprintf (stderr, "No BC to handle\n");
+	    exit (2);
+	}
+	if (n == 1) {
+	    loop_flg = TRUE;
+	}
+	else {
+	    fprintf (stderr, "Warning: more than 1 BC to handle:");
+	    for (i = 0; i < 16; i++)
+		if (loops[i] != 0) {
+		    fprintf (stderr, "BC=%d,", i + 1);
+	    }
+	}
+    }
+
     /* 
      * Establish the columns nr_sla (nr. of slaves), slaves (internal
      * equipment numbers), plsdblsv (condition to select slaves).
@@ -676,6 +703,8 @@ static void BuildActions (void)
      * Note: el_mstr is not the internal equ. nr. but the index of column arr.  
      */
     for (i = 0; i < mx; i++) {	/* scan all elements */
+	if (loop_flg && (UPW (ads[i]) != loop_val))
+	    continue;
 	/* this is a connected slave power supply? */
 	if ((elmstr[i] > 0) && (plsdbl[i] != -1) && (cnnt[i] != 0)) {
 	    el_mstr = get_locelno (blsx, elmstr[i]) - 1;	/* index in array */
@@ -700,6 +729,8 @@ static void BuildActions (void)
      * Skip not connected and slave equipments (having elmstr <> 0 and plsdbl != -1) 
      */
     for (n = 0, i = 0; i < mx; i++) {	/* scan all elements ... */
+	if (loop_flg && (UPW (ads[i]) != loop_val))
+	    continue;
 	if ((cnnt[i] != 0) && ((elmstr[i] == 0) || (plsdbl[i] == -1)))
 	{
 	    flag = (nr_sla[i] != 0);	/* this are master power supplies */
@@ -707,15 +738,15 @@ static void BuildActions (void)
 	    while (act) {
 		if ((act->ci == ci[i])	/* same ctrl. interrupt */
 		    &&(act->ai == ai[i])	/* same acqn. interrupt */
-		    && (act->its == its[i])	/* same its interrupt */
-		    && (act->grp == grp[i])	/* same PPM group */
+		    &&(act->its == its[i])	/* same its interrupt */
+		    &&(act->grp == grp[i])	/* same PPM group */
 		    &&(act->fdppm == flag))
 		    break;	/* skip, this record already exists */
 
 		act = act->next;	/* advance to the next record */
 	    }
 
-	    if (act == 0) {
+	    if (act == NULL) {
 		/* Allocate memory for the new Action object */
 		act = (Action *) CheckedAlloc (1, sizeof (Action));
 		act->id = n++;	/* Action ID */
@@ -737,13 +768,15 @@ static void BuildActions (void)
 
 	/* Count number of equipment per ppm kind */
 	for (n = 0, i = 0; i < mx; i++) {
+	    if (loop_flg && (UPW (ads[i]) != loop_val))
+		continue;
 	    flag = (nr_sla[i] != 0);
 	    if ((cnnt[i] != 0)	/* ONLY connected elements */
 		&&(elmstr[i] == 0 || plsdbl[i] == -1)
 		&& (act->ci == ci[i])	/* same ctrl. interrupt */
 		&&(act->ai == ai[i])	/* same acq. interrupt */
-		&& (act->its == its[i])	/* same its interrupt */
-		&& (act->grp == grp[i])	/* same PPM group */
+		&&(act->its == its[i])	/* same its interrupt */
+		&&(act->grp == grp[i])	/* same PPM group */
 		&&(act->fdppm == flag))
 		n++;
 	}
@@ -757,17 +790,19 @@ static void BuildActions (void)
 
 	/* Build local list of sorted elements: one per object */
 	for (n = 0, i = 0; i < mx; i++) {	/* scan all elements */
+	    if (loop_flg && (UPW (ads[i]) != loop_val))
+		continue;
 	    flag = (nr_sla[i] != 0);
 	    if ((cnnt[i] != 0)	/* ONLY connected elements */
 		&&((elmstr[i] == 0) || (plsdbl[i] == -1))
 		&& (act->ci == ci[i])	/* same ctrl. interrupt */
 		&&(act->ai == ai[i])	/* same acq. interrupt */
-		&& (act->its == its[i])	/* same its interrupt */
-		&& (act->grp == grp[i])	/* same PPM group */
+		&&(act->its == its[i])	/* same its interrupt */
+		&&(act->grp == grp[i])	/* same PPM group */
 		&&(act->fdppm == flag)) {	/*same doublePPM condition */
 
-		act->el[n+1] = el[i+1];     /* add element to list of equipments (internal nbrs.) */
-		act->eqn[n+1] = get_globelno (blsx, el[i+1]);       /* list of glob. equipment nbrs. */
+		act->el[n + 1] = el[i + 1];	/* add element to list of equipments (internal nbrs.) */
+		act->eqn[n + 1] = get_globelno (blsx, el[i + 1]);	/* list of glob. equipment nbrs. */
 		n++;		/* be ready for next element */
 	    }
 	}
@@ -775,12 +810,12 @@ static void BuildActions (void)
     }				/* end of scan Action objects */
 
     /* Check that Action objects have been created */
-    if (act0 == 0) {		/* starting pointer points to NULL */
+    if (act0 == NULL) {		/* starting pointer points to NULL */
 	fprintf (stderr, "%s: BuildActions: no PPM to handle. Aborting!\n", program);
 	exit (1);
     }
 
-    single = ((act0->next == 0) && (act0->ci == 0) && (act0->ai == 0));
+    single = ((act0->next == NULL) && (act0->ci == 0) && (act0->ai == 0));
     if (single) {		/* no ppm and one single action */
 	fprintf (stderr, "%s: BuildActions: no timing, acquisition and control all 1.2 seconds!\n", program);
 	no_timing = 1;
@@ -790,6 +825,7 @@ static void BuildActions (void)
     free (el);
     free (ci);
     free (ai);
+    free (ads);
     free (its);
     free (grp);
     free (trm);
@@ -943,78 +979,79 @@ static int c1553toem (int err)
 {
     int e = 0;
 
-    if (err < 0) err = (-err);
+    if (err < 0)
+	err = (-err);
     switch (err) {
 
-	case 0:
-		// No error
-		e = 0;
+    case 0:
+	// No error
+	e = 0;
 	break;
 
-	case EFAULT:
-		// Bad BC number
-		e = EQP_BCNOTCON;
+    case EFAULT:
+	// Bad BC number
+	e = EQP_BCNOTCON;
 	break;
 
-	case ENODEV:
-		// Bad RTI number or RTI down
-		e = EQP_RTNOTCON;
+    case ENODEV:
+	// Bad RTI number or RTI down
+	e = EQP_RTNOTCON;
 	break;
 
-	case ETIME:
-		// User wait time out
-		e = EQP_TIMOUT;
+    case ETIME:
+	// User wait time out
+	e = EQP_TIMOUT;
 	break;
 
-	case EINTR:
-		// Got a signal while in wait
-		e = EQP_TIMOUT;
+    case EINTR:
+	// Got a signal while in wait
+	e = EQP_TIMOUT;
 	break;
 
-	case ENOMEM:
-		// Failed to allocate memory
-		e = EQP_SYS5ERR;
+    case ENOMEM:
+	// Failed to allocate memory
+	e = EQP_SYS5ERR;
 	break;
 
-	case ENOTTY:
-		// Bad IOCTL number or call
-		e = EQP_SYS5ERR;
+    case ENOTTY:
+	// Bad IOCTL number or call
+	e = EQP_SYS5ERR;
 	break;
 
-	case EACCES:
-		// Driver failed, generic code
-		e = EQP_BADBUF;
+    case EACCES:
+	// Driver failed, generic code
+	e = EQP_BADBUF;
 	break;
 
-	case ETIMEDOUT:
-		// RTI didn't answer, STR.TIM
-		e = EQP_RBSET;
+    case ETIMEDOUT:
+	// RTI didn't answer, STR.TIM
+	e = EQP_RBSET;
 	break;
 
-	case EPROTO:
-		// RTI message error, STR.ME
-		e = EQP_M1553ERR;
+    case EPROTO:
+	// RTI message error, STR.ME
+	e = EQP_M1553ERR;
 	break;
 
-	case EBUSY:
-		// RTI busy, STR.BUY
-		e = EQP_TBNOTSET;
+    case EBUSY:
+	// RTI busy, STR.BUY
+	e = EQP_TBNOTSET;
 	break;
 
-	case EINPROGRESS:
+    case EINPROGRESS:
 
-		// This is an overall error code, the individual entries
-		// in the QDP linked list contain individual errors.
-		// If any of them are in error this overall error is set.
+	// This is an overall error code, the individual entries
+	// in the QDP linked list contain individual errors.
+	// If any of them are in error this overall error is set.
 
-		// QDP Transaction partial failure
-		e = 0;
+	// QDP Transaction partial failure
+	e = 0;
 	break;
 
-	default:
-		// Some other system error
-		e = EQP_SYS5ERR;
-		mil1553_print_error(err);
+    default:
+	// Some other system error
+	e = EQP_SYS5ERR;
+	mil1553_print_error (err);
     }
     return (e);
 }
@@ -1045,7 +1082,7 @@ static int IsSlave (int gv, int bp_flag, int pls_bp)
 /* Double PPM: select local equipment of slave or     */
 /*             master for this cycle                  */
 /*====================================================*/
-static void SelectEquipmentNumber (Action *cact)
+static void SelectEquipmentNumber (Action * cact)
 {
     int i, j, k, gv, group, tgm;
 
@@ -1074,7 +1111,7 @@ static void SelectEquipmentNumber (Action *cact)
 /*====================================================*/
 /* Request of acquisition of hardware MIN/MAX values  */
 /*====================================================*/
-static void ReqAcquisitionMinMax (Action *cact, int first)
+static void ReqAcquisitionMinMax (Action * cact, int first)
 {
     int i, k;
     int err;
@@ -1103,40 +1140,28 @@ static void ReqAcquisitionMinMax (Action *cact, int first)
 	pc->bc = UPW (cact->ad[i]);	/* set BC number */
 	pc->rt = LOW (cact->ad[i]);	/* set RT number */
 	pc->stamp = cact->el[i + 1];	/* set STAMP field == element number */
-	pc->pktcnt = 22;                /* sizeof(req_msg) = 24 instead of 22 */
+	pc->pktcnt = 22;	/* sizeof(req_msg) = 24 instead of 22 */
 	pc->next = ((i < (cact->nb - 1)) ? &pc[1] : NULL);	/* ptr. to next control block */
-	msg = (req_msg *) &(pc->pkt[0]);
-	memcpy (msg, &(cact->v2[i*6]), 22);
+	msg = (req_msg *) & (pc->pkt[0]);
+	memcpy (msg, &(cact->v2[i * 6]), 22);
 	msg->protocol_date.sec = htonl (da.tv_sec);
 	msg->protocol_date.usec = htonl (da.tv_usec);
 	msg->service = htons (5);	/* service request for configuration */
     }
 
     /* Send request messages */
-    if (send_quick_data (cact->ctl)) {   /* if MIL-1553 error returned */
+    if (send_quick_data (cact->ctl)) {	/* if MIL-1553 error returned */
 	fprintf (stderr, "%s: QCKDATERR for requesting hw min/max acquisition\n", program);
     }
-#if 0
-    else {			/* check error field for each ctrl. message */
-	int coco;
-	for (i = 0; i < cact->nb; i++) {	/* scan all ctrl. buffers */
-	    coco = c1553toem (cact->ctl[i].error);
-	    if (coco != 0) {
-		err = TRUE;
-		fprintf (stderr, "%s: el=%d bc=%d rt=%d write %s\n", program, cact->eqn[i+1], UPW (cact->ad[i]), LOW (cact->ad[i]), emmess(coco));
-	    }
-	}
-    }
-#endif
 }
 
 
 /*====================================================*/
 /* Acquisition of hardware MIN/MAX values             */
 /*====================================================*/
-static void DoAcquisitionMinMax (Action *cact, int first)
+static void DoAcquisitionMinMax (Action * cact, int first)
 {
-    int cc, i,k;
+    int cc, i, k;
     int sz;
     int coco, err;
     struct quick_data_buffer *pa;	/* acqn. buffers */
@@ -1172,32 +1197,32 @@ static void DoAcquisitionMinMax (Action *cact, int first)
        The erres variable giving the coco for an EM reading is treated correspondingly */
 
     cc = get_quick_data (cact->acq);
-    if (cc) {   /* if MIL-1553 error returned */
+    if (cc) {			/* if MIL-1553 error returned */
 	for (i = 0; i < cact->nb; i++)
 	    if (cact->hwmx[i] == 0)
 		cact->erres[i] = EQP_QCKDATERR;
 	fprintf (stderr, "%s: QCKDATERR for acquiring hw min/max\n", program);
     }
     else {			/* check error field for each acqn. message */
-	if (! first)
-	    for (i = 0; i < cact->nb; i++) {        /* scan all acqn. buffers */
-		pa = &cact->acq[i]; /* set pointer to acqn. message */
+	if (!first)
+	    for (i = 0; i < cact->nb; i++) {	/* scan all acqn. buffers */
+		pa = &cact->acq[i];	/* set pointer to acqn. message */
 		coco = c1553toem (cact->acq[i].error);
-		msg = (conf_msg *) &(cact->acq[i].pkt[0]);
+		msg = (conf_msg *) & (cact->acq[i].pkt[0]);
 
-		if ((coco == 0) && (msg->service == htons (5))) {   /* no error, hwmx/mn overwritten */
-		    cact->hwmx[i] = (int)ntohx(msg->i_max);
-		    cact->hwmn[i] = (int)ntohx(msg->i_min);
+		if ((coco == 0) && (msg->service == htons (5))) {	/* no error, hwmx/mn overwritten */
+		    cact->hwmx[i] = (int) ntohx (msg->i_max);
+		    cact->hwmn[i] = (int) ntohx (msg->i_min);
 		    printf ("%s: el=%d bc=%d rt=%d hwmx=%d hwmn=%d\n",
-			    program, cact->eqn[i+1], pa->bc, pa->rt, cact->hwmx[i], cact->hwmn[i]);
+			     program, cact->eqn[i + 1], pa->bc, pa->rt, cact->hwmx[i], cact->hwmn[i]);
 		}
 		else {
 		    if (coco) {
 			printf ("%s: el=%d bc=%d rt=%d %s\n",
-				program, cact->eqn[i+1], pa->bc, pa->rt, emmess(coco));
+				program, cact->eqn[i + 1], pa->bc, pa->rt, emmess (coco));
 		    } else {
 			printf ("%s: el=%d bc=%d rt=%d pkcnt=%d bad service=%d\n",
-				program, cact->eqn[i+1], pa->bc, pa->rt, pa->pktcnt, ntohs (msg->service));
+				program, cact->eqn[i + 1], pa->bc, pa->rt, pa->pktcnt, ntohs (msg->service));
 		    }
 		    if (cact->hwmx[i] == 0)
 			cact->erres[i] = coco;
@@ -1243,7 +1268,7 @@ static void DoAcquisitionMinMax (Action *cact, int first)
 /*====================================================*/
 /* Control Interrupt handling, called once per action */
 /*====================================================*/
-static void DoControl (Action *cact)
+static void DoControl (Action * cact)
 {
     int i, k, sz;
     int tgm;			/* flag for telegram: current = 0, next = 1 */
@@ -1310,7 +1335,7 @@ static void DoControl (Action *cact)
 	pc->next = ((i < (cact->nb - 1)) ? &pc[1] : NULL);	/* pointer to next ctrl. block */
 
 	/* Prepare control message */
-	msg = (ctrl_msg *) &(pc->pkt[0]);
+	msg = (ctrl_msg *) & (pc->pkt[0]);
 	memcpy (msg, &cact->v2[i * 6], 24);	/* non-ppm ctrl. values (actuations) */
 	msg->protocol_date.sec = htonl (da.tv_sec);
 	msg->protocol_date.usec = htonl (da.tv_usec);
@@ -1319,6 +1344,13 @@ static void DoControl (Action *cact)
 	memcpy (&msg->ccv, &cact->v3[i * 5], 20);	/* ppm ctrl. values */
 	pc->pktcnt = sizeof (ctrl_msg);
 	pc->error = 0;
+
+	if (((ntohs (msg->service) != 0) || (msg->type != 1))
+	 || ((cact->fdppm == 0) && (ntohs (msg->member) != cact->el[i + 1]))) {
+	    fprintf (stderr, "%s: DoControl: eqn=%d loc=%d ms=%d, service=%x, type=%x memb=%x\n",
+		     program, cact->eqn[i], cact->el[i + 1], (cact->fdppm ? cact->ms[i] : 0),
+		     ntohs (msg->service), msg->type, ntohs (msg->member));
+	};
     }
 
     tr_nb = -1;
@@ -1343,10 +1375,10 @@ static void DoControl (Action *cact)
 
     /* <<< DEBUG info >>> */
     if (trace_ctl_flg && (tr_nb >= 0)) {	/* trace infos for 'tr_nb'-element */
-	msg = (ctrl_msg *) &(cact->ctl[tr_nb].pkt[0]);
+	msg = (ctrl_msg *) & (cact->ctl[tr_nb].pkt[0]);
 	fprintf (stderr, "%s: DoControl: gb_elm=%d, pls=%3d, ccv=%f, CCSACT=%d, change bit=%d, err=%d\n",
 		 program, trace_gbelm, ntohs (msg->cycle.pls_line),
-		 (double) ntohx (msg->ccv), msg->ccsact, msg->ccsact_change,
+		 ntohx (msg->ccv), msg->ccsact, msg->ccsact_change,
 		 cact->er[tr_nb + 1]);
     }
 
@@ -1369,7 +1401,7 @@ static void DoControl (Action *cact)
     data_desc.type = EQM_TYP_INT;
     els[0] = 1;			/* one element at the time */
     for (i = 0; i < cact->nb; i++) {	/* scan all elements */
-	dtrs = (nonppm_ctrl_msg *) &(cact->v2[i * 6]);
+	dtrs = (nonppm_ctrl_msg *) & (cact->v2[i * 6]);
 	if (dtrs->ccsact == 4) {	/* for reset reconstitute old ccac columns with fupa */
 	    data_desc.data = &fupa;	/* data structure to read fupa */
 	    data_desc.size = 1;
@@ -1399,7 +1431,7 @@ static void DoControl (Action *cact)
 /*======================================================*/
 /* Reset multiple acquisition parametres at cycle begin */
 /*======================================================*/
-static void ResetAquArray (Action *cact)
+static void ResetAquArray (Action * cact)
 {
     int i;
     int tgm;			/* flag for telegram: current = 0, next = 1 */
@@ -1455,7 +1487,7 @@ static void ResetAquArray (Action *cact)
 /* Acquisition Interrupt handling                     */
 /* Multiple acquisitions per cycle for its <> 0       */
 /*====================================================*/
-static void DoAcquisition (Action *cact)
+static void DoAcquisition (Action * cact)
 {
     int i, cc;
     int sz;
@@ -1513,33 +1545,44 @@ static void DoAcquisition (Action *cact)
 
     /* Get acqn. messages from all existing G64s */
     cc = get_quick_data (cact->acq);
-    if (cc) {   /* MIL-1553 global error */
+    if (cc) {			/* MIL-1553 global error */
 	for (i = 0; i <= cact->nb; i++)
 	    cact->er[i] = EQP_QCKDATERR;	/* log error */
-	    fprintf (stderr, "%s: DoAcquisition: get_quick_data ioctl error = %d\n", program, errno);
+	fprintf (stderr, "%s: DoAcquisition: get_quick_data ioctl error = %d\n", program, errno);
     }
-
-    else {			/* check error field for each acqn. message */
+    else {                      /* check error field for each acqn. message */
 	for (i = 0; i < cact->nb; i++) {
-	    msg = (acq_msg *) &(cact->acq[i].pkt[0]);
+	    msg = (acq_msg *) & (cact->acq[i].pkt[0]);
 	    /* <<< DEBUG info >>> select index of element to be traced */
 	    if (trace_acq_flg && (cact->el[i + 1] == trace_elm))
 		tr_nb = i;
 	    err = cact->er[i + 1] = c1553toem (cact->acq[i].error);
 	    if (err == 0) {
+		if (((ntohs (msg->service) != 0) || (msg->type != 1))) {
+		    fprintf (stderr, "%s: DoAcquisition: eqn=%d bc=%d rt=%d loc=%d ms=%d, service=%x, type=%x memb=%d(%d)\n",
+			     program, cact->eqn[i + 1], UPW (cact->ad[i]), LOW (cact->ad[i]), cact->el[i + 1],
+			     (cact->fdppm ? cact->ms[i] : 0), ntohs (msg->service), msg->type,
+			     ntohs (msg->member), get_globelno (blsx, ntohs (msg-> member)));
+		    err = EQP_BADBUF;
+		}
+	    }
+	    if (err == 0) {
 		memcpy (&cact->va[i * 11], msg, 11 * sizeof (int));
 		if (cact->its > 0)
-		    cact->acqv[i] = ntohx(msg->aqn);   /* write only valid acquisition values into the column set to zero before */
+		    cact->acqv[i] = ntohx (msg->aqn);   /* write only valid acquisition values into the column set to zero before */
+	    }
+	    else {
+		memset (&cact->va[i * 11], 0, 11 * sizeof (int));
 	    }
 	}
 
 	/* <<< DEBUG info >>> */
 	if (trace_acq_flg && (tr_nb >= 0)) {	/* trace selected element */
-	    msg = (acq_msg *) &(cact->va[tr_nb * 11]);
+	    msg = (acq_msg *) & (cact->va[tr_nb * 11]);
 
 	    fprintf (stderr, "%s: DoAcquisition: gb_elm=%d, grp_val=%3d, pls=%3d, acq_val=%f, static_status=%d, err=%d\n",
 		     program, trace_gbelm, gval, ntohs (msg->cycle.pls_line),
-		     (double)ntohx(msg->aqn), msg->static_status,
+		     ntohx (msg->aqn), msg->static_status,
 		     cact->er[tr_nb + 1]);
 	}
 
@@ -1614,6 +1657,7 @@ static void DoAcquisition (Action *cact)
 	    WDTD (&cact->meanv[0], 1, col_mes, -gval);
 	    if (trace_acq_flg && (cact->co[0] != EQP_NOERR))
 		fprintf (stderr, "%s: DoAcquisition: can't write mean value into MES DT, coco = %d!\n", program, cact->co[0]);
+
 	    WDTD (&cact->meanv[0], 1, col_mes, 0);
 	    WDTD (&cact->stdev[0], 1, col_mes2, -gval);
 	    WDTD (&cact->stdev[0], 1, col_mes2, 0);
@@ -1630,7 +1674,6 @@ static void DoAcquisition (Action *cact)
     WDT (&cact->er[1], 1, col_err2, 0);
     if (trace_acq_flg && (cact->co[0] != EQP_NOERR))
 	fprintf (stderr, "%s: DoAcquisition: can't write ERR2 column in DT, coco = %d!\n", program, cact->co[0]);
-
 }
 
 
@@ -1694,6 +1737,7 @@ static void Usage (void)
     fprintf (stderr, "  -trace_ctl <el.nr.>   trace the control for given power converter\n");
     fprintf (stderr, "  -jitter <x>           trace all jitter bigger than <x> ms\n");
     fprintf (stderr, "  -time                 print total treatment time in ms\n");
+    fprintf (stderr, "  -loop <x>             handle loop number <x>\n");
 }
 
 
@@ -1739,6 +1783,11 @@ static void GetCmdLineOptions (int argc, char **argv)
 	    jitter_flg = TRUE;
 	    jitter_val = atoi (argv[i]);
 	}
+	else if (strcmp (argv[i], "-loop") == 0) {
+	    i++;
+	    loop_flg = TRUE;
+	    loop_val = atoi (argv[i]);
+	}
 	else if (strcmp (argv[i], "-time") == 0)
 	    pdelay_flg = TRUE;
 	else if ((strcmp (argv[i], "-trace_acq") == 0)
@@ -1763,6 +1812,7 @@ static void GetCmdLineOptions (int argc, char **argv)
 
 }
 
+
 /*====================================================*/
 /* Main program                                       */
 /* optional: name of the accelerator (PSB or CPS)     */
@@ -1778,13 +1828,9 @@ int main (int argc, char **argv)
     char dat[128];
 
     /* Get program name for error printouts */
-#ifdef __linux__
     extern char *__progname;
 
     program = __progname;
-#else
-    program = basename (argv[0]);
-#endif
 
     /* Check command line syntax and get optional arguments */
     GetCmdLineOptions (argc, argv);
@@ -1807,7 +1853,7 @@ int main (int argc, char **argv)
     InitPLS ();
 
     /* Build the list of various actions */
-    BuildActions ();
+    BuildActions (argc, argv);
 
     /* <<< DEBUG info >>> */
     if (verbose_flg)
@@ -1815,14 +1861,14 @@ int main (int argc, char **argv)
     if (exit_flg)
 	exit (1);		/* exit task here if 'config' option has been selected */
 
-    for (i=1;i>=0;i--) {
-	for (act = act0; act; act = act->next) {        /* scan all Actions */
+    for (i = 1; i >= 0; i--) {
+	for (act = act0; act; act = act->next) {	/* scan all Actions */
 	    /* Request acquisition of hardware MIN/MAX values for 1553 power converters */
 	    ReqAcquisitionMinMax (act, i);
-	    usleep(40000);
+	    usleep (40000);
 	    /* Acquire hardware MIN/MAX values for 1553 power converters */
 	    DoAcquisitionMinMax (act, i);
-	    act->first = 0; /* clear flag */
+	    act->first = 0;	/* clear flag */
 	}
     }
     if (no_timing) {		/* no interrupts present, loop all 1.2 sec */
@@ -1863,7 +1909,7 @@ int main (int argc, char **argv)
 	/* they take it and do what they want. This should avoid */
 	/* disturbing the power supplies... the protocol isn't perfect */
 
-	irpt = dsc_rtwaitit (fd, program);
+	irpt = dsc_rtwaitit ();
 
 	notwaited = 1;
 
