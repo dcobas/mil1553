@@ -30,7 +30,7 @@
 #include <asm/io.h>
 #include <linux/uaccess.h>
 #include <linux/interrupt.h>
-#include <linux/wait.h>
+#include <linux/delay.h>
 #include <linux/mutex.h>
 
 #include "mil1553.h"
@@ -371,49 +371,83 @@ static int raw_write(struct mil1553_device_s *mdev,
 	return res;
 }
 
+static irqreturn_t mil1553_isr(int irq, void *data)
+{
+	return IRQ_HANDLED;
+}
+
+static int mil1553_read_msg(struct mil1553_device_s *mdev)
+{
+	struct rti_interrupt_s *rti_interrupt = &mdev->rti_interrupt;
+	struct memory_map_s *memory_map = mdev->memory_map;
+	uint32_t isrc;
+	int rtin, pk_ok, timeout;
+
+	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
+	if ((isrc & ISRC) == 0)
+		return -1;
+
+	mdev->icnt++;
+	wa.icnt++;
+
+	rti_interrupt->bc	  = mdev->bc;		/* redundant */
+	rti_interrupt->rti_number = rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
+	rti_interrupt->wc	  = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
+	rti_interrupt->timeout	  = timeout = (isrc & ISRC_TIME_OUT);
+	rti_interrupt->packet_ok  = pk_ok = (ISRC_GOOD_BITS & isrc) &&
+					    ((ISRC_BAD_BITS & isrc) == 0);
+	if (!timeout)
+		mdev->up_rtis |= 1 << rtin;
+	if (!pk_ok || timeout) {
+		mdev->up_rtis &= ~(1 << rtin);
+		wa.isrdebug = isrc;
+		mdev->busy_done = BC_DONE;
+	}
+	return 0;
+}
+
 #define BETWEEN_TRIES_MS 1
 #define TX_TRIES 100
 #define TX_RETRIES 5
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT (msecs_to_jiffies(2))
+#define CBMIA_TIMEOUT		2	/* ms */
+#define CBMIA_POLLING_DELTA	1	/* ms */
 #define INT_MISSING_TIMEOUT (msecs_to_jiffies(4))
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
-	int i, icnt, timeleft;
+	int i;
 	int retries = TX_RETRIES;
+	int busy_times = 0;
+	int busy = 0;
 
 retries:
-	icnt = mdev->icnt;
-	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-		!atomic_read(&mdev->int_busy), INT_MISSING_TIMEOUT);
-	if (timeleft <= 0) {
-		printk(KERN_ERR PFX 
-			"attempt to Tx on busy BC %d, timed out after "
-			" %lu ms\n", mdev->bc, INT_MISSING_TIMEOUT);
-	}
-	atomic_set(&mdev->int_busy, 1);
 	for (i = 0; i < TX_TRIES; i++) {
-		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
+		busy = ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT;
+		if (!busy) {
 			iowrite32be(txreg, &memory_map->txreg);
 			mdev->tx_count++;
 			break;
 		}
-		printk(KERN_ERR PFX "HSTAT_BUSY_BIT != 0 in do_start_tx; "
-				"tx_count %d, ms %u on pid %d\n", mdev->tx_count,
-					jiffies_to_msecs(jiffies), current->pid);
+		busy_times++;
 		udelay(TX_WAIT_US);
 	}
-	udelay(8*TX_WAIT_US);
-	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-					!atomic_read(&mdev->int_busy), CBMIA_INT_TIMEOUT);
-	if (timeleft <= 0) {
-		printk(KERN_ERR PFX "interrupt pending"
-				" after %d msecs in bc %d, "
-				"timeleft = %d, pid = %d\n",
-				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
-				mdev->bc, timeleft, current->pid);
+	udelay(2*TX_WAIT_US);
+	if (busy_times > 0) {
+		printk(KERN_ERR PFX "HSTAT_BUSY_BIT: %d attempts; "
+				"tx_count %d, on pid %d\n",
+				busy_times + 1, mdev->tx_count, current->pid);
+	}
+	busy = ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT;
+	if (busy)
+		msleep(CBMIA_POLLING_DELTA);
+	busy = ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT;
+	if (busy) {
+		printk(KERN_ERR PFX
+			"TX pending after %d ms in bc %d, pid = %d\n",
+				2 * CBMIA_POLLING_DELTA,
+				mdev->bc, current->pid);
 		if (--retries > 0)
 			goto retries;
 		else
@@ -421,8 +455,14 @@ retries:
 				"bc %d after %d retries, leaving\n",
 				mdev->bc, TX_RETRIES);
 			return -EBUSY;
-	} else
-		return 0;
+	} else {
+		if (mil1553_read_msg(mdev) != 0) {
+			printk(KERN_ERR PFX "bc %d not busy did not interrupt",
+				mdev->bc);
+			return -EBUSY;
+		} else
+			return 0;
+	}
 }
 
 static void ping_rtis(struct mil1553_device_s *mdev)
@@ -438,7 +478,9 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
+			mutex_lock_interruptible(&mdev->bcdev);
 			do_start_tx(mdev, txreg);
+			mutex_unlock(&mdev->bcdev);
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
@@ -466,42 +508,6 @@ unsigned int get_wc(unsigned int txreg)
 	if (wc == 0)
 		wc = 32;
 	return wc;
-}
-
-static irqreturn_t mil1553_isr(int irq, void *arg)
-{
-	struct mil1553_device_s *mdev = arg;
-	struct rti_interrupt_s *rti_interrupt = &mdev->rti_interrupt;
-	struct memory_map_s *memory_map = mdev->memory_map;
-	uint32_t isrc;
-	int rtin, pk_ok, timeout;
-
-	isrc = ioread32be(&memory_map->isrc);   /** Read and clear the interrupt */
-	if ((isrc & ISRC) == 0)
-		return IRQ_NONE;
-
-	mdev->icnt++;
-	wa.icnt++;
-	
-	rti_interrupt->bc	  = mdev->bc;		/* redundant */
-	rti_interrupt->rti_number = rtin = (isrc & ISRC_RTI_MASK) >> ISRC_RTI_SHIFT;
-	rti_interrupt->wc	  = (isrc & ISRC_WC_MASK) >> ISRC_WC_SHIFT;
-	rti_interrupt->timeout	  = timeout = (isrc & ISRC_TIME_OUT);
-	rti_interrupt->packet_ok  = pk_ok = (ISRC_GOOD_BITS & isrc) &&
-					    ((ISRC_BAD_BITS & isrc) == 0);
-	if (!timeout)
-		mdev->up_rtis |= 1 << rtin;
-	if (!pk_ok || timeout) {
-		mdev->up_rtis &= ~(1 << rtin);
-		wa.isrdebug = isrc;
-		mdev->busy_done = BC_DONE;
-	}
-
-	if (!atomic_xchg(&mdev->int_busy, 0)) {
-		printk(KERN_ERR PFX "spurious int on idle bc %d\n", mdev->bc);
-	}
-	wake_up_interruptible(&mdev->int_complete);
-	return IRQ_HANDLED;
 }
 
 /**
@@ -556,15 +562,11 @@ struct pci_dev *add_next_dev(struct pci_dev *pcur,
 	}
 	mdev->memory_map = (struct memory_map_s *) pci_iomap(pcur,BAR2,len);
 
-	/*
-	 * Configure interrupt handler
-	 */
-
 	cc = request_irq(pcur->irq, mil1553_isr, IRQF_SHARED, "MIL1553", mdev);
 	if (cc) {
-		pci_disable_device(pcur);
-		printk("mil1553:request_irq:ERROR%d\n",cc);
-		return NULL;
+	        pci_disable_device(pcur);
+	        printk("mil1553:request_irq:ERROR%d\n",cc);
+	        return NULL;
 	}
 
 	printk("mil1553:Device Bus:%d Slot:%d INSTALLED:OK\n",
