@@ -32,6 +32,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include <linux/mutex.h>
+#include <linux/sched.h>
 
 #include "mil1553.h"
 #include "mil1553P.h"
@@ -1198,7 +1199,6 @@ void mil1553_uninstall(void)
  */
 struct file_operations mil1553_fops = {
 	.owner          = THIS_MODULE,
-	.ioctl          = mil1553_ioctl_lck,
 	.unlocked_ioctl = mil1553_ioctl_ulck,
 	.open           = mil1553_open,
 	.release        = mil1553_close,
