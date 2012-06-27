@@ -1260,6 +1260,7 @@ int mil1553_install(void)
 	struct mil1553_device_s *mdev;
 	char fname[20];
 
+	printk(KERN_INFO PFX "version %s", mil1553_driver_version);
 	memset(&wa, 0, sizeof(struct working_area_s));
 	create_debugfs_flags();
 
