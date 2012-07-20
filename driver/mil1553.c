@@ -444,7 +444,9 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((30 << TXREG_SUBA_SHIFT) & TXREG_SUBA_MASK)
 			      | ((1  << TXREG_TR_SHIFT)   & TXREG_TR_MASK)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
+			mutex_lock_interruptible(&mdev->bcdev);
 			do_start_tx(mdev, txreg);
+			mutex_unlock(&mdev->bcdev);
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
 	}
