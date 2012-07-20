@@ -1234,6 +1234,7 @@ int mil1553_install(void)
 	int cc, i, bc = 0;
 	struct pci_dev *pdev = NULL;
 	struct mil1553_device_s *mdev;
+	char fname[20];
 
 	memset(&wa, 0, sizeof(struct working_area_s));
 	create_debugfs_flags();
@@ -1280,6 +1281,13 @@ int mil1553_install(void)
 			mutex_init(&mdev->mutex);
 			mutex_init(&mdev->bcdev);
 			memset(&mdev->checkpoints, 0, sizeof(mdev->checkpoints));
+			printk("sizeof(checkpoints) = %d\n", sizeof(mdev->checkpoints));
+
+			mdev->checkpoints_bw.data = mdev->checkpoints;
+			mdev->checkpoints_bw.size = sizeof(mdev->checkpoints);
+			snprintf(fname, sizeof(fname), "checkpoints%d", mdev->bc);
+			debugfs_create_blob(fname, 0644, dir, &mdev->checkpoints_bw);
+
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
 				bc,mdev->snum_h,mdev->snum_l);

@@ -183,7 +183,9 @@ struct mil1553_device_s {
 	wait_queue_head_t    quick_wq;	  /** wait to enter quick ops */
 	atomic_t	     quick_owned; /** 1 if busy during quick op */
 	int		     quick_owner; /** quick op initiator */
-	struct checkpoint    checkpoints[MAX_DEVS][32];
+	struct checkpoint    checkpoints[32];
+	struct debugfs_blob_wrapper
+			     checkpoints_bw;
 };
 
 /**
