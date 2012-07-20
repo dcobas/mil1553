@@ -149,6 +149,14 @@ struct tx_queue_s {
 #define BC_DONE 0
 #define BC_BUSY 1
 
+struct checkpoint {
+	int	tx_on_busy;
+	int	int_pending_on_busy;
+	int	hstat_busy;
+	int	int_pending;
+	int	int_raised_and_pending;
+};
+
 struct mil1553_device_s {
 	spinlock_t           lock;        /** To lock the queue */
 	uint32_t             bc;          /** Bus controller */
@@ -175,6 +183,7 @@ struct mil1553_device_s {
 	wait_queue_head_t    quick_wq;	  /** wait to enter quick ops */
 	atomic_t	     quick_owned; /** 1 if busy during quick op */
 	int		     quick_owner; /** quick op initiator */
+	struct checkpoint    checkpoints[MAX_DEVS][32];
 };
 
 /**
