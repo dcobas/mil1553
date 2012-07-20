@@ -32,6 +32,7 @@
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
+#include <linux/debugfs.h>
 
 #include "mil1553.h"
 #include "mil1553P.h"
@@ -375,8 +376,12 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_TRIES 100
 #define TX_RETRIES 5
 #define TX_WAIT_US 10
-#define CBMIA_INT_TIMEOUT (msecs_to_jiffies(2))
-#define INT_MISSING_TIMEOUT (msecs_to_jiffies(4))
+#define CBMIA_INT_TIMEOUT 2
+#define INT_MISSING_TIMEOUT 4
+
+static int int_timeout = CBMIA_INT_TIMEOUT;
+static int busy_timeout = INT_MISSING_TIMEOUT;
+static int clear_missed_int = 0;
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
@@ -387,11 +392,11 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 retries:
 	icnt = mdev->icnt;
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-		!atomic_read(&mdev->int_busy), INT_MISSING_TIMEOUT);
+		!atomic_read(&mdev->int_busy), msecs_to_jiffies(busy_timeout));
 	if (timeleft <= 0) {
 		printk(KERN_ERR PFX 
 			"attempt to Tx on busy BC %d, timed out after "
-			" %lu ms\n", mdev->bc, INT_MISSING_TIMEOUT);
+			" %u ms\n", mdev->bc, busy_timeout);
 	}
 	atomic_set(&mdev->int_busy, 1);
 	for (i = 0; i < TX_TRIES; i++) {
@@ -407,12 +412,13 @@ retries:
 	}
 	udelay(8*TX_WAIT_US);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
-					!atomic_read(&mdev->int_busy), CBMIA_INT_TIMEOUT);
+		!atomic_read(&mdev->int_busy),
+		msecs_to_jiffies(int_timeout));
 	if (timeleft <= 0) {
 		printk(KERN_ERR PFX "interrupt pending"
 				" after %d msecs in bc %d, "
 				"timeleft = %d, pid = %d\n",
-				jiffies_to_msecs(CBMIA_INT_TIMEOUT),
+				int_timeout,
 				mdev->bc, timeleft, current->pid);
 		if (--retries > 0)
 			goto retries;
@@ -1175,24 +1181,6 @@ int mil1553_ioctl_lck(struct inode *inode, struct file *filp,
 
 /**
  * =========================================================
- * Uninstall the driver
- */
-
-void mil1553_uninstall(void)
-{
-	int i;
-	struct mil1553_device_s *mdev;
-
-	for (i=0; i<wa.bcs; i++) {
-		mdev = &wa.mil1553_dev[i];
-		release_device(mdev);
-	}
-	unregister_chrdev(mil1553_major,mil1553_major_name);
-	printk("mil1553:Driver uninstalled\n");
-}
-
-/**
- * =========================================================
  */
 struct file_operations mil1553_fops = {
 	.owner          = THIS_MODULE,
@@ -1207,6 +1195,30 @@ struct file_operations mil1553_fops = {
  * Installer, hunt down modules and install them
  */
 
+static struct dentry *dir;
+static struct dentry *dbg_int_timeout;
+static struct dentry *dbg_busy_timeout;
+static struct dentry *dbg_clear_missed_int;
+
+static void create_debugfs_flags(void)
+{
+	printk("creating debugfs entries\n");
+	dir = debugfs_create_dir("cbmia", NULL);
+	dbg_int_timeout = debugfs_create_u32("int_timeout", 0644, dir, &int_timeout);
+	dbg_busy_timeout = debugfs_create_u32("busy_timeout", 0644, dir, &busy_timeout);
+	dbg_clear_missed_int = debugfs_create_u32("clear_missed_int", 0644, dir, &clear_missed_int);
+	printk("creating debugfs entries: %p %p %p %p\n", dir,
+		dbg_int_timeout, dbg_busy_timeout, dbg_clear_missed_int);
+}
+
+static void remove_debugfs_flags(void)
+{
+	debugfs_remove(dbg_int_timeout);
+	debugfs_remove(dbg_busy_timeout);
+	debugfs_remove(dbg_clear_missed_int);
+	debugfs_remove(dir);
+}
+
 int mil1553_install(void)
 {
 	int cc, i, bc = 0;
@@ -1214,6 +1226,7 @@ int mil1553_install(void)
 	struct mil1553_device_s *mdev;
 
 	memset(&wa, 0, sizeof(struct working_area_s));
+	create_debugfs_flags();
 
 	if (check_args()) {
 
@@ -1267,6 +1280,19 @@ int mil1553_install(void)
 	return 0;
 }
 
+void mil1553_uninstall(void)
+{
+	int i;
+	struct mil1553_device_s *mdev;
+
+	remove_debugfs_flags();
+	for (i=0; i<wa.bcs; i++) {
+		mdev = &wa.mil1553_dev[i];
+		release_device(mdev);
+	}
+	unregister_chrdev(mil1553_major,mil1553_major_name);
+	printk("mil1553:Driver uninstalled\n");
+}
 
 module_init(mil1553_install);
 module_exit(mil1553_uninstall);
