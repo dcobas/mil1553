@@ -695,7 +695,7 @@ static int send_receive(struct mil1553_device_s *mdev,
 		goto exit;
 	} else if (rti_interrupt->rti_number != rti) {
 		printk(KERN_ERR PFX "wrong rti expected %d, got %d replied\n",
-		rti_interrupt->rti_number, rti);
+		rti, rti_interrupt->rti_number);
 	}
 
 	/* Remember rxbuf is accessed as u32 but wc is the u16 count */
