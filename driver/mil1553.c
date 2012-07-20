@@ -388,6 +388,7 @@ static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 	struct memory_map_s *memory_map = mdev->memory_map;
 	int i, icnt, timeleft;
 	int retries = TX_RETRIES;
+	int rti = (txreg & TXREG_RTI_MASK) >> TXREG_RTI_SHIFT;
 
 retries:
 	icnt = mdev->icnt;
@@ -397,6 +398,9 @@ retries:
 		printk(KERN_ERR PFX 
 			"attempt to Tx on busy BC %d, timed out after "
 			" %u ms\n", mdev->bc, busy_timeout);
+		mdev->checkpoints[rti].busy_timeout++;
+		if ((ISRC & ioread32be(&memory_map->isrc)) != 0)
+			mdev->checkpoints[rti].int_pending_on_busy++;
 	}
 	atomic_set(&mdev->int_busy, 1);
 	for (i = 0; i < TX_TRIES; i++) {
@@ -408,6 +412,7 @@ retries:
 		printk(KERN_ERR PFX "HSTAT_BUSY_BIT != 0 in do_start_tx; "
 				"tx_count %d, ms %u on pid %d\n", mdev->tx_count,
 					jiffies_to_msecs(jiffies), current->pid);
+		mdev->checkpoints[rti].hstat_busy++;
 		udelay(TX_WAIT_US);
 	}
 	udelay(8*TX_WAIT_US);
@@ -420,6 +425,9 @@ retries:
 				"timeleft = %d, pid = %d\n",
 				int_timeout,
 				mdev->bc, timeleft, current->pid);
+		mdev->checkpoints[rti].int_pending++;
+		if ((ISRC & ioread32be(&memory_map->isrc)) != 0)
+			mdev->checkpoints[rti].int_raised_and_pending++;
 		if (--retries > 0)
 			goto retries;
 		else

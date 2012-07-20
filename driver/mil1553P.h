@@ -150,7 +150,7 @@ struct tx_queue_s {
 #define BC_BUSY 1
 
 struct checkpoint {
-	int	tx_on_busy;
+	int	busy_timeout;
 	int	int_pending_on_busy;
 	int	hstat_busy;
 	int	int_pending;
