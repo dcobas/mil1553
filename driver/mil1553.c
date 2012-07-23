@@ -386,12 +386,17 @@ static int clear_missed_int = 0;
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
 {
 	struct memory_map_s *memory_map = mdev->memory_map;
-	int i, icnt, timeleft;
+	int i, icnt, timeleft, cc;
 	int retries = TX_RETRIES;
 	int rti = (txreg & TXREG_RTI_MASK) >> TXREG_RTI_SHIFT;
+	struct tspoint *ts = &mdev->tspoints[mdev->tspidx];
+	struct timeval tv;
 
 retries:
+	ts->rti = rti;
 	icnt = mdev->icnt;
+	do_gettimeofday(&tv);
+	ts->start_tx = timeval_to_ns(&tv);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 		!atomic_read(&mdev->int_busy), msecs_to_jiffies(busy_timeout));
 	if (timeleft <= 0) {
@@ -406,6 +411,8 @@ retries:
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
+			do_gettimeofday(&tv);
+			ts->write_tx = timeval_to_ns(&tv);
 			mdev->tx_count++;
 			break;
 		}
@@ -419,6 +426,8 @@ retries:
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 		!atomic_read(&mdev->int_busy),
 		msecs_to_jiffies(int_timeout));
+	do_gettimeofday(&tv);
+	ts->int_tx = timeval_to_ns(&tv);
 	if (timeleft <= 0) {
 		printk(KERN_ERR PFX "interrupt pending"
 				" after %d msecs in bc %d, "
@@ -434,9 +443,18 @@ retries:
 			printk(KERN_ERR PFX "could not TX to "
 				"bc %d after %d retries, leaving\n",
 				mdev->bc, TX_RETRIES);
-			return -EBUSY;
-	} else
-		return 0;
+			cc = -EBUSY;
+			goto exit;
+	} else {
+		cc = 0;
+		goto exit;
+	}
+exit:
+	do_gettimeofday(&tv);
+	ts->end_tx = timeval_to_ns(&tv);
+	if (++mdev->tspidx >= 20000)
+		mdev->tspidx = 0;
+	return cc;
 }
 
 static void ping_rtis(struct mil1553_device_s *mdev)
@@ -678,12 +696,15 @@ static int send_receive(struct mil1553_device_s *mdev,
 	int			i, cc;
 	struct rti_interrupt_s	*rti_interrupt = &mdev->rti_interrupt;
 	struct memory_map_s	*memory_map = mdev->memory_map;
+	struct timeval		start, end;
+	uint64_t		elapsed_ns;
 
 	if (debug_msg)
 	printk(KERN_ERR PFX "calling send_receive "
 		"%d:%d wc:%d sa:%d tr:%d %s\n",
 		mdev->bc, rti, sent_wc, sa, tr,
 		wants_reply? "reply" : "noreply");
+	do_gettimeofday(&start);
 	mutex_lock_interruptible(&mdev->bcdev);
 	encode_txreg(&txreg, sent_wc, sa, tr, rti);
 	if (sent_wc > TX_BUF_SIZE)
@@ -737,6 +758,8 @@ static int send_receive(struct mil1553_device_s *mdev,
 		dump_buf(rxbuf, rti_interrupt->wc);
 	}
 exit:
+	do_gettimeofday(&end);
+	elapsed_ns = timeval_to_ns(&end) - timeval_to_ns(&start);
 	mutex_unlock(&mdev->bcdev);
 	return cc;
 }
@@ -1280,13 +1303,20 @@ int mil1553_install(void)
 			mdev->quick_owner = 0;
 			mutex_init(&mdev->mutex);
 			mutex_init(&mdev->bcdev);
-			memset(&mdev->checkpoints, 0, sizeof(mdev->checkpoints));
-			printk("sizeof(checkpoints) = %d\n", sizeof(mdev->checkpoints));
 
+			memset(mdev->checkpoints, 0, sizeof(mdev->checkpoints));
+			printk("sizeof(checkpoints) = %d\n", sizeof(mdev->checkpoints));
 			mdev->checkpoints_bw.data = mdev->checkpoints;
 			mdev->checkpoints_bw.size = sizeof(mdev->checkpoints);
 			snprintf(fname, sizeof(fname), "checkpoints%d", mdev->bc);
 			debugfs_create_blob(fname, 0644, dir, &mdev->checkpoints_bw);
+			mdev->tspoints_bw.data = mdev->tspoints;
+			mdev->tspoints_bw.size = sizeof(mdev->tspoints);
+			snprintf(fname, sizeof(fname), "tspoints%d", mdev->bc);
+			debugfs_create_blob(fname, 0644, dir, &mdev->tspoints_bw);
+
+			mdev->tspidx = 0;
+			memset(mdev->tspoints, 0, sizeof(mdev->tspoints));
 
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",

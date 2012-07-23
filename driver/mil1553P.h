@@ -157,6 +157,14 @@ struct checkpoint {
 	int	int_raised_and_pending;
 };
 
+struct tspoint {
+	int		rti;
+	uint64_t	start_tx;
+	uint64_t	write_tx;
+	uint64_t	int_tx;
+	uint64_t	end_tx;
+};
+
 struct mil1553_device_s {
 	spinlock_t           lock;        /** To lock the queue */
 	uint32_t             bc;          /** Bus controller */
@@ -186,6 +194,11 @@ struct mil1553_device_s {
 	struct checkpoint    checkpoints[32];
 	struct debugfs_blob_wrapper
 			     checkpoints_bw;
+	struct debugfs_blob_wrapper
+				tspoints_bw;
+	struct tspoint	     tspoints[20000*sizeof(struct tspoint)];
+	int 	     	     tspidx;
+
 };
 
 /**
