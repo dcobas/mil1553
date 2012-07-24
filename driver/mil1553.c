@@ -1309,14 +1309,21 @@ int mil1553_install(void)
 			mdev->checkpoints_bw.data = mdev->checkpoints;
 			mdev->checkpoints_bw.size = sizeof(mdev->checkpoints);
 			snprintf(fname, sizeof(fname), "checkpoints%d", mdev->bc);
-			debugfs_create_blob(fname, 0644, dir, &mdev->checkpoints_bw);
-			mdev->tspoints_bw.data = mdev->tspoints;
-			mdev->tspoints_bw.size = sizeof(mdev->tspoints);
-			snprintf(fname, sizeof(fname), "tspoints%d", mdev->bc);
-			debugfs_create_blob(fname, 0644, dir, &mdev->tspoints_bw);
+			mdev->checkpointd = debugfs_create_blob(fname, 0644, dir, &mdev->checkpoints_bw);
 
 			mdev->tspidx = 0;
-			memset(mdev->tspoints, 0, sizeof(mdev->tspoints));
+			mdev->tspoints = kmalloc(
+				20000 * sizeof(*mdev->tspoints), GFP_KERNEL);
+			if (mdev->tspoints == NULL) {
+				printk(KERN_ERR "could not allocate tspoints\n");
+				return -1;
+			}
+			memset(mdev->tspoints, 0, sizeof(*mdev->tspoints));
+			mdev->tspoints_bw.data = mdev->tspoints;
+			mdev->tspoints_bw.size = 20000 * sizeof(*mdev->tspoints);
+			snprintf(fname, sizeof(fname), "tspoints%d", mdev->bc);
+			mdev->tspointd = debugfs_create_blob(fname, 0644, dir, &mdev->tspoints_bw);
+
 
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
@@ -1334,11 +1341,13 @@ void mil1553_uninstall(void)
 	int i;
 	struct mil1553_device_s *mdev;
 
-	remove_debugfs_flags();
 	for (i=0; i<wa.bcs; i++) {
 		mdev = &wa.mil1553_dev[i];
+		debugfs_remove(mdev->checkpointd);
+		debugfs_remove(mdev->tspointd);
 		release_device(mdev);
 	}
+	remove_debugfs_flags();
 	unregister_chrdev(mil1553_major,mil1553_major_name);
 	printk("mil1553:Driver uninstalled\n");
 }
