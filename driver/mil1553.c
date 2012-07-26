@@ -29,6 +29,8 @@
 #include <linux/pci.h>
 #include <asm/io.h>
 #include <linux/uaccess.h>
+#include <linux/sched.h>
+#include <linux/delay.h>
 #include <linux/interrupt.h>
 #include <linux/wait.h>
 #include <linux/mutex.h>
@@ -1217,7 +1219,6 @@ int mil1553_ioctl_lck(struct inode *inode, struct file *filp,
  */
 struct file_operations mil1553_fops = {
 	.owner          = THIS_MODULE,
-	.ioctl          = mil1553_ioctl_lck,
 	.unlocked_ioctl = mil1553_ioctl_ulck,
 	.open           = mil1553_open,
 	.release        = mil1553_close,
