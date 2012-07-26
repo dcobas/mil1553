@@ -18,7 +18,7 @@ KERNELSRC=/acc/sys/$(CPU)/usr/src/kernels/$(KVER)
 
 CFLAGS=-g -Wall
 
-all: modules
+all: modules decode tdecode
 modules: 
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
 	rm -rf ./$(CPU)/$(KVER)
@@ -29,6 +29,7 @@ modules:
 
 clean:
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) clean
+	rm decode tdecode
 
 install: ./$(CPU)/$(KVER)/mil1553.ko
 	@echo "please specify one of {install-lab|install-oper|install-lhc|install-all}"
