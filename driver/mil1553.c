@@ -1253,12 +1253,44 @@ static void remove_debugfs_flags(void)
 	debugfs_remove(dir);
 }
 
+static void debugfs_init_dev(struct mil1553_device_s *mdev)
+{
+	char fname[20];
+
+	memset(mdev->checkpoints, 0, sizeof(mdev->checkpoints));
+	printk("sizeof(checkpoints) = %d\n", sizeof(mdev->checkpoints));
+	mdev->checkpoints_bw.data = mdev->checkpoints;
+	mdev->checkpoints_bw.size = sizeof(mdev->checkpoints);
+	snprintf(fname, sizeof(fname), "checkpoints%d", mdev->bc);
+	mdev->checkpointd = debugfs_create_blob(fname, 0644, dir, &mdev->checkpoints_bw);
+
+	mdev->tspidx = 0;
+	mdev->tspoints = kmalloc(
+		20000 * sizeof(*mdev->tspoints), GFP_KERNEL);
+	if (mdev->tspoints == NULL) {
+		printk(KERN_ERR "could not allocate tspoints\n");
+		return;
+	}
+	memset(mdev->tspoints, 0, sizeof(*mdev->tspoints));
+	mdev->tspoints_bw.data = mdev->tspoints;
+	mdev->tspoints_bw.size = 20000 * sizeof(*mdev->tspoints);
+	snprintf(fname, sizeof(fname), "tspoints%d", mdev->bc);
+	mdev->tspointd = debugfs_create_blob(fname, 0644, dir, &mdev->tspoints_bw);
+}
+
+static void debugfs_clear_dev(struct mil1553_device_s *mdev)
+{
+	if (mdev->tspoints)
+		kfree(mdev->tspoints);
+	debugfs_remove(mdev->checkpointd);
+	debugfs_remove(mdev->tspointd);
+}
+
 int mil1553_install(void)
 {
 	int cc, i, bc = 0;
 	struct pci_dev *pdev = NULL;
 	struct mil1553_device_s *mdev;
-	char fname[20];
 
 	printk(KERN_INFO PFX "version %s", mil1553_driver_version);
 	memset(&wa, 0, sizeof(struct working_area_s));
@@ -1306,26 +1338,7 @@ int mil1553_install(void)
 			mutex_init(&mdev->mutex);
 			mutex_init(&mdev->bcdev);
 
-			memset(mdev->checkpoints, 0, sizeof(mdev->checkpoints));
-			printk("sizeof(checkpoints) = %d\n", sizeof(mdev->checkpoints));
-			mdev->checkpoints_bw.data = mdev->checkpoints;
-			mdev->checkpoints_bw.size = sizeof(mdev->checkpoints);
-			snprintf(fname, sizeof(fname), "checkpoints%d", mdev->bc);
-			mdev->checkpointd = debugfs_create_blob(fname, 0644, dir, &mdev->checkpoints_bw);
-
-			mdev->tspidx = 0;
-			mdev->tspoints = kmalloc(
-				20000 * sizeof(*mdev->tspoints), GFP_KERNEL);
-			if (mdev->tspoints == NULL) {
-				printk(KERN_ERR "could not allocate tspoints\n");
-				return -1;
-			}
-			memset(mdev->tspoints, 0, sizeof(*mdev->tspoints));
-			mdev->tspoints_bw.data = mdev->tspoints;
-			mdev->tspoints_bw.size = 20000 * sizeof(*mdev->tspoints);
-			snprintf(fname, sizeof(fname), "tspoints%d", mdev->bc);
-			mdev->tspointd = debugfs_create_blob(fname, 0644, dir, &mdev->tspoints_bw);
-
+			debugfs_init_dev(mdev);
 
 			ping_rtis(mdev);
 			printk("BC:%d SerialNumber:0x%08X%08X\n",
@@ -1345,8 +1358,7 @@ void mil1553_uninstall(void)
 
 	for (i=0; i<wa.bcs; i++) {
 		mdev = &wa.mil1553_dev[i];
-		debugfs_remove(mdev->checkpointd);
-		debugfs_remove(mdev->tspointd);
+		debugfs_clear_dev(mdev);
 		release_device(mdev);
 	}
 	remove_debugfs_flags();
