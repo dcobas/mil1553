@@ -401,7 +401,7 @@ retries:
 	ts->start_tx = timeval_to_ns(&tv);
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 		!atomic_read(&mdev->int_busy), msecs_to_jiffies(busy_timeout));
-	if (timeleft <= 0) {
+	if (atomic_read(&mdev->int_busy) != 0) {
 		printk(KERN_ERR PFX 
 			"attempt to Tx on busy BC %d, timed out after "
 			" %u ms\n", mdev->bc, busy_timeout);
@@ -430,7 +430,7 @@ retries:
 		msecs_to_jiffies(int_timeout));
 	do_gettimeofday(&tv);
 	ts->int_tx = timeval_to_ns(&tv);
-	if (timeleft <= 0) {
+	if (atomic_read(&mdev->int_busy) != 0) {
 		printk(KERN_ERR PFX "interrupt pending"
 				" after %d msecs in bc %d, "
 				"timeleft = %d, pid = %d\n",
