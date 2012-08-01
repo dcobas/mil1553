@@ -42,6 +42,9 @@
 #ifndef MIL1553_DRIVER_VERSION
 #define MIL1553_DRIVER_VERSION	"noversion"
 #endif
+#ifndef MIL1553_MODULE_VERSION
+#define MIL1553_MODULE_VERSION	"noversion"
+#endif
 
 #define PFX	"mil1553: "
 
@@ -49,11 +52,6 @@ char *mil1553_driver_version = MIL1553_DRIVER_VERSION;
 
 static int   mil1553_major      = 0;
 static char *mil1553_major_name = "mil1553";
-
-MODULE_AUTHOR("Julian Lewis BE/CO/HT CERN");
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("MIL1553 Driver");
-MODULE_SUPPORTED_DEVICE("CBMIA PCI module");
 
 /**
  * Module parameters bcs=7,4,3,5 pci_bus=1,1,2,3 pci_slot=4,5,4,5
@@ -1352,6 +1350,12 @@ void mil1553_uninstall(void)
 	unregister_chrdev(mil1553_major,mil1553_major_name);
 	printk("mil1553:Driver uninstalled\n");
 }
+
+MODULE_AUTHOR("Julian Lewis BE/CO/HT CERN");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("MIL1553 Driver");
+MODULE_SUPPORTED_DEVICE("CBMIA PCI module");
+MODULE_VERSION(MIL1553_MODULE_VERSION);
 
 module_init(mil1553_install);
 module_exit(mil1553_uninstall);
