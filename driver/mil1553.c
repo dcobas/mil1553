@@ -1026,6 +1026,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		case mil1553RAW_READ:          /** Raw read PCI registers */
 
 			riob = mem;
+			mdev = get_dev(riob->bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
 			if (riob->regs > MAX_REGS) {
 				cc = -EADDRNOTAVAIL;
 				goto error_exit;
@@ -1033,21 +1038,13 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			blen = riob->regs*sizeof(int);
 			buf = kmalloc(blen,GFP_KERNEL);
 			if (!buf) {
-				kfree(mem);
-				return -ENOMEM;
-			}
-			cnt = 0;
-			bc = riob->bc;
-			mdev = get_dev(bc);
-			if (!mdev) {
-				cc = -EFAULT;
-				kfree(buf);
+				cc = -ENOMEM;
 				goto error_exit;
 			}
+			cnt = 0;
 			cnt = raw_read(mdev, riob, buf);
 			if (cnt)
-				cc = copy_to_user(riob->buffer,
-						  buf, blen);
+				cc = copy_to_user(riob->buffer, buf, blen);
 			kfree(buf);
 			if (!cnt || cc)
 				goto error_exit;
@@ -1056,6 +1053,11 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 		case mil1553RAW_WRITE:         /** Raw write PCI registers */
 
 			riob = mem;
+			mdev = get_dev(riob->bc);
+			if (!mdev) {
+				cc = -EFAULT;
+				goto error_exit;
+			}
 			if (riob->regs > MAX_REGS) {
 				cc = -EADDRNOTAVAIL;
 				goto error_exit;
@@ -1063,18 +1065,10 @@ int mil1553_ioctl(struct inode *inode, struct file *filp,
 			blen = riob->regs*sizeof(int);
 			buf = kmalloc(blen,GFP_KERNEL);
 			if (!buf) {
-				kfree(mem);
-				return -ENOMEM;
-			}
-			cc = copy_from_user(buf, riob->buffer, blen);
-			cnt = 0;
-			bc = riob->bc;
-			mdev = get_dev(bc);
-			if (!mdev) {
-				cc = -EFAULT;
-				kfree(buf);
+				cc = -ENOMEM;
 				goto error_exit;
 			}
+			cc = copy_from_user(buf, riob->buffer, blen);
 			cnt = raw_write(mdev, riob, buf);
 			kfree(buf);
 			if (!cnt || cc)
