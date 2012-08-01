@@ -402,9 +402,6 @@ retries:
 	timeleft = wait_event_interruptible_timeout(mdev->int_complete,
 		!atomic_read(&mdev->int_busy), msecs_to_jiffies(busy_timeout));
 	if (atomic_read(&mdev->int_busy) != 0) {
-		printk(KERN_ERR PFX 
-			"attempt to Tx on busy BC %d, timed out after "
-			" %u ms\n", mdev->bc, busy_timeout);
 		mdev->checkpoints[rti].busy_timeout++;
 		if ((ISRC & ioread32be(&memory_map->isrc)) != 0)
 			mdev->checkpoints[rti].int_pending_on_busy++;
@@ -431,11 +428,6 @@ retries:
 	do_gettimeofday(&tv);
 	ts->int_tx = timeval_to_ns(&tv);
 	if (atomic_read(&mdev->int_busy) != 0) {
-		printk(KERN_ERR PFX "interrupt pending"
-				" after %d msecs in bc %d, "
-				"timeleft = %d, pid = %d\n",
-				int_timeout,
-				mdev->bc, timeleft, current->pid);
 		mdev->checkpoints[rti].int_pending++;
 		if ((ISRC & ioread32be(&memory_map->isrc)) != 0)
 			mdev->checkpoints[rti].int_raised_and_pending++;
