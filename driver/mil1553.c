@@ -1282,57 +1282,58 @@ int mil1553_install(void)
 	memset(&wa, 0, sizeof(struct working_area_s));
 	create_debugfs_flags();
 
-	if (check_args()) {
+	if (!check_args())
+		goto exit;
 
-		cc = register_chrdev(mil1553_major, mil1553_major_name, &mil1553_fops);
-		if (cc < 0)
-			return cc;
-		if (mil1553_major == 0)
-			mil1553_major = cc; /* dynamic */
+	cc = register_chrdev(mil1553_major, mil1553_major_name, &mil1553_fops);
+	if (cc < 0)
+		return cc;
+	if (mil1553_major == 0)
+		mil1553_major = cc; /* dynamic */
 
-		for (i=0; i<MAX_DEVS; i++) {
-			mdev = &wa.mil1553_dev[i];
-			spin_lock_init(&mdev->lock);
-			mdev->tx_queue = &wa.tx_queue[i];
-			spin_lock_init(&mdev->tx_queue->lock);
-			mutex_init(&mdev->bc_lock);
+	for (i=0; i<MAX_DEVS; i++) {
+		mdev = &wa.mil1553_dev[i];
+		spin_lock_init(&mdev->lock);
+		mdev->tx_queue = &wa.tx_queue[i];
+		spin_lock_init(&mdev->tx_queue->lock);
+		mutex_init(&mdev->bc_lock);
 
-			mdev->pdev = add_next_dev(pdev,mdev);
-			if (!mdev->pdev)
-				break;
+		mdev->pdev = add_next_dev(pdev,mdev);
+		if (!mdev->pdev)
+			break;
 
-			bc = hunt_bc(mdev->pci_bus_num,mdev->pci_slt_num);
-			printk("mil1553:Hunt:Bus:%d Slot:%d => ",
-			       mdev->pci_bus_num,
-			       mdev->pci_slt_num);
+		bc = hunt_bc(mdev->pci_bus_num,mdev->pci_slt_num);
+		printk("mil1553:Hunt:Bus:%d Slot:%d => ",
+		       mdev->pci_bus_num,
+		       mdev->pci_slt_num);
 
-			if (bc) {
-				printk("Found declared BC:%d\n",bc);
-			} else {
-				bc = get_unused_bc();
-				printk("Assigned unused BC:%d\n",bc);
-			}
-
-			mdev->bc = bc;
-			iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
-			init_device(mdev);
-			init_waitqueue_head(&mdev->int_complete);
-			init_waitqueue_head(&mdev->quick_wq);
-			atomic_set(&mdev->int_busy, 0);
-			atomic_set(&mdev->quick_owned, 0);
-			mdev->quick_owner = 0;
-			mutex_init(&mdev->mutex);
-			mutex_init(&mdev->bcdev);
-
-			debugfs_init_dev(mdev);
-
-			ping_rtis(mdev);
-			printk("BC:%d SerialNumber:0x%08X%08X\n",
-				bc,mdev->snum_h,mdev->snum_l);
-			pdev = mdev->pdev;
-			wa.bcs++;
+		if (bc) {
+			printk("Found declared BC:%d\n",bc);
+		} else {
+			bc = get_unused_bc();
+			printk("Assigned unused BC:%d\n",bc);
 		}
+
+		mdev->bc = bc;
+		iowrite32be(CMD_RESET, &mdev->memory_map->cmd);
+		init_device(mdev);
+		init_waitqueue_head(&mdev->int_complete);
+		init_waitqueue_head(&mdev->quick_wq);
+		atomic_set(&mdev->int_busy, 0);
+		atomic_set(&mdev->quick_owned, 0);
+		mdev->quick_owner = 0;
+		mutex_init(&mdev->mutex);
+		mutex_init(&mdev->bcdev);
+
+		debugfs_init_dev(mdev);
+
+		ping_rtis(mdev);
+		printk("BC:%d SerialNumber:0x%08X%08X\n",
+			bc,mdev->snum_h,mdev->snum_l);
+		pdev = mdev->pdev;
+		wa.bcs++;
 	}
+exit:
 	printk("mil1553:Installed:%d Bus controllers\n",wa.bcs);
 	return 0;
 }
