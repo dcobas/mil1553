@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <time.h>
 
 #define MAX_DEVS  16
 
@@ -30,6 +31,15 @@ unsigned int usec(uint64_t nsec)
 	return (nsec/1000) % 1000000;
 }
 
+static char formatted[200];
+
+char *isotime(uint64_t nsec)
+{
+	time_t secs = sec(nsec);
+	strftime(formatted, sizeof(formatted), "%Y-%m-%d %H:%M:%S", localtime(&secs));
+	return formatted;
+}
+
 int main(int argc, char *argv[])
 {
 	char fname[200];
@@ -46,9 +56,10 @@ int main(int argc, char *argv[])
 
 	printf("bc:%d    rti %18s %18s %18s %18s\n", bc, "strtx", "wrttx", "inttx", "endtx");
 	for (i = 0; i < 20000; i++) {
-		printf("bc:%u rti:%02u %10u.%06u %6u %6u %6u\n",
+		printf("bc:%u rti:%02u %10u.%06u %s %6u %6u %6u\n",
 			bc, tp[i].rti,
 			sec(tp[i].start_tx), usec(tp[i].start_tx),
+			isotime(tp[i].start_tx),
 			usec(tp[i].write_tx - tp[i].start_tx),
 			usec(tp[i].int_tx - tp[i].write_tx),
 			usec(tp[i].end_tx - tp[i].int_tx));
