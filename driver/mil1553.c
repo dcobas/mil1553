@@ -449,6 +449,16 @@ exit:
 	return cc;
 }
 
+void update_rti_mask(struct mil1553_device_s *mdev, int rtin)
+{
+	struct rti_interrupt_s *rti_interrupt = &mdev->rti_interrupt;
+
+	if (!rti_interrupt->timeout)
+		mdev->up_rtis |= 1 << rtin;
+	if (!rti_interrupt->packet_ok || rti_interrupt->timeout)
+		mdev->up_rtis &= ~(1 << rtin);
+}
+
 static void ping_rtis(struct mil1553_device_s *mdev)
 {
 	int rti;
@@ -464,6 +474,7 @@ static void ping_rtis(struct mil1553_device_s *mdev)
 			      | ((rti<< TXREG_RTI_SHIFT)  & TXREG_RTI_MASK);
 			mutex_lock_interruptible(&mdev->bcdev);
 			do_start_tx(mdev, txreg);
+			update_rti_mask(mdev, rti);
 			mutex_unlock(&mdev->bcdev);
 			msleep(BETWEEN_TRIES_MS);               /** Wait between pollings */
 		}
@@ -515,10 +526,7 @@ static irqreturn_t mil1553_isr(int irq, void *arg)
 	rti_interrupt->timeout	  = timeout = (isrc & ISRC_TIME_OUT);
 	rti_interrupt->packet_ok  = pk_ok = (ISRC_GOOD_BITS & isrc) &&
 					    ((ISRC_BAD_BITS & isrc) == 0);
-	if (!timeout)
-		mdev->up_rtis |= 1 << rtin;
 	if (!pk_ok || timeout) {
-		mdev->up_rtis &= ~(1 << rtin);
 		wa.isrdebug = isrc;
 		mdev->busy_done = BC_DONE;
 	}
