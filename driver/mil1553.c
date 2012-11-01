@@ -1228,6 +1228,7 @@ static struct dentry *dir;
 static struct dentry *dbg_int_timeout;
 static struct dentry *dbg_busy_timeout;
 static struct dentry *dbg_clear_missed_int;
+static struct dentry *dbg_rti_cooldown_us;
 
 static void create_debugfs_flags(void)
 {
@@ -1236,12 +1237,14 @@ static void create_debugfs_flags(void)
 	dbg_int_timeout = debugfs_create_u32("int_timeout", 0644, dir, &int_timeout);
 	dbg_busy_timeout = debugfs_create_u32("busy_timeout", 0644, dir, &busy_timeout);
 	dbg_clear_missed_int = debugfs_create_u32("clear_missed_int", 0644, dir, &clear_missed_int);
-	printk("creating debugfs entries: %p %p %p %p\n", dir,
-		dbg_int_timeout, dbg_busy_timeout, dbg_clear_missed_int);
+	dbg_rti_cooldown_us = debugfs_create_u32("rti_cooldown_delay", 0644, dir, &rti_cooldown_us);
+	printk("creating debugfs entries: %p %p %p %p %p\n", dir,
+		dbg_int_timeout, dbg_busy_timeout, dbg_clear_missed_int, dbg_rti_cooldown_us);
 }
 
 static void remove_debugfs_flags(void)
 {
+	debugfs_remove(dbg_rti_cooldown_us);
 	debugfs_remove(dbg_int_timeout);
 	debugfs_remove(dbg_busy_timeout);
 	debugfs_remove(dbg_clear_missed_int);
