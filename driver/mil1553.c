@@ -378,9 +378,11 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_WAIT_US 10
 #define CBMIA_INT_TIMEOUT 2
 #define INT_MISSING_TIMEOUT 4
+#define DEFAULT_RTI_COOLDOWN_US 150
 
 static int int_timeout = CBMIA_INT_TIMEOUT;
 static int busy_timeout = INT_MISSING_TIMEOUT;
+static int rti_cooldown_us = DEFAULT_RTI_COOLDOWN_US;
 static int clear_missed_int = 0;
 
 static int do_start_tx(struct mil1553_device_s *mdev, uint32_t txreg)
@@ -405,6 +407,7 @@ retries:
 			mdev->checkpoints[rti].int_pending_on_busy++;
 	}
 	atomic_set(&mdev->int_busy, 1);
+	udelay(rti_cooldown_us);
 	for (i = 0; i < TX_TRIES; i++) {
 		if ((ioread32be(&memory_map->hstat) & HSTAT_BUSY_BIT) == 0) {
 			iowrite32be(txreg, &memory_map->txreg);
