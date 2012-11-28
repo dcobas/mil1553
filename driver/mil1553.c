@@ -378,7 +378,7 @@ static int raw_write(struct mil1553_device_s *mdev,
 #define TX_WAIT_US 10
 #define CBMIA_INT_TIMEOUT 2
 #define INT_MISSING_TIMEOUT 4
-#define DEFAULT_RTI_COOLDOWN_US 150
+#define DEFAULT_RTI_COOLDOWN_US 250
 
 static int int_timeout = CBMIA_INT_TIMEOUT;
 static int busy_timeout = INT_MISSING_TIMEOUT;
