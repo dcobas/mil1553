@@ -1,3 +1,10 @@
+#ifndef _LIBMIL1553_H
+#define _LIBMIL1553_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
+
 #include <stdio.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
@@ -37,3 +44,9 @@ int milib_set_polling(int fn, int flag);
 int milib_set_test_point(int fn, int bc, int tp);
 int milib_get_test_point(int fn, int bc, int *tp);
 int milib_get_temperature(int fn, int bc, float *temp);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* _LIBMIL1553_H */

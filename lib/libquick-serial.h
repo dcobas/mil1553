@@ -1,5 +1,9 @@
-#ifndef LIBQUICK
-#define LIBQUICK
+#ifndef _LIBQUICK_H
+#define _LIBQUICK_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #include <errno.h>
 
@@ -204,5 +208,9 @@ short mil1553_send_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt
   */
 
 short mil1553_get_raw_quick_data_net(int fn, struct quick_data_buffer *quick_pt);
+
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif
