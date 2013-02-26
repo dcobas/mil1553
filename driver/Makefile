@@ -21,7 +21,7 @@ modules:
 
 clean:
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) clean
-	rm decode tdecode
+	rm -f decode tdecode
 
 install: ./$(CPU)/$(KVER)/mil1553.ko
 	@echo "please specify one of {install-lab|install-oper|install-lhc|install-all}"
