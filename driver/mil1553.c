@@ -1256,7 +1256,7 @@ static void debugfs_init_dev(struct mil1553_device_s *mdev)
 	char fname[20];
 
 	memset(mdev->checkpoints, 0, sizeof(mdev->checkpoints));
-	printk("sizeof(checkpoints) = %d\n", sizeof(mdev->checkpoints));
+	printk("sizeof(checkpoints) = %zu\n", sizeof(mdev->checkpoints));
 	mdev->checkpoints_bw.data = mdev->checkpoints;
 	mdev->checkpoints_bw.size = sizeof(mdev->checkpoints);
 	snprintf(fname, sizeof(fname), "checkpoints%d", mdev->bc);
