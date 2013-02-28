@@ -1,5 +1,9 @@
-#ifndef LIBRTI
-#define LIBRTI
+#ifndef _LIBRTI_H
+#define _LIBRTI_H
+
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 #define CSR_TB  0x0001
 #define CSR_RB  0x0002
@@ -89,4 +93,8 @@ int rtilib_read_last_cmd(int fn, int bc, int rti, unsigned short *cmd);
 int rtilib_send_eqp(int fn, int bc, int rti, int wc, unsigned short *txbuf);
 int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf);
 
-#endif
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
+
+#endif /* _LIBRTI_H */
