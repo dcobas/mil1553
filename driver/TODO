@@ -1,0 +1,3 @@
+* correct PCI installation behavior
+* use completions instead of wait queues.
+* move rti management down to driver
