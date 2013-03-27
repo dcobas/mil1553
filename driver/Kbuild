@@ -1,5 +1,0 @@
-EXTRA_CFLAGS += -DCOMPILE_TIME=$(shell date +%s) -g -Wall
-EXTRA_CFLAGS += -DMIL1553_DRIVER_VERSION=\"$(shell cd $(src) ; git describe --dirty)\"
-EXTRA_CFLAGS += -DMIL1553_MODULE_VERSION=\"$(shell cd $(src) ; git show | sed -n '1s/^commit \(.......\).*/\1/p')\"
-
-obj-m:=mil1553.o

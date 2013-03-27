@@ -39,16 +39,9 @@
 #include "mil1553.h"
 #include "mil1553P.h"
 
-#ifndef MIL1553_DRIVER_VERSION
-#define MIL1553_DRIVER_VERSION	"noversion"
-#endif
-#ifndef MIL1553_MODULE_VERSION
-#define MIL1553_MODULE_VERSION	"noversion"
-#endif
+static char *version_signature = GIT_VERSION;
 
 #define PFX	"mil1553: "
-
-char *mil1553_driver_version = MIL1553_DRIVER_VERSION;
 
 static int   mil1553_major      = 0;
 static char *mil1553_major_name = "mil1553";
@@ -1290,7 +1283,7 @@ int mil1553_install(void)
 	struct pci_dev *pdev = NULL;
 	struct mil1553_device_s *mdev;
 
-	printk(KERN_INFO PFX "version %s", mil1553_driver_version);
+	printk(KERN_INFO PFX "%s\n", version_signature);
 	memset(&wa, 0, sizeof(struct working_area_s));
 	create_debugfs_flags();
 
@@ -1369,7 +1362,7 @@ MODULE_AUTHOR("Julian Lewis BE/CO/HT CERN");
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("MIL1553 Driver");
 MODULE_SUPPORTED_DEVICE("CBMIA PCI module");
-MODULE_VERSION(MIL1553_MODULE_VERSION);
+MODULE_VERSION(GIT_VERSION);
 
 module_init(mil1553_install);
 module_exit(mil1553_uninstall);

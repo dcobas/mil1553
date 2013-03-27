@@ -8,10 +8,17 @@ endif
 
 KERNELSRC=/acc/sys/$(CPU)/usr/src/kernels/$(KVER)
 
-CFLAGS=-g -Wall
+GIT_VERSION = $(shell cd $(src) ; git describe --dirty --long)
+
+ccflags-y += -g -Wall
+ccflags-y += -DCOMPILE_TIME=$(shell date +%s)
+ccflags-y += -DGIT_VERSION=\"$(GIT_VERSION)\"
+ccflags-y += -DGIT_BUILD_DIR=\"$(src)\"
+
+obj-m += mil1553.o
 
 all: modules decode tdecode
-modules: 
+modules:
 	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
 	rm -rf ./$(CPU)/$(KVER)
 	mkdir -p ./$(CPU)/$(KVER)
