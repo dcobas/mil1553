@@ -419,7 +419,7 @@ int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf)
 	int cc;
 
 	rtilib_lock_bc(bc);
-	cc = rtilib_recv_eqp(fn, bc, rti, wc, rxbuf);
+	cc = __rtilib_recv_eqp(fn, bc, rti, wc, rxbuf);
 	rtilib_unlock_bc(bc);
 
 	return cc;
