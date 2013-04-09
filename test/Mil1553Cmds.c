@@ -1200,7 +1200,7 @@ AtomType  at;
       }
    }
 
-   printf("ative  :%d Total\n",count);
+   printf("active  :%d Total\n",count);
    return arg;
 }
 
