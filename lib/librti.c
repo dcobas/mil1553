@@ -108,6 +108,18 @@ static void dump_buf(unsigned short *buf, int wc)
 	printf("\n");
 }
 
+void rtilib_lock_bc(int bc)
+{
+	/* FIXME: implement with pthreads first */
+	return;
+}
+
+void rtilib_unlock_bc(int bc)
+{
+	/* FIXME: implement with pthreads first */
+	return;
+}
+
 int rtilib_send_receive(int fn,
 			int bc,
 			int rti,
@@ -278,7 +290,7 @@ int rtilib_write_rxbuf(int fn, int bc, int rti, int wc, unsigned short *txbuf) {
  * after the data has been written.
  */
 
-int rtilib_send_eqp(int fn, int bc, int rti, int wc, unsigned short *txbuf) {
+int __rtilib_send_eqp(int fn, int bc, int rti, int wc, unsigned short *txbuf) {
 
 	unsigned short str;
 	int cc;
@@ -295,6 +307,17 @@ int rtilib_send_eqp(int fn, int bc, int rti, int wc, unsigned short *txbuf) {
 		return cc;
 
 	return rtilib_set_csr(fn,bc,rti,CSR_RB | CSR_INT | CSR_INE);
+}
+
+int rtilib_send_eqp(int fn, int bc, int rti, int wc, unsigned short *txbuf)
+{
+	int cc;
+
+	rtilib_lock_bc(bc);
+	cc = __rtilib_send_eqp(fn, bc, rti, wc, txbuf);
+	rtilib_unlock_bc(bc);
+
+	return cc;
 }
 
 /* ===================================== */
@@ -337,7 +360,7 @@ int rtilib_read_txbuf(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 #define WAIT_POLLS 3
 #define WAIT_TB_us 1000
 
-int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
+int __rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 
 	unsigned short str, tb;
 	int i, cc;
@@ -362,6 +385,17 @@ int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf) {
 		return cc;
 
 	return rtilib_clear_csr(fn,bc,rti,CSR_TB | CSR_INT);
+}
+
+int rtilib_recv_eqp(int fn, int bc, int rti, int wc, unsigned short *rxbuf)
+{
+	int cc;
+
+	rtilib_lock_bc(bc);
+	cc = rtilib_recv_eqp(fn, bc, rti, wc, rxbuf);
+	rtilib_unlock_bc(bc);
+
+	return cc;
 }
 
 /* ===================================== */
