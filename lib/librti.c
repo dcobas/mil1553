@@ -2,9 +2,11 @@
 #include <librti.h>
 #include <unistd.h>
 #include <string.h>
+#include <fcntl.h>
 #include <stdio.h>
 #include <errno.h>
 #include <sys/ioctl.h>
+#include <pthread.h>
 
 #define DEBUG
 
@@ -108,15 +110,40 @@ static void dump_buf(unsigned short *buf, int wc)
 	printf("\n");
 }
 
+#define MIL1553_DEV_PATH "/dev/mil1553"
+#define MAX_BCS 32
+pthread_mutex_t rtilib_mutex[MAX_BCS+1];
+
+int rtilib_init(void)
+{
+	int i, cc;
+
+	cc = open(MIL1553_DEV_PATH, O_RDWR, 0);
+	if (cc < 0)
+		return cc;
+
+	for (i = 1; i <= MAX_BCS; i++) {
+		int err;
+
+		err = pthread_mutex_init(&rtilib_mutex[i], NULL);
+		if (err) {
+			perror(__func__);
+			return -err;
+		}
+	}
+
+	return cc;
+}
+
 void rtilib_lock_bc(int bc)
 {
-	/* FIXME: implement with pthreads first */
+	pthread_mutex_lock(&rtilib_mutex[bc]);
 	return;
 }
 
 void rtilib_unlock_bc(int bc)
 {
-	/* FIXME: implement with pthreads first */
+	pthread_mutex_unlock(&rtilib_mutex[bc]);
 	return;
 }
 
