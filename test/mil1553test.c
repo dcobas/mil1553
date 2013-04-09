@@ -65,7 +65,7 @@ int bc_mask;
    bzero((void *) host,49);
    gethostname(host,48);
 
-   milf = milib_handle_open();
+   milf = rtilib_init();
    if (milf <= 0) {
       printf("Warning: Can't open:%s\n",DEV_PATH);
       perror(DEV_NAME);

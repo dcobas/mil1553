@@ -6,7 +6,10 @@
 #include <stdio.h>
 #include <errno.h>
 #include <sys/ioctl.h>
-#include <pthread.h>
+
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/sem.h>
 
 #define DEBUG
 
@@ -112,7 +115,15 @@ static void dump_buf(unsigned short *buf, int wc)
 
 #define MIL1553_DEV_PATH "/dev/mil1553"
 #define MAX_BCS 32
-pthread_mutex_t rtilib_mutex[MAX_BCS+1];
+static key_t semkey;
+static int semid;
+static struct sembuf op_lock[] = {
+	{ 0, 0, SEM_UNDO, },
+	{ 0, 1, SEM_UNDO, },
+};
+static struct sembuf op_unlock[] = {
+	{ 0, -1, SEM_UNDO | IPC_NOWAIT, },
+};
 
 int rtilib_init(void)
 {
@@ -122,14 +133,15 @@ int rtilib_init(void)
 	if (cc < 0)
 		return cc;
 
-	for (i = 1; i <= MAX_BCS; i++) {
-		int err;
-
-		err = pthread_mutex_init(&rtilib_mutex[i], NULL);
-		if (err) {
-			perror(__func__);
-			return -err;
-		}
+	semkey = ftok(MIL1553_DEV_PATH, 1553);
+	if (semkey == -1) {
+		perror(__func__);
+		return -1;
+	}
+	semid = semget(semkey, MAX_BCS, IPC_CREAT | 0666);
+	if (semid == -1) {
+		perror(__func__);
+		return -1;
 	}
 
 	return cc;
@@ -137,14 +149,17 @@ int rtilib_init(void)
 
 void rtilib_lock_bc(int bc)
 {
-	pthread_mutex_lock(&rtilib_mutex[bc]);
-	return;
+	/* FIXME: semop could fail */
+	op_lock[0].sem_num = bc;
+	op_lock[1].sem_num = bc;
+	semop(semid, &op_lock[0], 2);
 }
 
 void rtilib_unlock_bc(int bc)
 {
-	pthread_mutex_unlock(&rtilib_mutex[bc]);
-	return;
+	/* FIXME: semop could fail */
+	op_unlock[0].sem_num = bc;
+	semop(semid, &op_unlock[0], 1);
 }
 
 int rtilib_send_receive(int fn,
