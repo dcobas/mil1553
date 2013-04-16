@@ -3,6 +3,8 @@
 #include <stdint.h>
 #include <time.h>
 
+static char git_version[] __attribute__((used)) = GIT_VERSION;
+
 #define MAX_DEVS  16
 
 struct checkpoint {
@@ -52,7 +54,7 @@ int main(int argc, char *argv[])
 	snprintf(fname, sizeof(fname), "/sys/kernel/debug/cbmia/tspoints%d", bc);
 	f = fopen(fname, "rb");
 	fread(tp, sizeof(struct tspoint), 20000, f);
-	printf("sizeof(tp) = %d\n", sizeof(tp));
+	printf("sizeof(tp) = %zd\n", sizeof(tp));
 
 	printf("bc:%d    rti %18s %18s %18s %18s\n", bc, "strtx", "wrttx", "inttx", "endtx");
 	for (i = 0; i < 20000; i++) {

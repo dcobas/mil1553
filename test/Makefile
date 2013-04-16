@@ -7,12 +7,16 @@ CPU=L865
 include /acc/dsc/src/co/Make.auto
 
 COMPILE_TIME:=$(shell date +%s)
+GIT_VERSION = $(git describe --dirty --long)
 
-CFLAGS = -g -Wall -I. -I../lib -I../driver -DCOMPILE_TIME=$(COMPILE_TIME)
+CFLAGS = -g -Wall -I. -I../lib -I../driver
+CFLAGS += -DCOMPILE_TIME=$(COMPILE_TIME)
+CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 
 LDLIBS= ../lib/libquick-serial.$(CPU).a
 
 ALL  = mil1553test.$(CPU).o mil1553test.$(CPU)
+ALL += decode.$(CPU) tdecode.$(CPU)
 
 SRCS = mil1553test.c Mil1553Cmds.c DoCmd.c GetAtoms.c Cmds.c
 
@@ -25,6 +29,9 @@ all: $(ALL)
 mil1553test.$(CPU).o: $(SRCS) $(HDRS)
 
 mil1553test.$(CPU): mil1553test.$(CPU).o
+
+decode.$(CPU): decode.$(CPU).o
+tdecode.$(CPU): tdecode.$(CPU).o
 
 clean:
 	rm -f *.o *.$(CPU)
