@@ -7,6 +7,7 @@ else ifeq ($(CPU),L866)
 endif
 
 KERNELSRC=/acc/sys/$(CPU)/usr/src/kernels/$(KVER)
+LINUX ?= $(KERNELSRC)
 
 GIT_VERSION = $(shell cd $(src) ; git describe --dirty --long)
 
@@ -17,9 +18,10 @@ ccflags-y += -DGIT_BUILD_DIR=\"$(src)\"
 
 obj-m += mil1553.o
 
-all: modules decode tdecode
+all: modules
+
 modules:
-	make -C $(KERNELSRC) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
+	make -C $(LINUX) M=`pwd` KVER=$(KVER) CPU=$(CPU) modules
 	rm -rf ./$(CPU)/$(KVER)
 	mkdir -p ./$(CPU)/$(KVER)
 	mv mil1553.ko ./$(CPU)/$(KVER)/mil1553.ko
