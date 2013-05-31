@@ -5,7 +5,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-static __attribute__((unused)) char version[] = GIT_VERSION;
+static __attribute__((unused)) char version[] = "librti version: " GIT_VERSION;
 
 #define CSR_TB  0x0001
 #define CSR_RB  0x0002
