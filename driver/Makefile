@@ -1,9 +1,13 @@
 CPU = L865
+KERNEL ?= 32
 
 ifeq ($(CPU),L865)
 	KVER=2.6.24.7-rt27
+	ifeq ($(KERNEL), 32)
+		KVER=3.2.43-rt63
+	endif
 else ifeq ($(CPU),L866)
-	KVER=3.2.33-rt50.66.el6rt.x86_64
+	KVER=3.6.11.2-rt33.39.el6rt.x86_64
 endif
 
 KERNELSRC=/acc/sys/$(CPU)/usr/src/kernels/$(KVER)
