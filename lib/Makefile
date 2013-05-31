@@ -5,6 +5,8 @@ TSTLIB = libquick-serial
 
 CPU=L865
 
+GIT_VERSION = $(shell git describe --tags --dirty --long)
+
 include /acc/dsc/src/co/Make.auto
 
 %.$(CPU).a: %.$(CPU).o
@@ -12,6 +14,7 @@ include /acc/dsc/src/co/Make.auto
 	$(RANLIB) $@
 
 CFLAGS= -g -Wall -I. -I../driver -fPIC
+CFLAGS += -DGIT_VERSION=\"$(GIT_VERSION)\"
 ARFLAGS=rcv
 
 MILSRC=$(MILIB).c $(MILIB).h $(RTILIB).c $(RTILIB).h $(QCKLIB).c \
