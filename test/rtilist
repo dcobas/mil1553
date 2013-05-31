@@ -10,14 +10,18 @@ where compname = :fecname
 order by bus_loop, module_crate
 '''
 
-fecname = sys.argv[1]
+try:
+    fecname = sys.argv[1]
+except:
+    print "usage: %s hostname" % sys.argv[0]
+    sys.exit(1)
 
-con = cx_Oracle.connect('copub/co')
+con = cx_Oracle.connect('copub/p3b_c0nfig')
 cur = con.cursor()
 
 cur.execute(query, fecname = fecname)
 for label, loop, rti, desc in cur.fetchall():
 	if loop is None:
 		continue
-	print '%-10s %1d %02d' % (label, loop, rti)
+	print '%-16s\t%1d\t%02d' % (label, loop, rti)
 
